@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connexion — Calendrier Famille</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.boite{max-width:400px;margin:0 auto;padding:12vh 16px 0}
+.carte{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:30px;box-shadow:var(--shadow)}
+.discret{color:var(--ink-2);font-size:.88rem}
+.msg{display:none;padding:11px 14px;border-radius:var(--radius-s);margin-top:12px;font-size:.88rem}
+.msg.info{display:block;background:#eef4ee;color:#2e5e3a}
+.msg.erreur{display:block;background:#fbeeea;color:#b03a2e}
+</style>
+</head>
+<body>
+<div class="boite">
+  <div class="carte">
+    <div style="font-size:2rem;margin-bottom:6px">🗓️</div>
+    <h1 style="font-size:1.35rem;letter-spacing:-.02em;margin-bottom:4px">Calendrier Famille</h1>
+    <p class="discret">Entrez votre email : vous recevrez un lien de connexion, sans mot de passe.</p>
+    <label for="email">Votre email</label>
+    <input type="email" id="email" placeholder="prenom@exemple.fr" autocomplete="email">
+    <button class="btn primaire" id="btn-connexion" style="width:100%;margin-top:16px">Recevoir mon lien de connexion</button>
+    <div id="message" class="msg"></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const msg=document.getElementById('message');
+function afficher(texte,type){msg.textContent=texte;msg.className='msg '+type}
+async function redirigerSiConnecte(){
+  const {session,role}=await getSessionEtRole();
+  if(!session)return;
+  if(role){window.location.replace('calendrier.html')}
+  else{
+    afficher("Votre email ("+session.user.email+") n'est pas autorisé.","erreur");
+    await sb.auth.signOut();
+  }
+}
+sb.auth.onAuthStateChange((_e,session)=>{if(session)redirigerSiConnecte()});
+redirigerSiConnecte();
+document.getElementById('btn-connexion').addEventListener('click',async()=>{
+  const email=document.getElementById('email').value.trim();
+  if(!email.includes('@')){afficher('Merci de saisir un email valide.','erreur');return}
+  const btn=document.getElementById('btn-connexion');
+  btn.disabled=true;
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
+  btn.disabled=false;
+  if(error)afficher('Erreur : '+error.message,'erreur');
+  else afficher("C'est envoyé ! 📬 Cliquez sur le lien reçu par email. (Vérifiez les spams la première fois.)",'info');
+});
+document.getElementById('email').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btn-connexion').click()});
+</script>
+</body>
+</html>
