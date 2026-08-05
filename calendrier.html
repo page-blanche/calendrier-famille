@@ -41,7 +41,10 @@
 .pt-plus{font-size:.55rem;color:var(--ink-3);font-weight:700;line-height:1}
 .day-num.ferie{color:#c0392b;font-weight:800}
 .view-btn{white-space:nowrap}
+.exit-court{display:none}
 @media(max-width:700px){
+  .grille-form{grid-template-columns:1fr;gap:0}
+  #btnQuitter .exit-court{display:inline}
   #mainNav .vb-lbl,#btnQuitter .vb-lbl{display:none}
   #mainNav .view-btn.active .vb-lbl{display:inline}
   #mainNav .view-btn{padding:6px 11px;font-size:.9rem}
@@ -89,7 +92,7 @@
 <button class="view-btn" data-sec="courses">🛒<span class="vb-lbl"> Courses</span></button>
 <button class="view-btn" data-sec="cadeaux">🎁<span class="vb-lbl"> Cadeaux</span></button>
 </div>
-<button class="today-btn" id="btnQuitter">🚪<span class="vb-lbl"> Quitter</span></button>
+<button class="today-btn" id="btnQuitter"><span class="exit-court">Exit</span><span class="vb-lbl">Quitter</span></button>
 </div>
 </div>
 
@@ -921,6 +924,16 @@ function apresEnregistrement(msg){
   jourOuvert?ouvrirJour(jourOuvert):fermerTiroir();
 }
 const attr=(v)=>echap(v??'').replace(/"/g,'&quot;');
+// Quand on choisit la date de début, la date de fin s'aligne dessus
+function lierDates(idDeb,idFin){
+  const d=document.getElementById(idDeb),fi=document.getElementById(idFin);
+  if(!d||!fi)return;
+  d.addEventListener('change',()=>{
+    if(!d.value)return;
+    fi.min=d.value;
+    if(!fi.value||fi.value<d.value)fi.value=d.value;
+  });
+}
 
 /* ---------- Formulaire événement ---------- */
 function formEvt(id,datePre){
@@ -957,6 +970,7 @@ function formEvt(id,datePre){
     <textarea id="f-detail">${echap(e?.detail??'')}</textarea>
     ${b.html}`;
   b.wire();
+  lierDates('f-debut','f-fin');
 }
 
 /* ---------- Formulaire vacances scolaires ---------- */
@@ -982,6 +996,7 @@ function formVac(id,datePre){
     ${b.html}
     ${id?`<button class="btn danger" style="width:100%;margin-top:8px" id="f-suppr">Supprimer cette période</button>`:''}`;
   b.wire();
+  lierDates('f-debut','f-fin');
   const s=document.getElementById('f-suppr');
   if(s)s.onclick=()=>{if(confirm('Supprimer ces vacances ?')){supprimerObjet(id);toast('Supprimé');render();fermerTiroir()}};
 }
@@ -1093,6 +1108,7 @@ function formPause(idAct,jourRetour){
     jourRetour?ouvrirJour(jourRetour):fermerTiroir();
   };
   document.getElementById('f-pcancel').onclick=()=>{jourRetour?ouvrirJour(jourRetour):fermerTiroir()};
+  lierDates('f-pdebut','f-pfin');
   corps.querySelectorAll('[data-suppr-pause]').forEach(b=>{b.onclick=()=>{
     const reste=pauses.filter((_,i)=>i!==parseInt(b.dataset.supprPause));
     enregistrerObjet(idAct,'acts',{pauses:reste});
