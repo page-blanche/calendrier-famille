@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendrier Famille</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#fafaf9">
+<link rel="icon" href="icon-192.png?v=2">
+<link rel="apple-touch-icon" href="icon-192.png?v=2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Famille">
+
+<link rel="stylesheet" href="style.css">
+<style>
+/* Vue semaine v2 : blocs proportionnels à la durée */
+.wk2-entetes{display:grid;grid-template-columns:55px repeat(7,1fr);gap:1px;margin-bottom:1px}
+.wk2-h{background:#f2f1ee;text-align:center;padding:8px 2px;font-size:.74rem;font-weight:700;border-radius:4px}
+.wk2-h.auj{background:var(--ink);color:#fff}
+.wk2-corps{display:grid;grid-template-columns:55px repeat(7,1fr);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.wk2-heures div{font-size:.62rem;color:var(--ink-3);font-weight:600;text-align:right;padding-right:6px;box-sizing:border-box}
+.wk2-col{position:relative;border-left:1px solid #f1efe9;cursor:pointer}
+.wk2-col:hover{background:#fdfcfa}
+.wk2-ligne{position:absolute;left:0;right:0;border-top:1px solid #f4f3f0;pointer-events:none}
+.wk2-ev{position:absolute;border-radius:6px;color:#fff;font-size:.6rem;font-weight:600;padding:2px 5px;overflow:hidden;line-height:1.3;box-shadow:0 1px 2px rgba(28,27,24,.18);box-sizing:border-box}
+.wk2-ev .wk2-hr{opacity:.8;font-weight:500;font-size:.55rem}
+/* Pages To-do / Courses / Cadeaux */
+.page-solo{flex:1;max-width:620px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px 26px}
+.ps-titre{font-size:1.25rem;letter-spacing:-.02em;margin:2px 0 4px}
+.discret2{color:var(--ink-2);font-size:.85rem;margin-bottom:12px}
+.ps-ajout{display:flex;gap:8px;margin:12px 0 18px}
+.ps-ajout input{flex:1}
+.carte-solo{border:1px solid var(--border);border-radius:var(--radius-s);padding:14px 16px;margin:12px 0 20px;background:#fdfcfa}
+.main-layout.mode-todo .todo-panel{width:100%;max-width:620px;margin:0 auto;position:static;max-height:none}
+@media(max-width:820px){#mainNav .view-btn{padding:5px 8px;font-size:.76rem}}
+.pill-cont{height:5px;border-radius:3px;margin:3px 0;opacity:.45}
+@media(max-width:1230px){.h-centre{order:3;flex:0 0 100%;justify-content:center}}
+/* Page d'accueil */
+.page-accueil{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;align-content:start;max-width:820px;margin:14px auto 0}
+.acc-carte{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px 24px;cursor:pointer;transition:.15s;text-align:left;font-family:inherit}
+.acc-carte:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px);border-color:var(--border-strong)}
+.acc-ico{font-size:2.1rem}
+.acc-titre{font-weight:700;font-size:1.08rem;margin-top:10px;letter-spacing:-.01em;color:var(--ink)}
+.acc-info{color:var(--ink-2);font-size:.84rem;margin-top:5px;line-height:1.45}
+@media(max-width:560px){.page-accueil{grid-template-columns:1fr 1fr;gap:10px}.acc-carte{padding:20px 16px}}
+</style>
+</head>
+<body>
+<div class="header">
+<div class="h-zone"><h1 id="titreAccueil" style="cursor:pointer" title="Retour à l'accueil">🏡 Famille</h1></div>
+<div class="h-zone h-centre" id="navBar">
+<button class="fleche" onclick="navMois(-1)">←</button>
+<button class="month-title-btn" id="navTitleBtn"><span id="navTitle"></span><span class="chevron">▾</span></button>
+<button class="fleche" onclick="navMois(1)">→</button>
+<button class="today-btn" onclick="allerAujourdhui()">Aujourd'hui</button>
+<div class="header-right" id="viewBar">
+<button class="view-btn" data-vue="annee">Année</button>
+<button class="view-btn" data-vue="mois">Mois</button>
+<button class="view-btn" data-vue="semaine">Sem.</button>
+<button class="view-btn" data-vue="agenda">Agenda</button>
+</div>
+</div>
+<div class="h-zone h-droite">
+<div class="header-right" id="mainNav">
+<button class="view-btn" data-sec="cal">📅 Calendrier</button>
+<button class="view-btn" data-sec="todo">✅ To-do</button>
+<button class="view-btn" data-sec="courses">🛒 Courses</button>
+<button class="view-btn" data-sec="cadeaux">🎁 Cadeaux</button>
+</div>
+<button class="today-btn" id="btnQuitter">Quitter</button>
+</div>
+</div>
+
+<div class="popover" id="popMois"><div class="pop-grille" id="popMoisGrille"></div></div>
+
+<div class="main-layout">
+<div class="cal-area">
+<div style="display:flex;gap:0" id="yearLayout">
+<div class="year-overview" id="yearView" style="flex:1"></div>
+<div class="year-sidebar" id="yearSidebar"></div>
+</div>
+<div class="month-view" id="monthView">
+<div class="weekday-header"><div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div></div>
+<div class="month-grid" id="monthGrid"></div>
+</div>
+<div class="week-view" id="weekView"></div>
+<div class="agenda-view" id="agendaView"></div>
+</div>
+<div class="todo-panel" id="todoPanel"></div>
+<div class="page-solo" id="vueCourses" style="display:none"></div>
+<div class="page-solo" id="vueCadeaux" style="display:none"></div>
+<div class="page-accueil" id="vueAccueil" style="display:none"></div>
+</div>
+
+<button class="fab" onclick="ouvrirAjout()">＋ Ajouter</button>
+<div class="toast" id="toast"></div>
+
+<div class="overlay" id="ov" onclick="fermerTiroir()"></div>
+<div class="detail-panel" id="dp">
+<div class="dh"><h2 id="dt"></h2><button class="dc" onclick="fermerTiroir()">✕</button></div>
+<div class="db" id="dbd"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+'use strict';
+/* ================== CONSTANTES ================== */
+const MFR=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const DFR=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+const DS=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+const COULEURS={darya:'var(--darya)',kyan:'var(--kyan)',cyrus:'var(--cyrus)',both:'var(--both)',didier:'#2f9e44',mandana:'#15aabf',
+  school:'var(--school)',bday:'var(--bday)',event:'var(--event)',voyage:'var(--voyage)',
+  alert:'var(--alert)',pro:'var(--pro)',rentree:'var(--rentree)'};
+function coul(c){return COULEURS[c]||'#94908a'}
+const PERS_COUL={'Mandana':'#15aabf','Didier':'#2f9e44','Darya':'var(--darya)','Kyan':'var(--kyan)','Cyrus':'var(--cyrus)'};
+function coulEvt(e){return PERS_COUL[(e.qui||'').trim()]||coul(e.cat)}
+function quiOptions(v){
+  const liste=['','Toute la famille','Mandana','Didier','Darya','Kyan','Cyrus'];
+  if(v&&!liste.includes(v))liste.splice(1,0,v);
+  return liste.map(x=>`<option value="${x.replace(/"/g,'&quot;')}" ${x===(v||'')?'selected':''}>${x||'—'}</option>`).join('');
+}
+
+/* Jours fériés (fixes, officiels — pas en base) */
+const FER={
+'2026-01-01':'Jour de l\'An','2026-04-06':'Lundi de Pâques','2026-05-01':'Fête du Travail',
+'2026-05-08':'Victoire 1945','2026-05-14':'Ascension','2026-05-25':'Lundi de Pentecôte',
+'2026-07-14':'Fête nationale','2026-08-15':'Assomption','2026-11-01':'Toussaint',
+'2026-11-11':'Armistice 1918','2026-12-25':'Noël','2027-01-01':'Jour de l\'An',
+'2027-03-29':'Lundi de Pâques','2027-05-01':'Fête du Travail','2027-05-06':'Ascension',
+'2027-05-08':'Victoire 1945','2027-05-17':'Lundi de Pentecôte','2027-07-14':'Fête nationale',
+'2027-08-15':'Assomption'};
+
+/* Routines logistiques (affichage seul) */
+const LOGI=[
+{jours:[3],prio:2,t:'Logistique mercredi (Option 2bis)',s:[
+{t:'9:45',x:'Zora emmène Darya+Kyan au Conservatoire (2 min)'},{t:'10:00',x:'Darya en danse / Kyan avec Zora'},
+{t:'11:00',x:'Marche Musique et Cie (3 min)'},{t:'11:30',x:'Darya+Kyan en musique'},
+{t:'12:15',x:'Retour maison, déjeuner'},{t:'13:40',x:'Parent part avec Darya → Mont-Valérien (20 min)'},
+{t:'14:00',x:'Darya déposée à la gym'},{t:'14:20',x:'Zora part avec Kyan → piscine (19 min)'},
+{t:'14:40',x:'Kyan en piscine'},{t:'15:15',x:'Fin piscine + habillage (~10 min)'},
+{t:'15:25',x:'Zora+Kyan → Chat Perché (16 min)'},{t:'15:30',x:'Parent récupère Darya → maison'},
+{t:'~15:40',x:'Cyrus récupéré à Chat Perché'},{t:'~16:00',x:'Tout le monde à la maison'}]},
+{jours:[2],prio:2,t:'Logistique mardi soir',s:[
+{t:'16:30',x:'Zora récupère Darya+Kyan à Raguidelles'},{t:'~17:00',x:'Bus → Nanterre-la-Boule'},
+{t:'17:05',x:'Récup Cyrus à Montessori 21'},{t:'17:25',x:'Retour maison'},
+{t:'17:40',x:'Départ Palais des Sports (19 min ou bus)'},{t:'18:00',x:'Darya en piscine'},
+{t:'18:45',x:'Fin piscine'},{t:'~19:05',x:'Retour maison'}]},
+{jours:[1,2,4,5],prio:1,t:'Logistique jour standard',s:[
+{t:'16:30',x:'Zora récupère Darya+Kyan à Raguidelles'},{t:'~17:00',x:'Bus → Nanterre-la-Boule'},
+{t:'17:05',x:'Récup Cyrus à Montessori 21'},{t:'~17:25',x:'Retour maison'}]},
+{jours:[6],prio:1,t:'Logistique samedi',s:[
+{t:'9:15',x:'Départ → Musique et Cie (5 min)'},{t:'9:30',x:'Cyrus déposé à la musique'},
+{t:'9:45',x:'Départ Stade Guimier'},{t:'10:00',x:'Darya+Kyan en athlétisme'},
+{t:'~10:15',x:'Récup Cyrus'},{t:'11:30',x:'Récup Darya+Kyan'},{t:'~12:00',x:'Retour maison'}]}];
+
+/* ================== DONNÉES : CACHE + SUPABASE ==================
+   Toutes les données vivent dans Supabase. On les charge en mémoire,
+   chaque modification est appliquée immédiatement à l'écran puis
+   envoyée à la base (avec rechargement en cas d'erreur). */
+let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],etatsAuto:{}};
+const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux'};
+
+async function chargerTout(){
+  const [e,v,b,a,t,s,co,ca]=await Promise.all([
+    sb.from('evenements').select('*'),
+    sb.from('vacances').select('*'),
+    sb.from('anniversaires').select('*'),
+    sb.from('activites').select('*'),
+    sb.from('taches').select('*'),
+    sb.from('etats_auto').select('*'),
+    sb.from('courses').select('*'),
+    sb.from('cadeaux').select('*'),
+  ]);
+  const err=[e,v,b,a,t,s].find(r=>r.error);
+  if(err){toast('⚠️ Erreur de chargement : '+err.error.message);return false}
+  CACHE.evts=e.data;CACHE.vac=v.data;CACHE.bdays=b.data;
+  CACHE.acts=a.data;CACHE.taches=t.data;
+  CACHE.etatsAuto={};
+  s.data.forEach(x=>CACHE.etatsAuto[x.id]=x);
+  CACHE.courses=co.error?[]:co.data;
+  CACHE.cadeaux=ca.error?[]:ca.data;
+  return true;
+}
+const lesEvts=()=>CACHE.evts;
+const lesVacances=()=>CACHE.vac;
+const lesBdays=()=>CACHE.bdays;
+const lesActs=()=>CACHE.acts;
+const lesTaches=()=>CACHE.taches;
+
+function genId(){return 'u-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*46656).toString(36)}
+function nettoyer(o){const r={};for(const k in o){if(k==='annuleeCeJour'||k==='auto')continue;r[k]=o[k]===''?null:o[k]}return r}
+function pousser(promesse){
+  promesse.then(({error})=>{
+    if(error){toast('⚠️ Non enregistré : '+error.message);chargerTout().then(()=>render())}
+  });
+}
+
+function estFaite(id){
+  if(id.startsWith('auto-'))return !!(CACHE.etatsAuto[id]&&CACHE.etatsAuto[id].faite);
+  const t=CACHE.taches.find(x=>x.id===id);
+  return !!(t&&t.faite);
+}
+function basculerFaite(id){
+  if(id.startsWith('auto-')){
+    const e=CACHE.etatsAuto[id]||{id,faite:false,supprimee:false};
+    e.faite=!e.faite;CACHE.etatsAuto[id]=e;
+    pousser(sb.from('etats_auto').upsert(e));
+  }else{
+    const t=CACHE.taches.find(x=>x.id===id);
+    if(!t)return;
+    t.faite=!t.faite;
+    pousser(sb.from('taches').update({faite:t.faite}).eq('id',id));
+  }
+}
+function enregistrerObjet(id,coll,donnees){
+  // Modifier une action auto (souhaiter, valises…) → on la transforme en vraie tâche
+  if(id&&id.startsWith('auto-')){
+    const t=trouverParId(id)||{};
+    const copie={id:genId(),ajoute_par:(typeof UTILISATEUR!=='undefined'&&UTILISATEUR)?UTILISATEUR:null,texte:t.texte||'',cat:t.cat||'other',dateTexte:t.dateTexte||null,
+      qui:t.qui||null,y:t.y||null,m:t.m||null,ech:t.ech||null,lien:t.lien||null,
+      persistante:false,faite:estFaite(id),...donnees};
+    CACHE.taches.push(copie);
+    pousser(sb.from('taches').insert(nettoyer(copie)));
+    supprimerObjet(id);
+    return;
+  }
+  if(id){
+    const liste=CACHE[coll];
+    const i=liste.findIndex(x=>x.id===id);
+    if(i>=0)liste[i]={...liste[i],...donnees};
+    pousser(sb.from(TABLES[coll]).update(nettoyer(donnees)).eq('id',id));
+  }else{
+    const obj={id:genId(),ajoute_par:(typeof UTILISATEUR!=='undefined'&&UTILISATEUR)?UTILISATEUR:null,...donnees};
+    CACHE[coll].push(obj);
+    pousser(sb.from(TABLES[coll]).insert(nettoyer(obj)));
+  }
+}
+function supprimerObjet(id){
+  if(id.startsWith('auto-')){
+    const e=CACHE.etatsAuto[id]||{id,faite:false,supprimee:false};
+    e.supprimee=true;CACHE.etatsAuto[id]=e;
+    pousser(sb.from('etats_auto').upsert(e));
+    return;
+  }
+  for(const coll of ['evts','vac','bdays','acts','taches','courses','cadeaux']){
+    const i=CACHE[coll].findIndex(x=>x.id===id);
+    if(i>=0){
+      CACHE[coll].splice(i,1);
+      pousser(sb.from(TABLES[coll]).delete().eq('id',id));
+      return;
+    }
+  }
+}
+
+/* ================== HELPERS DATES ================== */
+function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function deIso(s){return new Date(s+'T00:00:00')}
+function jSem(d){return ((d.getDay()+6)%7)+1}
+function minutes(h){if(!h)return -1;const m=String(h).match(/(\d{1,2})[:h](\d{2})/);return m?parseInt(m[1])*60+parseInt(m[2]):-1}
+function echap(t){const d=document.createElement('div');d.textContent=t??'';return d.innerHTML}
+function enVacances(d){const s=iso(d);return lesVacances().find(v=>s>=v.debut&&s<=v.fin)}
+function ferie(d){return FER[iso(d)]}
+
+/* ================== REQUÊTES PAR JOUR ================== */
+function evtsDuJour(d){const s=iso(d);return lesEvts().filter(e=>s>=e.debut&&s<=(e.fin||e.debut))}
+function bdaysDuJour(d){
+  return lesBdays().filter(a=>a.jour===d.getDate()&&a.mois===d.getMonth()+1).map(a=>{
+    const age=a.annee?d.getFullYear()-a.annee:null;
+    const titre=(a.type==='evenement')
+      ?`${a.icone||'💍'} ${a.nom}${age?' ('+age+' ans)':''}`
+      :`🎂 Anniv ${a.nom}${age?' ('+age+' ans)':''}`;
+    return {...a,titre};
+  });
+}
+function actsDuJour(d){
+  const js=jSem(d),s=iso(d);
+  return lesActs()
+    .filter(a=>a.jours.includes(js)&&!enVacances(d)&&(a.feriesAussi||!ferie(d)))
+    .filter(a=>!(a.pauses||[]).some(p=>s>=p.debut&&s<=p.fin))
+    .map(a=>(a.annulations||[]).includes(s)?{...a,annuleeCeJour:true}:a);
+}
+function routineDuJour(d){
+  if(enVacances(d)||ferie(d))return null;
+  const js=jSem(d);
+  const c=LOGI.filter(r=>r.jours.includes(js));
+  return c.length?c.sort((a,b)=>b.prio-a.prio)[0]:null;
+}
+
+/* ================== ACTIONS GÉNÉRÉES AUTOMATIQUEMENT ================== */
+const p2=(n)=>String(n).padStart(2,'0');
+function tachesAuto(){
+  const out=[];
+  lesBdays().forEach(b=>{
+    if(b.type==='evenement')return;
+    [2026,2027].forEach(y=>{
+      const ech=y+'-'+p2(b.mois)+'-'+p2(b.jour);
+      if(ech<'2026-03-01'||ech>'2027-12-31')return;
+      const age=b.annee?y-b.annee:null;
+      out.push({id:'auto-souhait-'+b.id+'-'+y,auto:true,lien:b.id,cat:'family',
+        texte:'🎂 Souhaiter l\'anniversaire de '+b.nom+(age?' ('+age+' ans)':''),
+        dateTexte:'le '+b.jour+' '+MFR[b.mois-1].toLowerCase(),ech,y,m:b.mois});
+      if(b.cadeau){
+        const d=deIso(ech);d.setDate(d.getDate()-7);
+        out.push({id:'auto-cadeau-'+b.id+'-'+y,auto:true,lien:b.id,cat:'family',
+          texte:'🎁 Acheter le cadeau de '+b.nom,
+          dateTexte:'une semaine avant ('+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()+')',
+          ech:iso(d),y:d.getFullYear(),m:d.getMonth()+1});
+      }
+    });
+  });
+  lesEvts().forEach(e=>{
+    if(e.cat!=='voyage'||!e.fin||e.fin===e.debut)return;
+    const d=deIso(e.debut);d.setDate(d.getDate()-2);
+    out.push({id:'auto-valises-'+e.id,auto:true,lien:e.id,cat:'family',
+      texte:'🧳 Préparer les valises — '+e.titre.replace(/^\S+\s/,''),
+      dateTexte:'2 jours avant le départ',ech:iso(d),y:d.getFullYear(),m:d.getMonth()+1});
+  });
+  return out.filter(t=>!(CACHE.etatsAuto[t.id]&&CACHE.etatsAuto[t.id].supprimee));
+}
+function toutesTaches(){return lesTaches().concat(tachesAuto())}
+function tachesLiees(idInfo){return toutesTaches().filter(t=>t.lien===idInfo)}
+function trouverParId(id){
+  return lesEvts().find(x=>x.id===id)||lesVacances().find(x=>x.id===id)||
+         lesBdays().find(x=>x.id===id)||lesActs().find(x=>x.id===id)||toutesTaches().find(x=>x.id===id);
+}
+
+/* Tout est toujours visible (pas de filtres) */
+function visible(){return true}
+
+/* ================== ÉTAT ================== */
+let vue = window.innerWidth<700 ? 'agenda' : 'mois';
+let cur = new Date();
+let jourOuvert = null;   // Date du jour affiché dans le tiroir
+let ongletTodo = 'auj';  // 'auj' | 'mois'
+const ALL_MONTHS=[];
+for(let m=2;m<=11;m++)ALL_MONTHS.push({y:2026,m});
+for(let m=0;m<=11;m++)ALL_MONTHS.push({y:2027,m});
+
+/* ================== TOAST & BANDEAU ================== */
+let toastTimer=null;
+function toast(txt){
+  const t=document.getElementById('toast');
+  t.textContent=txt;t.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('visible'),2600);
+}
+
+/* ================== TIROIR ================== */
+function ouvrirTiroirBrut(titre){
+  document.getElementById('dt').textContent=titre;
+  document.getElementById('ov').classList.add('open');
+  document.getElementById('dp').classList.add('open');
+}
+function fermerTiroir(){
+  jourOuvert=null;
+  document.getElementById('ov').classList.remove('open');
+  document.getElementById('dp').classList.remove('open');
+}
+
+/* ================== PASTILLES D'UN JOUR (mois/année) ================== */
+function pastilles(d){
+  const out=[];
+  if(visible('bday'))bdaysDuJour(d).forEach(b=>out.push({titre:b.titre,c:coul('bday')}));
+  evtsDuJour(d).forEach(e=>{
+    if(!visible(e.cat))return;
+    const multi=e.fin&&e.fin!==e.debut;
+    if(multi&&iso(d)!==e.debut&&jSem(d)!==1){out.push({barre:true,c:coulEvt(e)});return}
+    out.push({titre:e.titre,c:coulEvt(e)});
+  });
+  // Les actions datées apparaissent aussi sur le calendrier (en contour)
+  const s=iso(d);
+  toutesTaches().filter(t=>t.ech===s&&!estFaite(t.id)).forEach(t=>
+    out.push({titre:'☐ '+t.texte,c:coul('alert'),contour:true}));
+  return out;
+}
+
+/* ================== VUE MOIS ================== */
+function renderMois(){
+  const y=cur.getFullYear(),m=cur.getMonth();
+  document.getElementById('navTitle').textContent=MFR[m]+' '+y;
+  const g=document.getElementById('monthGrid');g.innerHTML='';
+  const decal=(new Date(y,m,1).getDay()+6)%7;
+  const debut=new Date(y,m,1-decal);
+  const auj=iso(new Date());
+  for(let i=0;i<42;i++){
+    const d=new Date(debut);d.setDate(d.getDate()+i);
+    const hors=d.getMonth()!==m,v=enVacances(d),f=ferie(d);
+    const we=d.getDay()===0||d.getDay()===6;
+    const estRentree=lesEvts().some(e=>e.cat==='rentree'&&iso(d)===e.debut);
+    const enVoyage=visible('voyage')&&evtsDuJour(d).some(e=>e.cat==='voyage');
+    const cls=['day-cell'];
+    if(hors)cls.push('other-month');
+    if(iso(d)===auj)cls.push('today');
+    if(estRentree)cls.push('rentree');else if(enVoyage)cls.push('voyage');
+    else if(v&&visible('vacances'))cls.push('vacation');else if(we)cls.push('weekend');
+    const c=document.createElement('div');c.className=cls.join(' ');
+    const dd=new Date(d);
+    c.onclick=()=>ouvrirJour(dd);
+    let h=`<div class="day-num">${d.getDate()}</div>`;
+    h+=`<button class="cell-add" title="Ajouter ce jour-là">＋</button>`;
+    if(v&&!hors&&visible('vacances')&&(iso(d)===v.debut||jSem(d)===1))h+=`<div class="vac-tag">☀️ ${echap(v.nom)}</div>`;
+    if(f&&!hors)h+=`<div class="vac-tag" style="color:#b34508">🇫🇷 ${echap(f)}</div>`;
+    const pil=pastilles(d);
+    pil.slice(0,3).forEach(p=>{
+      if(p.barre){h+=`<div class="pill-cont" style="background:${p.c}"></div>`;return}
+      h+=p.contour
+        ?`<div class="pill contour" style="border:1.5px dashed ${p.c};color:${p.c};background:transparent">${echap(p.titre.substring(0,26))}</div>`
+        :`<div class="pill" style="background:${p.c}">${echap(p.titre.substring(0,26))}</div>`;
+    });
+    if(pil.length>3)h+=`<div class="plus">+${pil.length-3} autres</div>`;
+    c.innerHTML=h;
+    c.querySelector('.cell-add').onclick=(ev)=>{ev.stopPropagation();ouvrirAjout(iso(dd))};
+    g.appendChild(c);
+  }
+}
+
+// Sélecteur de mois (popover sous le titre)
+function renderPopMois(){
+  const grille=document.getElementById('popMoisGrille');
+  const COURT=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+  grille.innerHTML='';
+  ALL_MONTHS.forEach(({y,m})=>{
+    const b=document.createElement('div');
+    b.className='month-btn'+(cur.getFullYear()===y&&cur.getMonth()===m?' active':'');
+    b.style.textAlign='center';
+    b.textContent=COURT[m]+' '+String(y).slice(2);
+    b.onclick=()=>{cur=new Date(y,m,1);fermerPopovers();if(vue==='annee')setVue('mois');else render()};
+    grille.appendChild(b);
+  });
+}
+
+/* ================== VUE AGENDA ================== */
+function renderAgenda(){
+  const y=cur.getFullYear(),m=cur.getMonth();
+  document.getElementById('navTitle').textContent=MFR[m]+' '+y;
+  const zone=document.getElementById('agendaView');zone.innerHTML='';
+  const nb=new Date(y,m+1,0).getDate();
+  const auj=iso(new Date());
+  for(let j=1;j<=nb;j++){
+    const d=new Date(y,m,j);
+    const v=enVacances(d),f=ferie(d);
+    const bds=visible('bday')?bdaysDuJour(d):[];
+    const evs=evtsDuJour(d).filter(e=>visible(e.cat));
+    const acs=actsDuJour(d).filter(a=>visible(a.cat));
+    const dues=toutesTaches().filter(t=>t.ech===iso(d)&&!estFaite(t.id));
+    const items=[
+      ...bds.map(b=>({h:'',titre:b.titre,c:coul('bday'),qui:''})),
+      ...evs.map(e=>({h:e.heure||'',titre:e.titre,c:coulEvt(e),qui:e.qui||''})),
+      ...dues.map(t=>({h:'',titre:'☐ '+t.texte,c:coul('alert'),qui:t.qui||''})),
+      ...acs.map(a=>({h:a.hd+(a.hf?'–'+a.hf:''),titre:a.titre,c:coul(a.cat),qui:a.qui||'',annulee:a.annuleeCeJour})),
+    ].sort((a,b)=>minutes(a.h)-minutes(b.h));
+    if(!items.length&&!f&&!(v&&iso(d)===v.debut))continue;
+    const carte=document.createElement('div');
+    carte.className='jour-agenda'+(v&&visible('vacances')?' vacances':'');
+    let h=`<div class="tete"><span class="jnom ${iso(d)===auj?'auj':''}">${DS[jSem(d)-1]} ${j}</span>
+      <span class="jinfo">${f?'🇫🇷 '+echap(f)+' ':''}${v&&visible('vacances')?'☀️ '+echap(v.nom):''}</span></div>`;
+    items.forEach(it=>{
+      h+=`<div class="ligne-ev" style="${it.annulee?'opacity:.5':''}"><div class="barre" style="background:${it.c}"></div>
+        <div class="heure">${echap(it.h)}</div>
+        <div class="corps"><span style="${it.annulee?'text-decoration:line-through':''}">${echap(it.titre)}</span>${it.annulee?' <span class="qui" style="color:var(--alert);font-weight:700">Annulée</span>':''}${it.qui?` <span class="qui">· ${echap(it.qui)}</span>`:''}</div></div>`;
+    });
+    carte.innerHTML=h;
+    carte.querySelector('.tete').onclick=()=>ouvrirJour(new Date(y,m,j));
+    zone.appendChild(carte);
+  }
+  if(!zone.children.length)zone.innerHTML='<div style="text-align:center;color:var(--ink-3);padding:40px">Rien ce mois-ci 🌿</div>';
+}
+
+/* ================== VUE SEMAINE ================== */
+function renderSemaine(){
+  const co=document.getElementById('weekView');
+  const d=new Date(cur),dy=d.getDay(),df=d.getDate()-dy+(dy===0?-6:1);
+  const lundi=new Date(d.setDate(df));
+  const jours=[];for(let i=0;i<7;i++){const x=new Date(lundi);x.setDate(x.getDate()+i);jours.push(x)}
+  document.getElementById('navTitle').textContent=`Semaine du ${lundi.getDate()} ${MFR[lundi.getMonth()]}`;
+  const H0=8,H1=20,PPH=52; // de 8h à 20h, 52px par heure
+  const auj=iso(new Date());
+  // Bandeau "toute la journée" : événements sans heure + anniversaires
+  let h='<div class="week-allday"><div class="wa-lbl">journée</div>';
+  jours.forEach(dd=>{
+    h+='<div class="wa">';
+    if(visible('bday'))bdaysDuJour(dd).forEach(b=>{h+=`<div class="we" style="background:${coul('bday')}">${echap(b.titre.substring(0,18))}</div>`});
+    evtsDuJour(dd).filter(e=>visible(e.cat)&&!e.heure).forEach(e=>{
+      h+=`<div class="we" style="background:${coulEvt(e)}">${echap(e.titre.substring(0,18))}</div>`;
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  // Entêtes des jours
+  h+='<div class="wk2-entetes"><div></div>';
+  jours.forEach(dd=>{h+=`<div class="wk2-h ${iso(dd)===auj?'auj':''}">${DS[jSem(dd)-1]} ${dd.getDate()}</div>`});
+  h+='</div>';
+  // Corps : colonne des heures + 7 colonnes de la semaine
+  const HT=(H1-H0)*PPH;
+  h+='<div class="wk2-corps"><div class="wk2-heures" style="height:'+HT+'px">';
+  for(let hr=H0;hr<H1;hr++)h+=`<div style="height:${PPH}px">${hr}:00</div>`;
+  h+='</div>';
+  jours.forEach(dd=>{
+    h+=`<div class="wk2-col" data-j="${iso(dd)}" style="height:${HT}px">`;
+    for(let hr=H0+1;hr<H1;hr++)h+=`<div class="wk2-ligne" style="top:${(hr-H0)*PPH}px"></div>`;
+    // Blocs : activités (avec durée) + événements horodatés
+    const items=[];
+    actsDuJour(dd).filter(a=>visible(a.cat)).forEach(a=>{
+      const deb=minutes(a.hd);if(deb<0)return;
+      items.push({deb,fin:a.hf&&minutes(a.hf)>deb?minutes(a.hf):deb+60,
+        titre:a.titre,hr:a.hd+(a.hf?'–'+a.hf:''),c:coul(a.cat),ann:a.annuleeCeJour});
+    });
+    evtsDuJour(dd).filter(e=>visible(e.cat)&&e.heure).forEach(e=>{
+      const m=String(e.heure).match(/(\d{1,2}[:h]\d{2})\s*[-–]\s*(\d{1,2}[:h]\d{2})/);
+      const deb=minutes(m?m[1]:e.heure);if(deb<0)return;
+      items.push({deb,fin:m&&minutes(m[2])>deb?minutes(m[2]):deb+60,titre:e.titre,hr:e.heure,c:coulEvt(e)});
+    });
+    // Répartition côte à côte en cas de chevauchement
+    items.sort((a,b)=>a.deb-b.deb);
+    const finsLanes=[];
+    items.forEach(it=>{
+      let l=0;
+      while(finsLanes[l]!==undefined&&finsLanes[l]>it.deb)l++;
+      it.lane=l;finsLanes[l]=it.fin;
+    });
+    const nb=Math.max(1,finsLanes.length);
+    items.forEach(it=>{
+      const top=Math.max(0,(it.deb-H0*60)/60*PPH);
+      const bas=Math.min(HT,(it.fin-H0*60)/60*PPH);
+      const ht=Math.max(16,bas-top-2);
+      const larg=100/nb;
+      h+=`<div class="wk2-ev" style="top:${top}px;height:${ht}px;left:${it.lane*larg}%;width:calc(${larg}% - 2px);background:${it.c};${it.ann?'opacity:.4;text-decoration:line-through':''}">`+
+        `${ht>=30?`<div class="wk2-hr">${echap(it.hr)}</div>`:''}${echap(it.titre)}</div>`;
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  co.innerHTML=h;
+  co.querySelectorAll('.wk2-col').forEach(c=>{c.onclick=()=>ouvrirJour(deIso(c.dataset.j))});
+}
+
+/* ================== VUE ANNÉE ================== */
+function renderAnnee(){
+  const co=document.getElementById('yearView');
+  const auj=iso(new Date());
+  let h='<div class="year-grid">';
+  ALL_MONTHS.forEach(({y,m})=>{h+=miniMois(y,m,auj)});
+  h+='</div>';
+  co.innerHTML=h;
+  co.querySelectorAll('.mini-month').forEach(mm=>{
+    mm.onclick=()=>{const[yy,mo]=mm.dataset.ym.split('-').map(Number);cur=new Date(yy,mo,1);setVue('mois')};
+  });
+  document.getElementById('navTitle').textContent='Mars 2026 — Décembre 2027';
+  renderYearSidebar();
+}
+
+function miniMois(y,m,auj){
+  const nb=new Date(y,m+1,0).getDate();
+  const decal=(new Date(y,m,1).getDay()+6)%7;
+  let h=`<div class="mini-month" data-ym="${y}-${m}"><div class="mini-month-title">${MFR[m]} ${y}</div><div class="mini-grid">`;
+  ['L','M','M','J','V','S','D'].forEach(x=>h+=`<div class="mh">${x}</div>`);
+  for(let i=0;i<decal;i++)h+='<div class="md"></div>';
+  for(let j=1;j<=nb;j++){
+    const d=new Date(y,m,j);
+    const evs=evtsDuJour(d).filter(e=>visible(e.cat));
+    const bds=visible('bday')?bdaysDuJour(d):[];
+    const aRen=evs.some(e=>e.cat==='rentree');
+    const aBday=bds.length>0,aEvt=evs.some(e=>e.cat==='event'),aPro=evs.some(e=>e.cat==='pro'),aVoy=evs.some(e=>e.cat==='voyage');
+    const aFer=ferie(d)&&true,aVac=visible('vacances')&&enVacances(d);
+    let cl='md';
+    if(iso(d)===auj)cl+=' td';else if(aRen)cl+=' ren';else if(aBday)cl+=' bday';else if(aEvt)cl+=' evt';
+    else if(aFer)cl+=' fer';else if(aPro)cl+=' pro';else if(aVoy)cl+=' voy';else if(aVac)cl+=' vac';
+    const tips=[ferie(d)?'🇫🇷 '+ferie(d):'',...bds.map(b=>b.titre),...evs.map(e=>e.titre)].filter(Boolean).join('\n');
+    const safe=tips.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    h+=`<div class="${cl}" ${safe?'data-tip="'+safe+'"':''}>${j}</div>`;
+  }
+  h+='</div></div>';
+  return h;
+}
+
+function renderYearSidebar(){
+  const el=document.getElementById('yearSidebar');
+  const debut='2026-03-01',fin='2027-12-31';
+  const fmt=(s)=>{const d=deIso(s);return d.getDate()+' '+MFR[d.getMonth()].substring(0,4)};
+  const cats={'🎂 Anniversaires':[],'💒 Événements':[],'💼 Absences':[],'✈️ Voyages':[]};
+  // Anniversaires : première occurrence dans la période
+  lesBdays().forEach(b=>{
+    for(const y of [2026,2027]){
+      const s=y+'-'+String(b.mois).padStart(2,'0')+'-'+String(b.jour).padStart(2,'0');
+      if(s>=debut&&s<=fin){
+        const age=b.annee?y-b.annee:null;
+        cats['🎂 Anniversaires'].push({tri:s,dateStr:fmt(s),titre:(b.type==='evenement'?(b.icone||'💍')+' ':'🎂 ')+b.nom+(age?' ('+age+' ans)':'')});
+        break;
+      }
+    }
+  });
+  lesEvts().forEach(e=>{
+    if(e.cat==='alert')return;
+    const cible=e.cat==='pro'?'💼 Absences':e.cat==='voyage'?'✈️ Voyages':'💒 Événements';
+    const lien=e.detail?(e.detail.match(/href="([^"]+)"/)||[])[1]:null;
+    const dateStr=e.fin&&e.fin!==e.debut?fmt(e.debut)+' → '+deIso(e.fin).getDate():fmt(e.debut);
+    cats[cible].push({tri:e.debut,dateStr,titre:e.titre,lien});
+  });
+  let h='<h3>📅 Tous les événements</h3>';
+  for(const [cat,items] of Object.entries(cats)){
+    if(!items.length)continue;
+    items.sort((a,b)=>a.tri<b.tri?-1:1);
+    h+=`<div class="ys-cat"><div class="ys-cat-title">${cat}</div>`;
+    items.forEach(e=>{
+      h+=`<div class="ys-item"><span class="ys-date">${e.dateStr}</span><span class="ys-text">${echap(e.titre)}${e.lien?' <a href="'+e.lien+'" target="_blank">🔗</a>':''}</span></div>`;
+    });
+    h+='</div>';
+  }
+  el.innerHTML=h;
+}
+
+/* ================== TO-DO ================== */
+const GROUPES={deadline:'📋 Admin & inscriptions',facture:'💳 Factures',family:'👨‍👩‍👧 Événements & préparatifs',other:'📌 Divers'};
+
+function tachesDuMois(y,m){
+  const val=y*12+m;
+  return toutesTaches().filter(t=>{
+    if(t.persistante)return val>=(t.debY*12+t.debM)&&val<=(t.finY*12+t.finM);
+    return t.y===y&&t.m===m;
+  });
+}
+function tachesEnRetard(){
+  const auj=iso(new Date());
+  const reel=new Date();const valReel=reel.getFullYear()*12+(reel.getMonth()+1);
+  const il7jours=new Date();il7jours.setDate(il7jours.getDate()-7);
+  return toutesTaches().filter(t=>{
+    if(estFaite(t.id))return false;
+    if(t.persistante){const rest=(t.finY*12+t.finM)-valReel;return rest<=1&&valReel>=(t.debY*12+t.debM)&&rest>=0}
+    if(!t.ech||t.ech>=auj)return false;
+    if(t.auto)return t.ech>=iso(il7jours); // les actions auto (souhaiter…) ne se reportent que 7 jours
+    return (t.y*12+t.m)>=valReel-2; // les autres : on remonte 2 mois max
+  });
+}
+
+function ligneTache(t,opts){
+  const faite=estFaite(t.id);
+  let sous=echap(t.dateTexte||'');
+  if(t.qui)sous+=(sous?' · ':'')+echap(t.qui);
+  if(t.lien){
+    const info=trouverParId(t.lien);
+    if(info)sous+=(sous?' · ':'')+'🔗 '+echap((info.titre||info.nom||'').substring(0,28));
+  }
+  if(t.persistante)sous+=(sous?' · ':'')+'<em>reporté tant que non coché</em>';
+  if(opts&&opts.mois)sous=`<strong>${MFR[t.m-1]}</strong>`+(sous?' · '+sous:'');
+  return `<div class="todo-item ${faite?'done':''}" data-id="${t.id}">
+    <div class="todo-check" data-act="cocher"></div>
+    <div class="todo-corps" data-act="cocher">
+      <div class="todo-text">${opts&&opts.prefixe?opts.prefixe:''}${echap(t.texte)}</div>
+      <div class="todo-date">${sous}</div>
+    </div>
+    <div class="todo-actions">
+      <button class="todo-act" data-act="modif" title="Modifier">✏️</button>
+      <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
+    </div>
+  </div>`;
+}
+
+function renderTodo(){
+  const p=document.getElementById('todoPanel');
+  const reel=new Date();
+  const [y,m]=ongletTodo==='auj'?[reel.getFullYear(),reel.getMonth()+1]:[cur.getFullYear(),cur.getMonth()+1];
+  let h=`<div class="onglets-todo">
+    <button class="${ongletTodo==='auj'?'actif':''}" data-o="auj">✅ Maintenant</button>
+    <button class="${ongletTodo==='mois'?'actif':''}" data-o="mois">📅 Mois affiché</button>
+  </div>`;
+  h+=`<div class="todo-section-title" style="margin-bottom:8px">${ongletTodo==='auj'?'To-do — '+MFR[m-1]+' '+y:'To-do — '+MFR[m-1]+' '+y}</div>`;
+
+  // Section urgente (onglet Maintenant uniquement)
+  if(ongletTodo==='auj'){
+    const retard=tachesEnRetard();
+    if(retard.length){
+      h+=`<div class="todo-section urgent"><div class="todo-section-title">🚨 En retard / urgent</div>`;
+      retard.forEach(t=>{h+=ligneTache(t,{prefixe:'',mois:!t.persistante})});
+      h+='</div>';
+    }
+  }
+
+  const toutes=tachesDuMois(y,m);
+  const retardIds=ongletTodo==='auj'?new Set(tachesEnRetard().map(t=>t.id)):new Set();
+  const aFaire=toutes.filter(t=>!estFaite(t.id)&&!retardIds.has(t.id));
+  const faites=toutes.filter(t=>estFaite(t.id));
+
+  if(!aFaire.length&&!faites.length)h+='<div class="todo-empty">Rien à faire ce mois-ci 🌿</div>';
+  else{
+    const groupes={};
+    aFaire.forEach(t=>{const g=GROUPES[t.cat]||GROUPES.other;(groupes[g]=groupes[g]||[]).push(t)});
+    for(const[titre,items]of Object.entries(groupes)){
+      h+=`<div class="todo-section"><div class="todo-section-title">${titre}</div>`;
+      items.forEach(t=>{
+        let prefixe='';
+        if(t.persistante){
+          const rest=(t.finY*12+t.finM)-(y*12+m);
+          prefixe=rest<=0?'🚨 ':rest<=1?'⚠️ ':'';
+        }
+        h+=ligneTache(t,{prefixe});
+      });
+      h+='</div>';
+    }
+  }
+
+  if(faites.length){
+    h+=`<div class="todo-section" style="border-top:1px dashed var(--border);padding-top:10px">
+      <div class="todo-section-title" style="color:var(--ink-3)">Complétées — clic pour décocher</div>`;
+    faites.forEach(t=>{h+=ligneTache(t,{})});
+    h+='</div>';
+  }
+  h+=`<button class="btn" style="width:100%;margin-top:10px" onclick="formTache(null)">＋ Ajouter une tâche</button>`;
+  p.innerHTML=h;
+
+  p.querySelectorAll('.onglets-todo button').forEach(b=>{b.onclick=()=>{ongletTodo=b.dataset.o;renderTodo()}});
+  p.querySelectorAll('.todo-item [data-act]').forEach(el=>{
+    el.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const id=el.closest('.todo-item').dataset.id;
+      if(!id)return;
+      const act=el.dataset.act;
+      if(act==='cocher'){
+        basculerFaite(id);renderTodo();
+      }else if(act==='modif'){formTache(id)}
+      else if(act==='suppr'){
+        if(confirm('Supprimer cette tâche ?')){supprimerObjet(id);renderTodo();toast('Tâche supprimée')}
+      }
+    });
+  });
+}
+
+/* ================== TIROIR : DÉTAIL D'UN JOUR ================== */
+function ouvrirJour(d){
+  jourOuvert=d;
+  ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()]+' '+d.getFullYear());
+  const corps=document.getElementById('dbd');
+  const v=enVacances(d),f=ferie(d);
+  let h='';
+  if(f)h+=`<span class="badge" style="background:#fbe9df;color:#b34508">🇫🇷 Férié — ${echap(f)}</span> `;
+  if(v)h+=`<span class="badge" style="background:var(--vac-bg);color:#8a6d10">☀️ ${echap(v.nom)}
+    <button class="b-act" data-modif-vac="${v.id}" title="Modifier cette période">✏️</button></span>`;
+  if(f||v)h+='<div style="height:12px"></div>';
+
+  const bds=bdaysDuJour(d),evs=evtsDuJour(d),acs=actsDuJour(d);
+  if(!bds.length&&!evs.length&&!acs.length)h+='<p style="color:var(--ink-3);font-size:.88rem">Rien de prévu ce jour-là.</p>';
+
+  // Checklist d'actions liées à une info (le pont info → action)
+  const idsAffiches=new Set();
+  function checklist(idInfo,filtreAn){
+    const liees=tachesLiees(idInfo).filter(t=>!filtreAn||t.persistante||t.y===filtreAn);
+    if(!liees.length)return '';
+    let c='<div style="margin-top:7px;border-top:1px dashed var(--border);padding-top:5px">';
+    liees.forEach(t=>{
+      idsAffiches.add(t.id);
+      const faite=estFaite(t.id);
+      c+=`<label class="check-ligne" style="margin-top:3px;font-size:.8rem">
+        <input type="checkbox" data-coche="${t.id}" ${faite?'checked':''}>
+        <span style="${faite?'text-decoration:line-through;opacity:.5':''}">${echap(t.texte)}</span>
+        <span style="color:var(--ink-3);font-size:.72rem">${echap(t.dateTexte||'')}</span></label>`;
+    });
+    c+=`<button class="btn mini" style="margin-top:6px" data-action-liee="${idInfo}">＋ action liée</button></div>`;
+    return c;
+  }
+
+  bds.forEach(b=>{
+    const idees=CACHE.cadeaux.filter(c=>!c.offert&&c.personne&&c.personne.trim().toLowerCase()===b.nom.trim().toLowerCase());
+    h+=`<div class="de" style="border-left-color:${coul('bday')}">
+      <div class="evtit">${echap(b.titre)}</div>
+      ${b.detail?`<div class="evdetail">${echap(b.detail)}</div>`:''}
+      ${idees.length?`<div class="evdetail">🎁 Idées notées : ${idees.map(i=>echap(i.idee)).join(' · ')}</div>`:''}
+      ${checklist(b.id,d.getFullYear())}
+      <div class="de-actions">
+        <button class="btn mini" data-modif-bday="${b.id}">✏️ Modifier</button>
+        <button class="btn mini danger" data-suppr="${b.id}">Supprimer</button>
+      </div></div>`;
+  });
+  evs.forEach(e=>{
+    const multi=e.fin&&e.fin!==e.debut;
+    h+=`<div class="de" style="border-left-color:${coulEvt(e)}">
+      ${e.heure?`<div class="evt">${echap(e.heure)}</div>`:''}
+      <div class="evtit">${echap(e.titre)}</div>
+      <div class="evwho">${e.qui?echap(e.qui):''}${multi?(e.qui?' · ':'')+'du '+deIso(e.debut).getDate()+' au '+deIso(e.fin).getDate()+' '+MFR[deIso(e.fin).getMonth()].toLowerCase():''}</div>
+      ${e.detail?`<div class="evdetail">${e.detail}</div>`:''}
+      ${checklist(e.id,null)}
+      <div class="de-actions">
+        <button class="btn mini" data-modif-evt="${e.id}">✏️ Modifier</button>
+        <button class="btn mini danger" data-suppr="${e.id}">Supprimer</button>
+      </div></div>`;
+  });
+
+  // Actions à faire ce jour-là (échéance = ce jour), hors celles déjà affichées ci-dessus
+  const dues=toutesTaches().filter(t=>t.ech===iso(d)&&!idsAffiches.has(t.id));
+  if(dues.length){
+    h+='<div class="dsec"><h3>✅ À faire ce jour-là</h3>';
+    dues.forEach(t=>{
+      const faite=estFaite(t.id);
+      h+=`<label class="check-ligne" style="margin-top:3px;font-size:.84rem">
+        <input type="checkbox" data-coche="${t.id}" ${faite?'checked':''}>
+        <span style="${faite?'text-decoration:line-through;opacity:.5':''}">${echap(t.texte)}</span></label>`;
+    });
+    h+='</div>';
+  }
+  if(acs.length){
+    h+='<div class="dsec"><h3>Activités du jour</h3>';
+    acs.sort((a,b)=>minutes(a.hd)-minutes(b.hd)).forEach(a=>{
+      const ann=a.annuleeCeJour;
+      h+=`<div class="de" style="border-left-color:${coul(a.cat)};padding:8px 12px;${ann?'opacity:.65':''}">
+        <div class="evt">${echap(a.hd)}${a.hf?'–'+echap(a.hf):''}
+          ${ann?'<span style="color:var(--alert);font-weight:800"> · ANNULÉE CE JOUR</span>':''}</div>
+        <div class="evtit" style="font-size:.85rem;${ann?'text-decoration:line-through':''}">${echap(a.titre)}</div>
+        <div class="evloc">${a.qui?echap(a.qui):''}${a.lieu?' · 📍 '+echap(a.lieu):''}</div>
+        <div class="de-actions">
+          <button class="btn mini" data-annule-act="${a.id}">${ann?'↩️ Rétablir':'🚫 Annuler ce jour'}</button>
+          <button class="btn mini" data-pause-act="${a.id}" title="Suspendre sur une période">⏸ Suspendre</button>
+          <button class="btn mini" data-modif-act="${a.id}">✏️</button>
+          <button class="btn mini danger" data-suppr="${a.id}">🗑️</button>
+        </div></div>`;
+    });
+    h+='</div>';
+  }
+  const lo=routineDuJour(d);
+  if(lo){
+    h+=`<div class="dsec"><h3>🚸 ${echap(lo.t)}</h3>`;
+    lo.s.forEach(s=>{h+=`<div class="ls"><span class="lt">${echap(s.t)}</span><span>${echap(s.x)}</span></div>`});
+    h+='</div>';
+  }
+  h+=`<button class="btn primaire" style="width:100%;margin-top:18px" data-ajout-ici="1">＋ Ajouter ce jour-là</button>`;
+  corps.innerHTML=h;
+  // Câblage
+  corps.querySelectorAll('[data-suppr]').forEach(b=>{b.onclick=()=>{
+    if(!confirm('Supprimer ?'))return;
+    supprimerObjet(b.dataset.suppr);toast('Supprimé');render();ouvrirJour(d);
+  }});
+  corps.querySelectorAll('[data-modif-evt]').forEach(b=>{b.onclick=()=>formEvt(b.dataset.modifEvt,null)});
+  corps.querySelectorAll('[data-modif-bday]').forEach(b=>{b.onclick=()=>formBday(b.dataset.modifBday)});
+  corps.querySelectorAll('[data-modif-act]').forEach(b=>{b.onclick=()=>formAct(b.dataset.modifAct)});
+  corps.querySelectorAll('[data-annule-act]').forEach(b=>{b.onclick=()=>{
+    const a=trouverParId(b.dataset.annuleAct);
+    const list=[...(a.annulations||[])];
+    const i=list.indexOf(iso(d));
+    if(i>=0){list.splice(i,1);toast('Séance rétablie')}
+    else{list.push(iso(d));toast('Séance annulée ce jour')}
+    enregistrerObjet(a.id,'acts',{annulations:list});
+    render();ouvrirJour(d);
+  }});
+  corps.querySelectorAll('[data-pause-act]').forEach(b=>{b.onclick=()=>formPause(b.dataset.pauseAct,d)});
+  corps.querySelectorAll('[data-modif-vac]').forEach(b=>{b.onclick=()=>formVac(b.dataset.modifVac)});
+  corps.querySelectorAll('[data-coche]').forEach(c=>{c.onchange=()=>{
+    basculerFaite(c.dataset.coche);render();ouvrirJour(d);
+  }});
+  corps.querySelectorAll('[data-action-liee]').forEach(b=>{b.onclick=()=>formTache(null,b.dataset.actionLiee)});
+  const aj=corps.querySelector('[data-ajout-ici]');
+  if(aj)aj.onclick=()=>ouvrirAjout(iso(d));
+}
+
+/* ================== AJOUT UNIVERSEL ================== */
+function ouvrirAjout(datePre){
+  ouvrirTiroirBrut('Que veux-tu ajouter ?');
+  const corps=document.getElementById('dbd');
+  corps.innerHTML=`
+  ${datePre?`<p style="font-size:.84rem;color:var(--ink-2);margin-bottom:4px">Pour le <strong>${deIso(datePre).getDate()} ${MFR[deIso(datePre).getMonth()]}</strong> :</p>`:''}
+  <div class="todo-section-title" style="margin:4px 0 6px">📌 Une info — ça s'affiche dans le calendrier</div>
+  <div class="type-grid">
+    <button class="type-card" data-t="evt"><div class="tc-ico">📌</div><div class="tc-titre">Événement</div><div class="tc-sous">Fête, sortie, voyage, absence…</div></button>
+    <button class="type-card" data-t="vac"><div class="tc-ico">☀️</div><div class="tc-titre">Vacances scolaires</div><div class="tc-sous">Une période de vacances (zone C)</div></button>
+    <button class="type-card" data-t="bday"><div class="tc-ico">🎂</div><div class="tc-titre">Anniversaire</div><div class="tc-sous">Revient chaque année, et génère « souhaiter » (+ cadeau pour les proches)</div></button>
+    <button class="type-card" data-t="act"><div class="tc-ico">🏃</div><div class="tc-titre">Activité récurrente</div><div class="tc-sous">Cours, sport… chaque semaine</div></button>
+  </div>
+  <div class="todo-section-title" style="margin:14px 0 6px">✅ Une chose à faire — ça se coche</div>
+  <div class="type-grid">
+    <button class="type-card" data-t="tache"><div class="tc-ico">✅</div><div class="tc-titre">Tâche</div><div class="tc-sous">Avec échéance (visible au calendrier) ou reportée chaque mois</div></button>
+  </div>`;
+  corps.querySelector('[data-t="evt"]').onclick=()=>formEvt(null,datePre);
+  corps.querySelector('[data-t="vac"]').onclick=()=>formVac(null,datePre);
+  corps.querySelector('[data-t="bday"]').onclick=()=>formBday(null,datePre);
+  corps.querySelector('[data-t="act"]').onclick=()=>formAct(null);
+  corps.querySelector('[data-t="tache"]').onclick=()=>formTache(null);
+}
+
+function boutonsForm(onSave){
+  return {html:`<div style="margin-top:16px;display:flex;gap:8px">
+    <button class="btn primaire" id="f-save" style="flex:1">Enregistrer</button>
+    <button class="btn" id="f-cancel">Annuler</button></div>`,
+    wire(){
+      document.getElementById('f-save').onclick=onSave;
+      document.getElementById('f-cancel').onclick=()=>{jourOuvert?ouvrirJour(jourOuvert):fermerTiroir()};
+    }};
+}
+function apresEnregistrement(msg){
+  toast(msg+' ✔');
+  render();
+  jourOuvert?ouvrirJour(jourOuvert):fermerTiroir();
+}
+const attr=(v)=>echap(v??'').replace(/"/g,'&quot;');
+
+/* ---------- Formulaire événement ---------- */
+function formEvt(id,datePre){
+  const e=id?trouverParId(id):null;
+  ouvrirTiroirBrut(e?'Modifier l\'événement':'Nouvel événement');
+  const corps=document.getElementById('dbd');
+  const cats=[['event','📌 Événement'],['voyage','✈️ Voyage'],['pro','💼 Absence / déplacement'],['rentree','🎒 Rentrée']];
+  const b=boutonsForm(()=>{
+    const titre=document.getElementById('f-titre').value.trim();
+    const debut=document.getElementById('f-debut').value;
+    if(!titre||!debut){toast('Titre et date obligatoires');return}
+    let detail=document.getElementById('f-detail').value.trim();
+    if(detail&&!/<a /.test(detail))detail=detail.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>');
+    enregistrerObjet(id,'evts',{
+      titre,cat:document.getElementById('f-cat').value,debut,
+      fin:document.getElementById('f-fin').value||'',
+      heure:document.getElementById('f-heure').value.trim()||'',
+      qui:document.getElementById('f-qui').value.trim()||'',
+      detail:detail||''});
+    apresEnregistrement(e?'Événement modifié':'Événement ajouté');
+  });
+  corps.innerHTML=`
+    <label>Titre</label><input type="text" id="f-titre" value="${attr(e?.titre)}" placeholder="🎉 Fête de l'école">
+    <label>Type</label><select id="f-cat">${cats.map(c=>`<option value="${c[0]}" ${e?.cat===c[0]?'selected':''}>${c[1]}</option>`).join('')}</select>
+    <div class="grille-form">
+      <div><label>Date de début</label><input type="date" id="f-debut" value="${e?e.debut:(datePre||'')}"></div>
+      <div><label>Date de fin (si plusieurs jours)</label><input type="date" id="f-fin" value="${e?.fin||''}"></div>
+    </div>
+    <div class="grille-form">
+      <div><label>Heure (optionnel)</label><input type="text" id="f-heure" value="${attr(e?.heure)}" placeholder="14:30"></div>
+      <div><label>Qui ? (optionnel — donne sa couleur)</label><select id="f-qui">${quiOptions(e?.qui)}</select></div>
+    </div>
+    <label>Détails (optionnel — les liens deviennent cliquables)</label>
+    <textarea id="f-detail">${echap(e?.detail??'')}</textarea>
+    ${b.html}`;
+  b.wire();
+}
+
+/* ---------- Formulaire vacances scolaires ---------- */
+function formVac(id,datePre){
+  const v=id?trouverParId(id):null;
+  ouvrirTiroirBrut(v?'Modifier les vacances':'Nouvelles vacances scolaires');
+  const corps=document.getElementById('dbd');
+  const b=boutonsForm(()=>{
+    const nom=document.getElementById('f-nom').value.trim();
+    const debut=document.getElementById('f-debut').value,fin=document.getElementById('f-fin').value;
+    if(!nom||!debut||!fin){toast('Nom et dates obligatoires');return}
+    if(fin<debut){toast('La fin doit être après le début');return}
+    enregistrerObjet(id,'vac',{nom,debut,fin});
+    apresEnregistrement(v?'Vacances modifiées':'Vacances ajoutées');
+  });
+  corps.innerHTML=`
+    <p style="font-size:.82rem;color:var(--ink-2)">💡 Les dates officielles zone C sont sur education.gouv.fr. Pendant ces périodes, l'école et les activités disparaissent automatiquement du calendrier.</p>
+    <label>Nom</label><input type="text" id="f-nom" value="${attr(v?.nom)}" placeholder="Toussaint 2027">
+    <div class="grille-form">
+      <div><label>Premier jour</label><input type="date" id="f-debut" value="${v?v.debut:(datePre||'')}"></div>
+      <div><label>Dernier jour</label><input type="date" id="f-fin" value="${v?.fin||''}"></div>
+    </div>
+    ${b.html}
+    ${id?`<button class="btn danger" style="width:100%;margin-top:8px" id="f-suppr">Supprimer cette période</button>`:''}`;
+  b.wire();
+  const s=document.getElementById('f-suppr');
+  if(s)s.onclick=()=>{if(confirm('Supprimer ces vacances ?')){supprimerObjet(id);toast('Supprimé');render();fermerTiroir()}};
+}
+
+/* ---------- Formulaire anniversaire ---------- */
+function formBday(id,datePre){
+  const a=id?trouverParId(id):null;
+  ouvrirTiroirBrut(a?'Modifier l\'anniversaire':'Nouvel anniversaire');
+  const corps=document.getElementById('dbd');
+  const dPre=datePre?deIso(datePre):null;
+  const b=boutonsForm(()=>{
+    const nom=document.getElementById('f-nom').value.trim();
+    const jour=parseInt(document.getElementById('f-jour').value);
+    const mois=parseInt(document.getElementById('f-mois').value);
+    if(!nom||!jour){toast('Nom et jour obligatoires');return}
+    const an=document.getElementById('f-annee').value;
+    enregistrerObjet(id,'bdays',{nom,jour,mois,annee:an?parseInt(an):null,
+      cadeau:document.getElementById('f-cadeau').checked});
+    apresEnregistrement(a?'Anniversaire modifié':'Anniversaire ajouté');
+  });
+  corps.innerHTML=`
+    <p style="font-size:.82rem;color:var(--ink-2)">💡 Chaque année, une action « 🎂 Souhaiter » sera générée automatiquement le jour J.</p>
+    <label>Prénom / nom</label><input type="text" id="f-nom" value="${attr(a?.nom)}">
+    <div class="grille-form">
+      <div><label>Jour</label><input type="number" id="f-jour" min="1" max="31" value="${a?a.jour:(dPre?dPre.getDate():'')}"></div>
+      <div><label>Mois</label><select id="f-mois">${MFR.map((mo,i)=>`<option value="${i+1}" ${(a?a.mois:(dPre?dPre.getMonth()+1:1))===i+1?'selected':''}>${mo}</option>`).join('')}</select></div>
+    </div>
+    <label>Année de naissance (optionnel — pour afficher l'âge)</label>
+    <input type="number" id="f-annee" value="${a?.annee??''}" placeholder="1987">
+    <label class="check-ligne"><input type="checkbox" id="f-cadeau" ${a?.cadeau?'checked':''}> 🎁 Proche — générer aussi « Acheter le cadeau » une semaine avant</label>
+    ${b.html}`;
+  b.wire();
+}
+
+/* ---------- Formulaire activité récurrente ---------- */
+function formAct(id){
+  const a=id?trouverParId(id):null;
+  ouvrirTiroirBrut(a?'Modifier l\'activité':'Nouvelle activité récurrente');
+  const corps=document.getElementById('dbd');
+  const pers=[['darya','Darya'],['kyan','Kyan'],['cyrus','Cyrus'],['didier','Didier'],['mandana','Mandana'],['school','École / crèche']];
+  const sel=new Set(a?a.jours:[]);
+  const b=boutonsForm(()=>{
+    const titre=document.getElementById('f-titre').value.trim();
+    const hd=document.getElementById('f-hd').value.trim();
+    if(!titre||!hd||sel.size===0){toast('Titre, heure de début et au moins un jour obligatoires');return}
+    enregistrerObjet(id,'acts',{
+      titre,cat:document.getElementById('f-cat').value,jours:[...sel].sort(),
+      hd,hf:document.getElementById('f-hf').value.trim()||'',
+      lieu:document.getElementById('f-lieu').value.trim()||'',
+      qui:document.getElementById('f-qui').value.trim()||''});
+    apresEnregistrement(a?'Activité modifiée':'Activité ajoutée');
+  });
+  corps.innerHTML=`
+    <p style="font-size:.82rem;color:var(--ink-2)">💡 Apparaît chaque semaine automatiquement, sauf vacances scolaires et jours fériés.</p>
+    <label>Titre</label><input type="text" id="f-titre" value="${attr(a?.titre)}" placeholder="Judo — Gymnase…">
+    <label>Pour qui ? (couleur)</label><select id="f-cat">${pers.map(p=>`<option value="${p[0]}" ${a?.cat===p[0]?'selected':''}>${p[1]}</option>`).join('')}</select>
+    <label>Jours de la semaine</label>
+    <div class="jours-picker" id="f-jours">${DS.map((j,i)=>`<span class="jp ${sel.has(i+1)?'on':''}" data-j="${i+1}">${j}</span>`).join('')}</div>
+    <div class="grille-form">
+      <div><label>Heure de début</label><input type="text" id="f-hd" value="${attr(a?.hd)}" placeholder="17:00"></div>
+      <div><label>Heure de fin</label><input type="text" id="f-hf" value="${attr(a?.hf)}" placeholder="18:00"></div>
+    </div>
+    <div class="grille-form">
+      <div><label>Lieu (optionnel)</label><input type="text" id="f-lieu" value="${attr(a?.lieu)}"></div>
+      <div><label>Qui ? (optionnel)</label><input type="text" id="f-qui" value="${attr(a?.qui)}" placeholder="Darya"></div>
+    </div>
+    ${b.html}`;
+  document.querySelectorAll('#f-jours .jp').forEach(p=>{
+    p.onclick=()=>{const n=parseInt(p.dataset.j);if(sel.has(n)){sel.delete(n);p.classList.remove('on')}else{sel.add(n);p.classList.add('on')}};
+  });
+  b.wire();
+}
+
+/* ---------- Suspendre une activité sur une période ---------- */
+function formPause(idAct,jourRetour){
+  const a=trouverParId(idAct);
+  ouvrirTiroirBrut('⏸ Suspendre « '+(a.titre.length>26?a.titre.substring(0,26)+'…':a.titre)+' »');
+  const corps=document.getElementById('dbd');
+  const pauses=a.pauses||[];
+  let listeH='';
+  if(pauses.length){
+    listeH='<div class="dsec" style="margin-top:14px"><h3>Périodes de suspension en cours</h3>';
+    pauses.forEach((p,i)=>{
+      listeH+=`<div class="ligne-ev" style="border-top:none;padding:4px 0">
+        <div class="corps">Du <strong>${deIso(p.debut).toLocaleDateString('fr-FR')}</strong> au <strong>${deIso(p.fin).toLocaleDateString('fr-FR')}</strong></div>
+        <button class="btn mini danger" data-suppr-pause="${i}">Retirer</button></div>`;
+    });
+    listeH+='</div>';
+  }
+  corps.innerHTML=`
+    <p style="font-size:.82rem;color:var(--ink-2)">L'activité disparaîtra du calendrier entre ces deux dates (piscine fermée, prof absent…).<br>
+    💡 Pas besoin de suspendre pendant les vacances scolaires : c'est déjà automatique.</p>
+    <div class="grille-form">
+      <div><label>Du</label><input type="date" id="f-pdebut" value="${jourRetour?iso(jourRetour):''}"></div>
+      <div><label>Au</label><input type="date" id="f-pfin"></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn primaire" id="f-psave" style="flex:1">Suspendre</button>
+      <button class="btn" id="f-pcancel">Annuler</button>
+    </div>
+    ${listeH}`;
+  document.getElementById('f-psave').onclick=()=>{
+    const debut=document.getElementById('f-pdebut').value,fin=document.getElementById('f-pfin').value;
+    if(!debut||!fin){toast('Les deux dates sont obligatoires');return}
+    if(fin<debut){toast('La fin doit être après le début');return}
+    enregistrerObjet(idAct,'acts',{pauses:[...pauses,{debut,fin}]});
+    toast('Activité suspendue sur la période');
+    render();
+    jourRetour?ouvrirJour(jourRetour):fermerTiroir();
+  };
+  document.getElementById('f-pcancel').onclick=()=>{jourRetour?ouvrirJour(jourRetour):fermerTiroir()};
+  corps.querySelectorAll('[data-suppr-pause]').forEach(b=>{b.onclick=()=>{
+    const reste=pauses.filter((_,i)=>i!==parseInt(b.dataset.supprPause));
+    enregistrerObjet(idAct,'acts',{pauses:reste});
+    toast('Suspension retirée');
+    render();formPause(idAct,jourRetour);
+  }});
+}
+
+/* ---------- Formulaire tâche ---------- */
+function formTache(id,lienPre){
+  const t=id?trouverParId(id):null;
+  ouvrirTiroirBrut(t?'Modifier la tâche':'Nouvelle tâche');
+  const corps=document.getElementById('dbd');
+  const reel=new Date();
+  const finMois=t?.persistante?t.finY+'-'+String(t.finM).padStart(2,'0'):'';
+  const lien=t?t.lien:lienPre;
+  const infoLiee=lien?trouverParId(lien):null;
+  const b=boutonsForm(()=>{
+    const texte=document.getElementById('f-texte').value.trim();
+    if(!texte){toast('Le texte est obligatoire');return}
+    const persistante=document.getElementById('f-persist').checked;
+    const ech=document.getElementById('f-ech').value||null;
+    let dateTexte=document.getElementById('f-datetexte').value.trim();
+    if(!dateTexte&&ech)dateTexte='Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase();
+    const donnees={texte,cat:document.getElementById('f-cat').value,
+      qui:document.getElementById('f-qui').value.trim()||'',ech,dateTexte,persistante,lien:lien||''};
+    if(persistante){
+      const fm=document.getElementById('f-fin').value;
+      const [fy,fmm]=fm?fm.split('-').map(Number):[reel.getFullYear(),reel.getMonth()+1];
+      donnees.debY=t?.debY??reel.getFullYear();donnees.debM=t?.debM??(reel.getMonth()+1);
+      donnees.finY=fy;donnees.finM=fmm;donnees.y=null;donnees.m=null;
+    }else{
+      const base=ech?deIso(ech):(t?new Date(t.y,(t.m||1)-1,1):reel);
+      donnees.y=base.getFullYear();donnees.m=base.getMonth()+1;
+      donnees.debY=null;donnees.debM=null;donnees.finY=null;donnees.finM=null;
+    }
+    enregistrerObjet(id,'taches',donnees);
+    apresEnregistrement(t?'Tâche modifiée':'Tâche ajoutée');
+  });
+  corps.innerHTML=`
+    ${infoLiee?`<p style="font-size:.82rem;color:var(--ink-2)">🔗 Action liée à <strong>${echap(infoLiee.titre||infoLiee.nom)}</strong> — elle apparaîtra sur sa fiche et dans la to-do.</p>`:''}
+    <label>Qu'est-ce qu'il faut faire ?</label>
+    <input type="text" id="f-texte" value="${attr(t?.texte)}" placeholder="🎁 Acheter le cadeau de…">
+    <div class="grille-form">
+      <div><label>Échéance (optionnel)</label><input type="date" id="f-ech" value="${t?.ech||''}"></div>
+      <div><label>Qui s'en occupe ?</label><input type="text" id="f-qui" value="${attr(t?.qui)}" placeholder="Mandana / Didier"></div>
+    </div>
+    <label>Échéance en toutes lettres (optionnel)</label>
+    <input type="text" id="f-datetexte" value="${attr(t?.dateTexte)}" placeholder="Avant le 15">
+    <label>Catégorie</label>
+    <select id="f-cat">${Object.entries(GROUPES).map(([k,v])=>`<option value="${k}" ${t?.cat===k?'selected':''}>${v}</option>`).join('')}</select>
+    <label class="check-ligne"><input type="checkbox" id="f-persist" ${t?.persistante?'checked':''}> Reporter chaque mois tant que ce n'est pas fait</label>
+    <div id="f-zone-fin" style="display:${t?.persistante?'block':'none'}">
+      <label>Jusqu'à quel mois ? (date limite)</label>
+      <input type="month" id="f-fin" value="${finMois}">
+    </div>
+    ${b.html}`;
+  document.getElementById('f-persist').onchange=e=>{
+    document.getElementById('f-zone-fin').style.display=e.target.checked?'block':'none';
+  };
+  b.wire();
+}
+
+/* ================== PAGES COURSES & CADEAUX ================== */
+function linkifie(t){const e=echap(t);return e.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>')}
+
+function renderCourses(){
+  const zone=document.getElementById('vueCourses');
+  const aAcheter=CACHE.courses.filter(c=>!c.achete_le&&!c.coche);
+  const caddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche);
+  let h=`<h2 class="ps-titre">🛒 Liste de courses</h2>
+  <p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>
+  <div class="ps-ajout"><input type="text" id="course-texte" placeholder="Lait, piles, sac de sport…">
+  <button class="btn primaire" id="course-ajouter">Ajouter</button></div>`;
+  if(!aAcheter.length&&!caddie.length)h+=`<div class="todo-empty" style="text-align:center;padding:26px 0">Liste vide 🌿</div>`;
+  if(aAcheter.length){
+    h+=`<div class="todo-section"><div class="todo-section-title">À acheter (${aAcheter.length})</div>`;
+    aAcheter.sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?-1:1).forEach(c=>{
+      h+=`<div class="todo-item" data-id="${c.id}">
+        <div class="todo-check" data-act="cocher"></div>
+        <div class="todo-corps" data-act="cocher"><div class="todo-text">${echap(c.texte)}</div></div>
+        <div class="todo-actions"><button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div></div>`;
+    });
+    h+='</div>';
+  }
+  if(caddie.length){
+    h+=`<div class="todo-section"><div class="todo-section-title">Dans le caddie (${caddie.length}) — clic pour remettre</div>`;
+    caddie.forEach(c=>{
+      h+=`<div class="todo-item done" data-id="${c.id}">
+        <div class="todo-check" data-act="cocher"></div>
+        <div class="todo-corps" data-act="cocher"><div class="todo-text">${echap(c.texte)}</div></div>
+        <div class="todo-actions"><button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div></div>`;
+    });
+    h+=`</div><button class="btn primaire" style="width:100%;margin-top:8px" id="courses-terminees">✔ Courses terminées — archiver le caddie</button>`;
+  }
+  zone.innerHTML=h;
+  const ajouter=()=>{
+    const texte=document.getElementById('course-texte').value.trim();
+    if(!texte)return;
+    enregistrerObjet(null,'courses',{texte,coche:false,achete_le:null});
+    renderCourses();
+    document.getElementById('course-texte').focus();
+  };
+  document.getElementById('course-ajouter').onclick=ajouter;
+  document.getElementById('course-texte').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
+  zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
+    el.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const id=el.closest('.todo-item').dataset.id;
+      const c=CACHE.courses.find(x=>x.id===id);
+      if(el.dataset.act==='cocher'){enregistrerObjet(id,'courses',{coche:!c.coche});renderCourses()}
+      else if(el.dataset.act==='suppr'){supprimerObjet(id);renderCourses()}
+    });
+  });
+  const fin=document.getElementById('courses-terminees');
+  if(fin)fin.onclick=()=>{
+    const auj=iso(new Date());
+    const n=caddie.length;
+    caddie.forEach(c=>enregistrerObjet(c.id,'courses',{achete_le:auj}));
+    toast(n+' article'+(n>1?'s':'')+' archivé'+(n>1?'s':'')+' — le reste est reporté ✔');
+    renderCourses();
+  };
+}
+
+function renderCadeaux(){
+  const zone=document.getElementById('vueCadeaux');
+  const noms=[...new Set(lesBdays().filter(b=>b.type!=='evenement').map(b=>b.nom))];
+  let h=`<h2 class="ps-titre">🎁 Idées cadeaux</h2>
+  <p class="discret2">Notez une idée dès qu'elle passe — elle réapparaîtra sur la fiche anniversaire de la personne.</p>
+  <div class="carte-solo">
+    <div class="grille-form">
+      <div><label>Pour qui ?</label>
+        <input type="text" id="cadeau-personne" list="liste-personnes" placeholder="Tina, la maîtresse…">
+        <datalist id="liste-personnes">${noms.map(n=>`<option value="${echap(n).replace(/"/g,'&quot;')}">`).join('')}</datalist></div>
+      <div><label>L'idée</label><input type="text" id="cadeau-idee" placeholder="Coffret céramique"></div>
+    </div>
+    <label>Détail ou lien (optionnel)</label>
+    <input type="text" id="cadeau-detail" placeholder="https://…">
+    <button class="btn primaire" id="cadeau-ajouter" style="margin-top:12px;width:100%">Ajouter l'idée</button>
+  </div>`;
+  const actifs=CACHE.cadeaux.filter(c=>!c.offert);
+  const parPersonne={};
+  actifs.forEach(c=>{const p=(c.personne||'?').trim();(parPersonne[p]=parPersonne[p]||[]).push(c)});
+  const cles=Object.keys(parPersonne).sort((a,b)=>a.localeCompare(b));
+  if(!cles.length)h+=`<div class="todo-empty" style="text-align:center;padding:20px 0">Aucune idée notée pour l'instant.</div>`;
+  cles.forEach(p=>{
+    const bd=lesBdays().find(b=>b.nom.trim().toLowerCase()===p.toLowerCase());
+    h+=`<div class="todo-section"><div class="todo-section-title">${echap(p)}${bd?' · 🎂 le '+bd.jour+' '+MFR[bd.mois-1].toLowerCase():''}</div>`;
+    parPersonne[p].forEach(c=>{
+      h+=`<div class="todo-item" data-id="${c.id}">
+        <div style="flex-shrink:0">🎁</div>
+        <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(c.idee)}</div>
+        ${c.detail||c.ajoute_par?`<div class="todo-date">${c.detail?linkifie(c.detail):''}${c.detail&&c.ajoute_par?' · ':''}${c.ajoute_par?'ajouté par '+echap(c.ajoute_par):''}</div>`:''}</div>
+        <div class="todo-actions">
+          <button class="todo-act" data-act="offert" title="Marquer comme offert">✅</button>
+          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
+        </div></div>`;
+    });
+    h+='</div>';
+  });
+  const offerts=CACHE.cadeaux.filter(c=>c.offert);
+  if(offerts.length){
+    h+=`<div class="todo-section" style="border-top:1px dashed var(--border);padding-top:10px">
+      <div class="todo-section-title" style="color:var(--ink-3)">Déjà offerts</div>`;
+    offerts.forEach(c=>{
+      h+=`<div class="todo-item done" data-id="${c.id}">
+        <div style="flex-shrink:0">🎁</div>
+        <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(c.idee)} <span class="todo-date">· ${echap(c.personne)}</span></div></div>
+        <div class="todo-actions">
+          <button class="todo-act" data-act="restaurer" title="Remettre dans les idées">↩️</button>
+          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
+        </div></div>`;
+    });
+    h+='</div>';
+  }
+  zone.innerHTML=h;
+  document.getElementById('cadeau-ajouter').onclick=()=>{
+    const personne=document.getElementById('cadeau-personne').value.trim();
+    const idee=document.getElementById('cadeau-idee').value.trim();
+    if(!personne||!idee){toast('Personne et idée obligatoires');return}
+    enregistrerObjet(null,'cadeaux',{personne,idee,detail:document.getElementById('cadeau-detail').value.trim()||null,offert:false,ajoute_par:UTILISATEUR});
+    toast('Idée notée ✔');
+    renderCadeaux();
+  };
+  zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
+    el.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const id=el.closest('.todo-item').dataset.id;
+      const act=el.dataset.act;
+      if(act==='offert'){enregistrerObjet(id,'cadeaux',{offert:true});toast('Marqué comme offert 🎉');renderCadeaux()}
+      else if(act==='restaurer'){enregistrerObjet(id,'cadeaux',{offert:false});renderCadeaux()}
+      else if(act==='suppr'){if(confirm('Supprimer cette idée ?')){supprimerObjet(id);renderCadeaux()}}
+    });
+  });
+}
+
+/* ================== PAGE D'ACCUEIL ================== */
+function renderAccueil(){
+  const zone=document.getElementById('vueAccueil');
+  const auj=new Date();const sAuj=iso(auj);
+  const nbAuj=evtsDuJour(auj).length+bdaysDuJour(auj).length+actsDuJour(auj).filter(a=>!a.annuleeCeJour).length;
+  const prochain=lesEvts().filter(e=>e.debut>=sAuj).sort((a,b)=>a.debut<b.debut?-1:1)[0];
+  const y=auj.getFullYear(),m=auj.getMonth()+1;
+  const enRetard=tachesEnRetard().length;
+  const aFaire=tachesDuMois(y,m).filter(t=>!estFaite(t.id)).length;
+  const nbCourses=CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length;
+  const nbCaddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche).length;
+  const nbIdees=CACHE.cadeaux.filter(c=>!c.offert).length;
+  zone.innerHTML=`
+  <div style="grid-column:1/-1;margin-bottom:2px">
+    <h2 class="ps-titre">Bonjour ${echap(UTILISATEUR||'')} 👋</h2>
+    <div class="discret2" style="margin:0">${DFR[jSem(auj)-1]} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}${nbAuj?` — ${nbAuj} chose${nbAuj>1?'s':''} au programme aujourd'hui`:" — rien de prévu aujourd'hui 🌿"}</div>
+  </div>
+  <button class="acc-carte" data-sec="cal"><div class="acc-ico">📅</div><div class="acc-titre">Calendrier</div>
+    <div class="acc-info">${prochain?'Prochain : '+echap(prochain.titre.substring(0,32))+' · '+deIso(prochain.debut).getDate()+' '+MFR[deIso(prochain.debut).getMonth()].toLowerCase():"Toute l'année de la famille"}</div></button>
+  <button class="acc-carte" data-sec="todo"><div class="acc-ico">✅</div><div class="acc-titre">To-do</div>
+    <div class="acc-info">${enRetard?'🚨 '+enRetard+' en retard · ':''}${aFaire} à faire ce mois-ci</div></button>
+  <button class="acc-carte" data-sec="courses"><div class="acc-ico">🛒</div><div class="acc-titre">Liste de courses</div>
+    <div class="acc-info">${nbCourses?nbCourses+' article'+(nbCourses>1?'s':'')+' à acheter':'Liste vide'}${nbCaddie?' · '+nbCaddie+' au caddie':''}</div></button>
+  <button class="acc-carte" data-sec="cadeaux"><div class="acc-ico">🎁</div><div class="acc-titre">Idées cadeaux</div>
+    <div class="acc-info">${nbIdees?nbIdees+' idée'+(nbIdees>1?'s':'')+' en réserve':"Notez vos idées au fil de l'eau"}</div></button>`;
+  zone.querySelectorAll('.acc-carte').forEach(c=>{c.onclick=()=>setSection(c.dataset.sec)});
+}
+
+/* ================== NAVIGATION & VUES ================== */
+let section='cal';
+let UTILISATEUR=null;
+function setSection(s){
+  section=s;
+  document.querySelectorAll('#mainNav .view-btn').forEach(b=>b.classList.toggle('active',b.dataset.sec===s));
+  document.querySelector('.main-layout').classList.toggle('mode-todo',s==='todo');
+  document.querySelector('.cal-area').style.display=s==='cal'?'':'none';
+  document.getElementById('todoPanel').style.display=(s==='cal'&&vue!=='annee')||s==='todo'?'block':'none';
+  document.getElementById('vueCourses').style.display=s==='courses'?'block':'none';
+  document.getElementById('vueCadeaux').style.display=s==='cadeaux'?'block':'none';
+  document.getElementById('vueAccueil').style.display=s==='accueil'?'grid':'none';
+  document.getElementById('navBar').style.visibility=(s==='cal'&&vue!=='annee')?'visible':'hidden';
+  document.querySelector('.fab').style.display=(s==='cal'||s==='todo')?'':'none';
+  render();
+}
+function navMois(dir){
+  if(vue==='semaine')cur.setDate(cur.getDate()+dir*7);
+  else cur.setMonth(cur.getMonth()+dir);
+  render();
+}
+function allerAujourdhui(){cur=new Date();render()}
+function setVue(v){
+  vue=v;
+  document.querySelectorAll('#viewBar .view-btn').forEach(b=>b.classList.toggle('active',b.dataset.vue===v));
+  document.getElementById('navBar').style.visibility=v==='annee'?'hidden':'visible';
+  document.getElementById('monthView').style.display=v==='mois'?'block':'none';
+  document.getElementById('weekView').style.display=v==='semaine'?'block':'none';
+  document.getElementById('agendaView').style.display=v==='agenda'?'flex':'none';
+  document.getElementById('yearLayout').style.display=v==='annee'?'flex':'none';
+  document.getElementById('yearView').style.display=v==='annee'?'block':'none';
+  document.getElementById('yearSidebar').style.display=v==='annee'?'block':'none';
+  document.getElementById('todoPanel').style.display=v==='annee'?'none':'block';
+  render();
+}
+function render(){
+  if(section==='accueil'){renderAccueil();return}
+  if(section==='courses'){renderCourses();return}
+  if(section==='cadeaux'){renderCadeaux();return}
+  if(section==='todo'){renderTodo();return}
+  if(vue==='mois')renderMois();
+  else if(vue==='semaine')renderSemaine();
+  else if(vue==='agenda')renderAgenda();
+  else renderAnnee();
+  renderTodo();
+}
+
+/* ================== POPOVER (sélecteur de mois) ================== */
+function fermerPopovers(){
+  document.getElementById('popMois').classList.remove('ouvert');
+}
+function togglePopover(pop,ancre){
+  const dejaOuvert=pop.classList.contains('ouvert');
+  fermerPopovers();
+  if(dejaOuvert)return;
+  const r=ancre.getBoundingClientRect();
+  pop.classList.add('ouvert');
+  const largeur=pop.offsetWidth;
+  let gauche=r.left+r.width/2-largeur/2;
+  gauche=Math.max(8,Math.min(gauche,window.innerWidth-largeur-8));
+  pop.style.left=gauche+'px';
+  pop.style.top=(r.bottom+8)+'px';
+}
+document.getElementById('navTitleBtn').onclick=(e)=>{
+  e.stopPropagation();
+  renderPopMois();
+  togglePopover(document.getElementById('popMois'),document.getElementById('navTitleBtn'));
+};
+document.addEventListener('click',(e)=>{
+  if(!e.target.closest('.popover')&&!e.target.closest('#navTitleBtn'))fermerPopovers();
+});
+
+/* ================== INIT ================== */
+document.querySelectorAll('#viewBar .view-btn').forEach(b=>{b.onclick=()=>setVue(b.dataset.vue)});
+document.querySelectorAll('#mainNav .view-btn').forEach(b=>{b.onclick=()=>setSection(b.dataset.sec)});
+document.getElementById('titreAccueil').onclick=()=>setSection('accueil');
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){fermerTiroir();fermerPopovers()}});
+document.getElementById('btnQuitter').onclick=async()=>{
+  await sb.auth.signOut();
+  window.location.replace('index.html');
+};
+// Recharge les données quand on revient sur l'onglet (si >60 s)
+let derniereSync=Date.now();
+document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState==='visible'&&Date.now()-derniereSync>60000){
+    derniereSync=Date.now();
+    if(await chargerTout())render();
+  }
+});
+// Démarrage : connexion obligatoire, puis chargement des données
+(async()=>{
+  const s=await getSessionEtRole();
+  if(!s.session||!s.role){window.location.replace('index.html');return}
+  UTILISATEUR=s.nom||s.session.user.email;
+  if(await chargerTout()){setVue(vue);setSection('accueil')}
+})();
+
+</script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');</script>
+</body>
+</html>
