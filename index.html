@@ -3,29 +3,97 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Connexion — Calendrier Famille</title>
-<link rel="stylesheet" href="style.css">
+<title>Calendrier Famille</title>
 <style>
-.boite{max-width:400px;margin:0 auto;padding:12vh 16px 0}
-.carte{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:30px;box-shadow:var(--shadow)}
-.discret{color:var(--ink-2);font-size:.88rem}
-.msg{display:none;padding:11px 14px;border-radius:var(--radius-s);margin-top:12px;font-size:.88rem}
-.msg.erreur{display:block;background:#fbeeea;color:#b03a2e}
+:root{
+  --ink:#1c1b18; --ink-2:#6f6b62; --ink-3:#a3a099;
+  --surface:#ffffff; --border:#e9e7e2;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  min-height:100dvh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,#fdf8ef 0%,#faf3f4 45%,#f0f2fa 100%);
+  color:var(--ink);-webkit-font-smoothing:antialiased;padding:20px;
+}
+.halo{
+  position:fixed;border-radius:50%;filter:blur(90px);opacity:.5;pointer-events:none;z-index:0;
+}
+.halo.un{width:420px;height:420px;background:#ffd9c4;top:-140px;left:-120px}
+.halo.deux{width:380px;height:380px;background:#d4defc;bottom:-120px;right:-100px}
+.carte{
+  position:relative;z-index:1;width:100%;max-width:400px;
+  background:rgba(255,255,255,.85);backdrop-filter:blur(18px);
+  border:1px solid rgba(255,255,255,.9);
+  border-radius:28px;padding:40px 34px 34px;
+  box-shadow:0 24px 70px rgba(28,27,24,.14),0 2px 8px rgba(28,27,24,.05);
+  animation:entree .5s cubic-bezier(.2,.8,.25,1);
+}
+@keyframes entree{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.logo{
+  width:64px;height:64px;border-radius:20px;
+  background:linear-gradient(145deg,#1c1b18,#43403a);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.9rem;margin-bottom:18px;
+  box-shadow:0 10px 24px rgba(28,27,24,.28);
+}
+h1{font-size:1.5rem;letter-spacing:-.03em;margin-bottom:5px}
+.sous{color:var(--ink-2);font-size:.9rem;line-height:1.45;margin-bottom:24px}
+label{display:block;font-size:.74rem;font-weight:700;color:var(--ink-2);margin:0 0 6px 4px;text-transform:uppercase;letter-spacing:.06em}
+.champ{position:relative;margin-bottom:14px}
+input{
+  width:100%;padding:14px 16px;font-size:1rem;font-family:inherit;
+  border:1.5px solid var(--border);border-radius:16px;
+  background:var(--surface);color:var(--ink);
+  transition:border-color .15s,box-shadow .15s;
+}
+input::placeholder{color:var(--ink-3)}
+input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 4px rgba(28,27,24,.08)}
+#mdp{padding-right:52px}
+.oeil{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  border:none;background:none;cursor:pointer;font-size:1.05rem;
+  padding:8px;color:var(--ink-3);border-radius:12px;
+}
+.oeil:hover{background:#f2f1ee}
+.btn{
+  width:100%;margin-top:8px;padding:15px;
+  border:none;border-radius:16px;cursor:pointer;
+  background:var(--ink);color:#fff;
+  font-size:1rem;font-weight:700;font-family:inherit;letter-spacing:-.01em;
+  transition:transform .12s,box-shadow .15s,background .15s;
+  box-shadow:0 8px 20px rgba(28,27,24,.22);
+}
+.btn:hover{background:#33312c;transform:translateY(-1px);box-shadow:0 12px 26px rgba(28,27,24,.26)}
+.btn:active{transform:translateY(0) scale(.99)}
+.btn:disabled{opacity:.55;cursor:default;transform:none}
+.msg{
+  display:none;margin-top:16px;padding:12px 15px;
+  border-radius:14px;font-size:.88rem;line-height:1.4;
+  animation:entree .25s ease;
+}
+.msg.erreur{display:block;background:#fdedea;color:#a63527;border:1px solid #f5d3cb}
 </style>
 </head>
 <body>
-<div class="boite">
-  <div class="carte">
-    <div style="font-size:2rem;margin-bottom:6px">🗓️</div>
-    <h1 style="font-size:1.35rem;letter-spacing:-.02em;margin-bottom:4px">Calendrier Famille</h1>
-    <p class="discret">Connexion réservée à la famille.</p>
+<div class="halo un"></div>
+<div class="halo deux"></div>
+<div class="carte">
+  <div class="logo">🗓️</div>
+  <h1>Calendrier Famille</h1>
+  <p class="sous">L'organisation de la tribu, au même endroit.<br>Connexion réservée à la famille.</p>
+  <div class="champ">
     <label for="email">Email</label>
     <input type="email" id="email" placeholder="prenom@exemple.fr" autocomplete="username">
-    <label for="mdp">Mot de passe</label>
-    <input type="password" id="mdp" autocomplete="current-password">
-    <button class="btn primaire" id="btn-connexion" style="width:100%;margin-top:16px">Se connecter</button>
-    <div id="message" class="msg"></div>
   </div>
+  <div class="champ">
+    <label for="mdp">Mot de passe</label>
+    <input type="password" id="mdp" placeholder="••••••••" autocomplete="current-password">
+    <button class="oeil" id="btn-oeil" type="button" title="Afficher / masquer">👁️</button>
+  </div>
+  <button class="btn" id="btn-connexion">Se connecter</button>
+  <div id="message" class="msg"></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
@@ -44,14 +112,19 @@ async function redirigerSiConnecte(){
 }
 redirigerSiConnecte();
 
+document.getElementById('btn-oeil').addEventListener('click',()=>{
+  const c=document.getElementById('mdp');
+  c.type=c.type==='password'?'text':'password';
+});
+
 document.getElementById('btn-connexion').addEventListener('click',async()=>{
   const email=document.getElementById('email').value.trim();
   const password=document.getElementById('mdp').value;
   if(!email.includes('@')||!password){afficher('Email et mot de passe requis.');return}
   const btn=document.getElementById('btn-connexion');
-  btn.disabled=true;
+  btn.disabled=true;btn.textContent='Connexion…';
   const {error}=await sb.auth.signInWithPassword({email,password});
-  btn.disabled=false;
+  btn.disabled=false;btn.textContent='Se connecter';
   if(error){
     afficher(error.message.includes('Invalid login')?'Email ou mot de passe incorrect.':'Erreur : '+error.message);
     return;
