@@ -10,7 +10,6 @@
 .carte{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:30px;box-shadow:var(--shadow)}
 .discret{color:var(--ink-2);font-size:.88rem}
 .msg{display:none;padding:11px 14px;border-radius:var(--radius-s);margin-top:12px;font-size:.88rem}
-.msg.info{display:block;background:#eef4ee;color:#2e5e3a}
 .msg.erreur{display:block;background:#fbeeea;color:#b03a2e}
 </style>
 </head>
@@ -19,10 +18,12 @@
   <div class="carte">
     <div style="font-size:2rem;margin-bottom:6px">🗓️</div>
     <h1 style="font-size:1.35rem;letter-spacing:-.02em;margin-bottom:4px">Calendrier Famille</h1>
-    <p class="discret">Entrez votre email : vous recevrez un lien de connexion, sans mot de passe.</p>
-    <label for="email">Votre email</label>
-    <input type="email" id="email" placeholder="prenom@exemple.fr" autocomplete="email">
-    <button class="btn primaire" id="btn-connexion" style="width:100%;margin-top:16px">Recevoir mon lien de connexion</button>
+    <p class="discret">Connexion réservée à la famille.</p>
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="prenom@exemple.fr" autocomplete="username">
+    <label for="mdp">Mot de passe</label>
+    <input type="password" id="mdp" autocomplete="current-password">
+    <button class="btn primaire" id="btn-connexion" style="width:100%;margin-top:16px">Se connecter</button>
     <div id="message" class="msg"></div>
   </div>
 </div>
@@ -30,29 +31,36 @@
 <script src="config.js"></script>
 <script>
 const msg=document.getElementById('message');
-function afficher(texte,type){msg.textContent=texte;msg.className='msg '+type}
+function afficher(texte){msg.textContent=texte;msg.className='msg erreur'}
+
 async function redirigerSiConnecte(){
   const {session,role}=await getSessionEtRole();
   if(!session)return;
   if(role){window.location.replace('calendrier.html')}
   else{
-    afficher("Votre email ("+session.user.email+") n'est pas autorisé.","erreur");
+    afficher("Votre email ("+session.user.email+") n'est pas autorisé.");
     await sb.auth.signOut();
   }
 }
-sb.auth.onAuthStateChange((_e,session)=>{if(session)redirigerSiConnecte()});
 redirigerSiConnecte();
+
 document.getElementById('btn-connexion').addEventListener('click',async()=>{
   const email=document.getElementById('email').value.trim();
-  if(!email.includes('@')){afficher('Merci de saisir un email valide.','erreur');return}
+  const password=document.getElementById('mdp').value;
+  if(!email.includes('@')||!password){afficher('Email et mot de passe requis.');return}
   const btn=document.getElementById('btn-connexion');
   btn.disabled=true;
-  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
+  const {error}=await sb.auth.signInWithPassword({email,password});
   btn.disabled=false;
-  if(error)afficher('Erreur : '+error.message,'erreur');
-  else afficher("C'est envoyé ! 📬 Cliquez sur le lien reçu par email. (Vérifiez les spams la première fois.)",'info');
+  if(error){
+    afficher(error.message.includes('Invalid login')?'Email ou mot de passe incorrect.':'Erreur : '+error.message);
+    return;
+  }
+  redirigerSiConnecte();
 });
-document.getElementById('email').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btn-connexion').click()});
+['email','mdp'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{
+  if(e.key==='Enter')document.getElementById('btn-connexion').click();
+}));
 </script>
 </body>
 </html>
