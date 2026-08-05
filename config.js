@@ -4,7 +4,7 @@
 // ============================================================
 
 // L'URL de votre projet (ex: https://abcdefgh.supabase.co)
-const SUPABASE_URL = "https://ohlrckwdlxfzutquxjyb.supabase.co/rest/v1/";
+const SUPABASE_URL = "https://ohlrckwdlxfzutquxjyb.supabase.co";
 
 // La clé "anon / public" (pas un secret : la sécurité vient des règles RLS)
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9obHJja3dkbHhmenV0cXV4anliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5MzQ4MjksImV4cCI6MjEwMTUxMDgyOX0.OtM5wKjoHBOapq72PVSP-z2tfbbCAD7kd6KK76KYEvA";
