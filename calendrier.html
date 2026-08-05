@@ -1187,7 +1187,7 @@ function renderCadeaux(){
       h+=`<div class="todo-item" data-id="${c.id}">
         <div style="flex-shrink:0">🎁</div>
         <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(c.idee)}</div>
-        ${c.detail?`<div class="todo-date">${linkifie(c.detail)}</div>`:''}</div>
+        ${c.detail||c.ajoute_par?`<div class="todo-date">${c.detail?linkifie(c.detail):''}${c.detail&&c.ajoute_par?' · ':''}${c.ajoute_par?'ajouté par '+echap(c.ajoute_par):''}</div>`:''}</div>
         <div class="todo-actions">
           <button class="todo-act" data-act="offert" title="Marquer comme offert">✅</button>
           <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
@@ -1215,7 +1215,7 @@ function renderCadeaux(){
     const personne=document.getElementById('cadeau-personne').value.trim();
     const idee=document.getElementById('cadeau-idee').value.trim();
     if(!personne||!idee){toast('Personne et idée obligatoires');return}
-    enregistrerObjet(null,'cadeaux',{personne,idee,detail:document.getElementById('cadeau-detail').value.trim()||null,offert:false});
+    enregistrerObjet(null,'cadeaux',{personne,idee,detail:document.getElementById('cadeau-detail').value.trim()||null,offert:false,ajoute_par:UTILISATEUR});
     toast('Idée notée ✔');
     renderCadeaux();
   };
@@ -1233,6 +1233,7 @@ function renderCadeaux(){
 
 /* ================== NAVIGATION & VUES ================== */
 let section='cal';
+let UTILISATEUR=null;
 function setSection(s){
   section=s;
   document.querySelectorAll('#mainNav .view-btn').forEach(b=>b.classList.toggle('active',b.dataset.sec===s));
@@ -1320,6 +1321,7 @@ document.addEventListener('visibilitychange',async()=>{
 (async()=>{
   const s=await getSessionEtRole();
   if(!s.session||!s.role){window.location.replace('index.html');return}
+  UTILISATEUR=s.nom||s.session.user.email;
   if(await chargerTout()){setVue(vue);setSection('cal')}
 })();
 
