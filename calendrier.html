@@ -73,10 +73,17 @@
 const MFR=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const DFR=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 const DS=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-const COULEURS={darya:'var(--darya)',kyan:'var(--kyan)',cyrus:'var(--cyrus)',both:'var(--both)',
+const COULEURS={darya:'var(--darya)',kyan:'var(--kyan)',cyrus:'var(--cyrus)',both:'var(--both)',didier:'#2f9e44',mandana:'#15aabf',
   school:'var(--school)',bday:'var(--bday)',event:'var(--event)',voyage:'var(--voyage)',
   alert:'var(--alert)',pro:'var(--pro)',rentree:'var(--rentree)'};
 function coul(c){return COULEURS[c]||'#94908a'}
+const PERS_COUL={'Mandana':'#15aabf','Didier':'#2f9e44','Darya':'var(--darya)','Kyan':'var(--kyan)','Cyrus':'var(--cyrus)'};
+function coulEvt(e){return PERS_COUL[(e.qui||'').trim()]||coul(e.cat)}
+function quiOptions(v){
+  const liste=['','Toute la famille','Mandana','Didier','Darya','Kyan','Cyrus'];
+  if(v&&!liste.includes(v))liste.splice(1,0,v);
+  return liste.map(x=>`<option value="${x.replace(/"/g,'&quot;')}" ${x===(v||'')?'selected':''}>${x||'—'}</option>`).join('');
+}
 
 /* Jours fériés (fixes, officiels — pas en base) */
 const FER={
@@ -314,12 +321,12 @@ function fermerTiroir(){
 /* ================== PASTILLES D'UN JOUR (mois/année) ================== */
 function pastilles(d){
   const out=[];
-  if(visible('bday'))bdaysDuJour(d).forEach(b=>out.push({titre:b.titre,cat:'bday'}));
-  evtsDuJour(d).forEach(e=>{if(visible(e.cat))out.push({titre:e.titre,cat:e.cat})});
+  if(visible('bday'))bdaysDuJour(d).forEach(b=>out.push({titre:b.titre,c:coul('bday')}));
+  evtsDuJour(d).forEach(e=>{if(visible(e.cat))out.push({titre:e.titre,c:coulEvt(e)})});
   // Les actions datées apparaissent aussi sur le calendrier (en contour)
   const s=iso(d);
   toutesTaches().filter(t=>t.ech===s&&!estFaite(t.id)).forEach(t=>
-    out.push({titre:'☐ '+t.texte,cat:'alert',contour:true}));
+    out.push({titre:'☐ '+t.texte,c:coul('alert'),contour:true}));
   return out;
 }
 
@@ -352,8 +359,8 @@ function renderMois(){
     const pil=pastilles(d);
     pil.slice(0,3).forEach(p=>{
       h+=p.contour
-        ?`<div class="pill contour" style="border:1.5px dashed ${coul(p.cat)};color:${coul(p.cat)};background:transparent">${echap(p.titre.substring(0,26))}</div>`
-        :`<div class="pill" style="background:${coul(p.cat)}">${echap(p.titre.substring(0,26))}</div>`;
+        ?`<div class="pill contour" style="border:1.5px dashed ${p.c};color:${p.c};background:transparent">${echap(p.titre.substring(0,26))}</div>`
+        :`<div class="pill" style="background:${p.c}">${echap(p.titre.substring(0,26))}</div>`;
     });
     if(pil.length>3)h+=`<div class="plus">+${pil.length-3} autres</div>`;
     c.innerHTML=h;
@@ -392,10 +399,10 @@ function renderAgenda(){
     const acs=actsDuJour(d).filter(a=>visible(a.cat));
     const dues=toutesTaches().filter(t=>t.ech===iso(d)&&!estFaite(t.id));
     const items=[
-      ...bds.map(b=>({h:'',titre:b.titre,cat:'bday',qui:''})),
-      ...evs.map(e=>({h:e.heure||'',titre:e.titre,cat:e.cat,qui:e.qui||''})),
-      ...dues.map(t=>({h:'',titre:'☐ '+t.texte,cat:'alert',qui:t.qui||''})),
-      ...acs.map(a=>({h:a.hd+(a.hf?'–'+a.hf:''),titre:a.titre,cat:a.cat,qui:a.qui||'',annulee:a.annuleeCeJour})),
+      ...bds.map(b=>({h:'',titre:b.titre,c:coul('bday'),qui:''})),
+      ...evs.map(e=>({h:e.heure||'',titre:e.titre,c:coulEvt(e),qui:e.qui||''})),
+      ...dues.map(t=>({h:'',titre:'☐ '+t.texte,c:coul('alert'),qui:t.qui||''})),
+      ...acs.map(a=>({h:a.hd+(a.hf?'–'+a.hf:''),titre:a.titre,c:coul(a.cat),qui:a.qui||'',annulee:a.annuleeCeJour})),
     ].sort((a,b)=>minutes(a.h)-minutes(b.h));
     if(!items.length&&!f&&!(v&&iso(d)===v.debut))continue;
     const carte=document.createElement('div');
@@ -403,7 +410,7 @@ function renderAgenda(){
     let h=`<div class="tete"><span class="jnom ${iso(d)===auj?'auj':''}">${DS[jSem(d)-1]} ${j}</span>
       <span class="jinfo">${f?'🇫🇷 '+echap(f)+' ':''}${v&&visible('vacances')?'☀️ '+echap(v.nom):''}</span></div>`;
     items.forEach(it=>{
-      h+=`<div class="ligne-ev" style="${it.annulee?'opacity:.5':''}"><div class="barre" style="background:${coul(it.cat)}"></div>
+      h+=`<div class="ligne-ev" style="${it.annulee?'opacity:.5':''}"><div class="barre" style="background:${it.c}"></div>
         <div class="heure">${echap(it.h)}</div>
         <div class="corps"><span style="${it.annulee?'text-decoration:line-through':''}">${echap(it.titre)}</span>${it.annulee?' <span class="qui" style="color:var(--alert);font-weight:700">Annulée</span>':''}${it.qui?` <span class="qui">· ${echap(it.qui)}</span>`:''}</div></div>`;
     });
@@ -429,7 +436,7 @@ function renderSemaine(){
     h+='<div class="wa">';
     if(visible('bday'))bdaysDuJour(dd).forEach(b=>{h+=`<div class="we" style="background:${coul('bday')}">${echap(b.titre.substring(0,18))}</div>`});
     evtsDuJour(dd).filter(e=>visible(e.cat)&&!e.heure).forEach(e=>{
-      h+=`<div class="we" style="background:${coul(e.cat)}">${echap(e.titre.substring(0,18))}</div>`;
+      h+=`<div class="we" style="background:${coulEvt(e)}">${echap(e.titre.substring(0,18))}</div>`;
     });
     h+='</div>';
   });
@@ -451,12 +458,12 @@ function renderSemaine(){
     actsDuJour(dd).filter(a=>visible(a.cat)).forEach(a=>{
       const deb=minutes(a.hd);if(deb<0)return;
       items.push({deb,fin:a.hf&&minutes(a.hf)>deb?minutes(a.hf):deb+60,
-        titre:a.titre,hr:a.hd+(a.hf?'–'+a.hf:''),cat:a.cat,ann:a.annuleeCeJour});
+        titre:a.titre,hr:a.hd+(a.hf?'–'+a.hf:''),c:coul(a.cat),ann:a.annuleeCeJour});
     });
     evtsDuJour(dd).filter(e=>visible(e.cat)&&e.heure).forEach(e=>{
       const m=String(e.heure).match(/(\d{1,2}[:h]\d{2})\s*[-–]\s*(\d{1,2}[:h]\d{2})/);
       const deb=minutes(m?m[1]:e.heure);if(deb<0)return;
-      items.push({deb,fin:m&&minutes(m[2])>deb?minutes(m[2]):deb+60,titre:e.titre,hr:e.heure,cat:e.cat});
+      items.push({deb,fin:m&&minutes(m[2])>deb?minutes(m[2]):deb+60,titre:e.titre,hr:e.heure,c:coulEvt(e)});
     });
     // Répartition côte à côte en cas de chevauchement
     items.sort((a,b)=>a.deb-b.deb);
@@ -472,7 +479,7 @@ function renderSemaine(){
       const bas=Math.min(HT,(it.fin-H0*60)/60*PPH);
       const ht=Math.max(16,bas-top-2);
       const larg=100/nb;
-      h+=`<div class="wk2-ev" style="top:${top}px;height:${ht}px;left:${it.lane*larg}%;width:calc(${larg}% - 2px);background:${coul(it.cat)};${it.ann?'opacity:.4;text-decoration:line-through':''}">`+
+      h+=`<div class="wk2-ev" style="top:${top}px;height:${ht}px;left:${it.lane*larg}%;width:calc(${larg}% - 2px);background:${it.c};${it.ann?'opacity:.4;text-decoration:line-through':''}">`+
         `${ht>=30?`<div class="wk2-hr">${echap(it.hr)}</div>`:''}${echap(it.titre)}</div>`;
     });
     h+='</div>';
@@ -717,7 +724,7 @@ function ouvrirJour(d){
   });
   evs.forEach(e=>{
     const multi=e.fin&&e.fin!==e.debut;
-    h+=`<div class="de" style="border-left-color:${coul(e.cat)}">
+    h+=`<div class="de" style="border-left-color:${coulEvt(e)}">
       ${e.heure?`<div class="evt">${echap(e.heure)}</div>`:''}
       <div class="evtit">${echap(e.titre)}</div>
       <div class="evwho">${e.qui?echap(e.qui):''}${multi?(e.qui?' · ':'')+'du '+deIso(e.debut).getDate()+' au '+deIso(e.fin).getDate()+' '+MFR[deIso(e.fin).getMonth()].toLowerCase():''}</div>
@@ -863,7 +870,7 @@ function formEvt(id,datePre){
     </div>
     <div class="grille-form">
       <div><label>Heure (optionnel)</label><input type="text" id="f-heure" value="${attr(e?.heure)}" placeholder="14:30"></div>
-      <div><label>Qui ? (optionnel)</label><input type="text" id="f-qui" value="${attr(e?.qui)}" placeholder="Toute la famille"></div>
+      <div><label>Qui ? (optionnel — donne sa couleur)</label><select id="f-qui">${quiOptions(e?.qui)}</select></div>
     </div>
     <label>Détails (optionnel — les liens deviennent cliquables)</label>
     <textarea id="f-detail">${echap(e?.detail??'')}</textarea>
@@ -933,7 +940,7 @@ function formAct(id){
   const a=id?trouverParId(id):null;
   ouvrirTiroirBrut(a?'Modifier l\'activité':'Nouvelle activité récurrente');
   const corps=document.getElementById('dbd');
-  const pers=[['darya','Darya'],['kyan','Kyan'],['cyrus','Cyrus'],['both','Darya + Kyan'],['school','École / crèche']];
+  const pers=[['darya','Darya'],['kyan','Kyan'],['cyrus','Cyrus'],['didier','Didier'],['mandana','Mandana'],['school','École / crèche']];
   const sel=new Set(a?a.jours:[]);
   const b=boutonsForm(()=>{
     const titre=document.getElementById('f-titre').value.trim();
