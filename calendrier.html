@@ -17,6 +17,15 @@
 .wk2-ligne{position:absolute;left:0;right:0;border-top:1px solid #f4f3f0;pointer-events:none}
 .wk2-ev{position:absolute;border-radius:6px;color:#fff;font-size:.6rem;font-weight:600;padding:2px 5px;overflow:hidden;line-height:1.3;box-shadow:0 1px 2px rgba(28,27,24,.18);box-sizing:border-box}
 .wk2-ev .wk2-hr{opacity:.8;font-weight:500;font-size:.55rem}
+/* Pages To-do / Courses / Cadeaux */
+.page-solo{flex:1;max-width:620px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px 26px}
+.ps-titre{font-size:1.25rem;letter-spacing:-.02em;margin:2px 0 4px}
+.discret2{color:var(--ink-2);font-size:.85rem;margin-bottom:12px}
+.ps-ajout{display:flex;gap:8px;margin:12px 0 18px}
+.ps-ajout input{flex:1}
+.carte-solo{border:1px solid var(--border);border-radius:var(--radius-s);padding:14px 16px;margin:12px 0 20px;background:#fdfcfa}
+.main-layout.mode-todo .todo-panel{width:100%;max-width:620px;margin:0 auto;position:static;max-height:none}
+@media(max-width:820px){#mainNav .view-btn{padding:5px 8px;font-size:.76rem}}
 </style>
 </head>
 <body>
@@ -27,13 +36,19 @@
 <button class="month-title-btn" id="navTitleBtn"><span id="navTitle"></span><span class="chevron">▾</span></button>
 <button class="fleche" onclick="navMois(1)">→</button>
 <button class="today-btn" onclick="allerAujourdhui()">Aujourd'hui</button>
-</div>
-<div class="h-zone h-droite">
 <div class="header-right" id="viewBar">
 <button class="view-btn" data-vue="annee">Année</button>
 <button class="view-btn" data-vue="mois">Mois</button>
-<button class="view-btn" data-vue="semaine">Semaine</button>
+<button class="view-btn" data-vue="semaine">Sem.</button>
 <button class="view-btn" data-vue="agenda">Agenda</button>
+</div>
+</div>
+<div class="h-zone h-droite">
+<div class="header-right" id="mainNav">
+<button class="view-btn" data-sec="cal">📅 Calendrier</button>
+<button class="view-btn" data-sec="todo">✅ To-do</button>
+<button class="view-btn" data-sec="courses">🛒 Courses</button>
+<button class="view-btn" data-sec="cadeaux">🎁 Cadeaux</button>
 </div>
 <button class="today-btn" id="btnQuitter">Quitter</button>
 </div>
@@ -55,6 +70,8 @@
 <div class="agenda-view" id="agendaView"></div>
 </div>
 <div class="todo-panel" id="todoPanel"></div>
+<div class="page-solo" id="vueCourses" style="display:none"></div>
+<div class="page-solo" id="vueCadeaux" style="display:none"></div>
 </div>
 
 <button class="fab" onclick="ouvrirAjout()">＋ Ajouter</button>
@@ -122,17 +139,19 @@ const LOGI=[
    Toutes les données vivent dans Supabase. On les charge en mémoire,
    chaque modification est appliquée immédiatement à l'écran puis
    envoyée à la base (avec rechargement en cas d'erreur). */
-let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],etatsAuto:{}};
-const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches'};
+let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],etatsAuto:{}};
+const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux'};
 
 async function chargerTout(){
-  const [e,v,b,a,t,s]=await Promise.all([
+  const [e,v,b,a,t,s,co,ca]=await Promise.all([
     sb.from('evenements').select('*'),
     sb.from('vacances').select('*'),
     sb.from('anniversaires').select('*'),
     sb.from('activites').select('*'),
     sb.from('taches').select('*'),
     sb.from('etats_auto').select('*'),
+    sb.from('courses').select('*'),
+    sb.from('cadeaux').select('*'),
   ]);
   const err=[e,v,b,a,t,s].find(r=>r.error);
   if(err){toast('⚠️ Erreur de chargement : '+err.error.message);return false}
@@ -140,6 +159,8 @@ async function chargerTout(){
   CACHE.acts=a.data;CACHE.taches=t.data;
   CACHE.etatsAuto={};
   s.data.forEach(x=>CACHE.etatsAuto[x.id]=x);
+  CACHE.courses=co.error?[]:co.data;
+  CACHE.cadeaux=ca.error?[]:ca.data;
   return true;
 }
 const lesEvts=()=>CACHE.evts;
@@ -203,7 +224,7 @@ function supprimerObjet(id){
     pousser(sb.from('etats_auto').upsert(e));
     return;
   }
-  for(const coll of ['evts','vac','bdays','acts','taches']){
+  for(const coll of ['evts','vac','bdays','acts','taches','courses','cadeaux']){
     const i=CACHE[coll].findIndex(x=>x.id===id);
     if(i>=0){
       CACHE[coll].splice(i,1);
@@ -713,9 +734,11 @@ function ouvrirJour(d){
   }
 
   bds.forEach(b=>{
+    const idees=CACHE.cadeaux.filter(c=>!c.offert&&c.personne&&c.personne.trim().toLowerCase()===b.nom.trim().toLowerCase());
     h+=`<div class="de" style="border-left-color:${coul('bday')}">
       <div class="evtit">${echap(b.titre)}</div>
       ${b.detail?`<div class="evdetail">${echap(b.detail)}</div>`:''}
+      ${idees.length?`<div class="evdetail">🎁 Idées notées : ${idees.map(i=>echap(i.idee)).join(' · ')}</div>`:''}
       ${checklist(b.id,d.getFullYear())}
       <div class="de-actions">
         <button class="btn mini" data-modif-bday="${b.id}">✏️ Modifier</button>
@@ -1075,7 +1098,153 @@ function formTache(id,lienPre){
   b.wire();
 }
 
+/* ================== PAGES COURSES & CADEAUX ================== */
+function linkifie(t){const e=echap(t);return e.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>')}
+
+function renderCourses(){
+  const zone=document.getElementById('vueCourses');
+  const aAcheter=CACHE.courses.filter(c=>!c.achete_le&&!c.coche);
+  const caddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche);
+  let h=`<h2 class="ps-titre">🛒 Liste de courses</h2>
+  <p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>
+  <div class="ps-ajout"><input type="text" id="course-texte" placeholder="Lait, piles, sac de sport…">
+  <button class="btn primaire" id="course-ajouter">Ajouter</button></div>`;
+  if(!aAcheter.length&&!caddie.length)h+=`<div class="todo-empty" style="text-align:center;padding:26px 0">Liste vide 🌿</div>`;
+  if(aAcheter.length){
+    h+=`<div class="todo-section"><div class="todo-section-title">À acheter (${aAcheter.length})</div>`;
+    aAcheter.sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?-1:1).forEach(c=>{
+      h+=`<div class="todo-item" data-id="${c.id}">
+        <div class="todo-check" data-act="cocher"></div>
+        <div class="todo-corps" data-act="cocher"><div class="todo-text">${echap(c.texte)}</div></div>
+        <div class="todo-actions"><button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div></div>`;
+    });
+    h+='</div>';
+  }
+  if(caddie.length){
+    h+=`<div class="todo-section"><div class="todo-section-title">Dans le caddie (${caddie.length}) — clic pour remettre</div>`;
+    caddie.forEach(c=>{
+      h+=`<div class="todo-item done" data-id="${c.id}">
+        <div class="todo-check" data-act="cocher"></div>
+        <div class="todo-corps" data-act="cocher"><div class="todo-text">${echap(c.texte)}</div></div>
+        <div class="todo-actions"><button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div></div>`;
+    });
+    h+=`</div><button class="btn primaire" style="width:100%;margin-top:8px" id="courses-terminees">✔ Courses terminées — archiver le caddie</button>`;
+  }
+  zone.innerHTML=h;
+  const ajouter=()=>{
+    const texte=document.getElementById('course-texte').value.trim();
+    if(!texte)return;
+    enregistrerObjet(null,'courses',{texte,coche:false,achete_le:null});
+    renderCourses();
+    document.getElementById('course-texte').focus();
+  };
+  document.getElementById('course-ajouter').onclick=ajouter;
+  document.getElementById('course-texte').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
+  zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
+    el.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const id=el.closest('.todo-item').dataset.id;
+      const c=CACHE.courses.find(x=>x.id===id);
+      if(el.dataset.act==='cocher'){enregistrerObjet(id,'courses',{coche:!c.coche});renderCourses()}
+      else if(el.dataset.act==='suppr'){supprimerObjet(id);renderCourses()}
+    });
+  });
+  const fin=document.getElementById('courses-terminees');
+  if(fin)fin.onclick=()=>{
+    const auj=iso(new Date());
+    const n=caddie.length;
+    caddie.forEach(c=>enregistrerObjet(c.id,'courses',{achete_le:auj}));
+    toast(n+' article'+(n>1?'s':'')+' archivé'+(n>1?'s':'')+' — le reste est reporté ✔');
+    renderCourses();
+  };
+}
+
+function renderCadeaux(){
+  const zone=document.getElementById('vueCadeaux');
+  const noms=[...new Set(lesBdays().filter(b=>b.type!=='evenement').map(b=>b.nom))];
+  let h=`<h2 class="ps-titre">🎁 Idées cadeaux</h2>
+  <p class="discret2">Notez une idée dès qu'elle passe — elle réapparaîtra sur la fiche anniversaire de la personne.</p>
+  <div class="carte-solo">
+    <div class="grille-form">
+      <div><label>Pour qui ?</label>
+        <input type="text" id="cadeau-personne" list="liste-personnes" placeholder="Tina, la maîtresse…">
+        <datalist id="liste-personnes">${noms.map(n=>`<option value="${echap(n).replace(/"/g,'&quot;')}">`).join('')}</datalist></div>
+      <div><label>L'idée</label><input type="text" id="cadeau-idee" placeholder="Coffret céramique"></div>
+    </div>
+    <label>Détail ou lien (optionnel)</label>
+    <input type="text" id="cadeau-detail" placeholder="https://…">
+    <button class="btn primaire" id="cadeau-ajouter" style="margin-top:12px;width:100%">Ajouter l'idée</button>
+  </div>`;
+  const actifs=CACHE.cadeaux.filter(c=>!c.offert);
+  const parPersonne={};
+  actifs.forEach(c=>{const p=(c.personne||'?').trim();(parPersonne[p]=parPersonne[p]||[]).push(c)});
+  const cles=Object.keys(parPersonne).sort((a,b)=>a.localeCompare(b));
+  if(!cles.length)h+=`<div class="todo-empty" style="text-align:center;padding:20px 0">Aucune idée notée pour l'instant.</div>`;
+  cles.forEach(p=>{
+    const bd=lesBdays().find(b=>b.nom.trim().toLowerCase()===p.toLowerCase());
+    h+=`<div class="todo-section"><div class="todo-section-title">${echap(p)}${bd?' · 🎂 le '+bd.jour+' '+MFR[bd.mois-1].toLowerCase():''}</div>`;
+    parPersonne[p].forEach(c=>{
+      h+=`<div class="todo-item" data-id="${c.id}">
+        <div style="flex-shrink:0">🎁</div>
+        <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(c.idee)}</div>
+        ${c.detail?`<div class="todo-date">${linkifie(c.detail)}</div>`:''}</div>
+        <div class="todo-actions">
+          <button class="todo-act" data-act="offert" title="Marquer comme offert">✅</button>
+          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
+        </div></div>`;
+    });
+    h+='</div>';
+  });
+  const offerts=CACHE.cadeaux.filter(c=>c.offert);
+  if(offerts.length){
+    h+=`<div class="todo-section" style="border-top:1px dashed var(--border);padding-top:10px">
+      <div class="todo-section-title" style="color:var(--ink-3)">Déjà offerts</div>`;
+    offerts.forEach(c=>{
+      h+=`<div class="todo-item done" data-id="${c.id}">
+        <div style="flex-shrink:0">🎁</div>
+        <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(c.idee)} <span class="todo-date">· ${echap(c.personne)}</span></div></div>
+        <div class="todo-actions">
+          <button class="todo-act" data-act="restaurer" title="Remettre dans les idées">↩️</button>
+          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
+        </div></div>`;
+    });
+    h+='</div>';
+  }
+  zone.innerHTML=h;
+  document.getElementById('cadeau-ajouter').onclick=()=>{
+    const personne=document.getElementById('cadeau-personne').value.trim();
+    const idee=document.getElementById('cadeau-idee').value.trim();
+    if(!personne||!idee){toast('Personne et idée obligatoires');return}
+    enregistrerObjet(null,'cadeaux',{personne,idee,detail:document.getElementById('cadeau-detail').value.trim()||null,offert:false});
+    toast('Idée notée ✔');
+    renderCadeaux();
+  };
+  zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
+    el.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const id=el.closest('.todo-item').dataset.id;
+      const act=el.dataset.act;
+      if(act==='offert'){enregistrerObjet(id,'cadeaux',{offert:true});toast('Marqué comme offert 🎉');renderCadeaux()}
+      else if(act==='restaurer'){enregistrerObjet(id,'cadeaux',{offert:false});renderCadeaux()}
+      else if(act==='suppr'){if(confirm('Supprimer cette idée ?')){supprimerObjet(id);renderCadeaux()}}
+    });
+  });
+}
+
 /* ================== NAVIGATION & VUES ================== */
+let section='cal';
+function setSection(s){
+  section=s;
+  document.querySelectorAll('#mainNav .view-btn').forEach(b=>b.classList.toggle('active',b.dataset.sec===s));
+  document.querySelector('.main-layout').classList.toggle('mode-todo',s==='todo');
+  document.querySelector('.cal-area').style.display=s==='cal'?'':'none';
+  document.getElementById('todoPanel').style.display=(s==='cal'&&vue!=='annee')||s==='todo'?'block':'none';
+  document.getElementById('vueCourses').style.display=s==='courses'?'block':'none';
+  document.getElementById('vueCadeaux').style.display=s==='cadeaux'?'block':'none';
+  document.getElementById('navBar').style.visibility=(s==='cal'&&vue!=='annee')?'visible':'hidden';
+  document.querySelector('.fab').style.display=(s==='cal'||s==='todo')?'':'none';
+  render();
+}
 function navMois(dir){
   if(vue==='semaine')cur.setDate(cur.getDate()+dir*7);
   else cur.setMonth(cur.getMonth()+dir);
@@ -1096,6 +1265,9 @@ function setVue(v){
   render();
 }
 function render(){
+  if(section==='courses'){renderCourses();return}
+  if(section==='cadeaux'){renderCadeaux();return}
+  if(section==='todo'){renderTodo();return}
   if(vue==='mois')renderMois();
   else if(vue==='semaine')renderSemaine();
   else if(vue==='agenda')renderAgenda();
@@ -1130,6 +1302,7 @@ document.addEventListener('click',(e)=>{
 
 /* ================== INIT ================== */
 document.querySelectorAll('#viewBar .view-btn').forEach(b=>{b.onclick=()=>setVue(b.dataset.vue)});
+document.querySelectorAll('#mainNav .view-btn').forEach(b=>{b.onclick=()=>setSection(b.dataset.sec)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){fermerTiroir();fermerPopovers()}});
 document.getElementById('btnQuitter').onclick=async()=>{
   await sb.auth.signOut();
@@ -1147,7 +1320,7 @@ document.addEventListener('visibilitychange',async()=>{
 (async()=>{
   const s=await getSessionEtRole();
   if(!s.session||!s.role){window.location.replace('index.html');return}
-  if(await chargerTout())setVue(vue);
+  if(await chargerTout()){setVue(vue);setSection('cal')}
 })();
 
 </script>
