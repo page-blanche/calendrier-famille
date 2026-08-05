@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calendrier Famille</title>
 <link rel="stylesheet" href="style.css">
+<style>
+/* Vue semaine v2 : blocs proportionnels à la durée */
+.wk2-entetes{display:grid;grid-template-columns:55px repeat(7,1fr);gap:1px;margin-bottom:1px}
+.wk2-h{background:#f2f1ee;text-align:center;padding:8px 2px;font-size:.74rem;font-weight:700;border-radius:4px}
+.wk2-h.auj{background:var(--ink);color:#fff}
+.wk2-corps{display:grid;grid-template-columns:55px repeat(7,1fr);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.wk2-heures div{font-size:.62rem;color:var(--ink-3);font-weight:600;text-align:right;padding-right:6px;box-sizing:border-box}
+.wk2-col{position:relative;border-left:1px solid #f1efe9;cursor:pointer}
+.wk2-col:hover{background:#fdfcfa}
+.wk2-ligne{position:absolute;left:0;right:0;border-top:1px solid #f4f3f0;pointer-events:none}
+.wk2-ev{position:absolute;border-radius:6px;color:#fff;font-size:.6rem;font-weight:600;padding:2px 5px;overflow:hidden;line-height:1.3;box-shadow:0 1px 2px rgba(28,27,24,.18);box-sizing:border-box}
+.wk2-ev .wk2-hr{opacity:.8;font-weight:500;font-size:.55rem}
+</style>
 </head>
 <body>
 <div class="header">
@@ -408,6 +421,7 @@ function renderSemaine(){
   const lundi=new Date(d.setDate(df));
   const jours=[];for(let i=0;i<7;i++){const x=new Date(lundi);x.setDate(x.getDate()+i);jours.push(x)}
   document.getElementById('navTitle').textContent=`Semaine du ${lundi.getDate()} ${MFR[lundi.getMonth()]}`;
+  const H0=8,H1=20,PPH=52; // de 8h à 20h, 52px par heure
   const auj=iso(new Date());
   // Bandeau "toute la journée" : événements sans heure + anniversaires
   let h='<div class="week-allday"><div class="wa-lbl">journée</div>';
@@ -420,23 +434,52 @@ function renderSemaine(){
     h+='</div>';
   });
   h+='</div>';
-  // Grille horaire
-  h+='<div class="week-grid"><div class="wh"></div>';
-  jours.forEach(dd=>{h+=`<div class="wh ${iso(dd)===auj?'td-col':''}">${DS[jSem(dd)-1]} ${dd.getDate()}</div>`});
-  for(let hr=8;hr<=19;hr++){
-    h+=`<div class="wt">${hr}:00</div>`;
-    jours.forEach(dd=>{
-      const acs=actsDuJour(dd).filter(a=>visible(a.cat)&&parseInt(a.hd)===hr);
-      const evs=evtsDuJour(dd).filter(e=>visible(e.cat)&&e.heure&&parseInt(e.heure)===hr);
-      let cell=`<div class="wc" data-j="${iso(dd)}">`;
-      acs.forEach(a=>{cell+=`<div class="we" style="background:${coul(a.cat)};${a.annuleeCeJour?'opacity:.4;text-decoration:line-through':''}">${echap(a.titre.substring(0,20))}</div>`});
-      evs.forEach(e=>{cell+=`<div class="we" style="background:${coul(e.cat)}">${echap(e.titre.substring(0,20))}</div>`});
-      cell+='</div>';h+=cell;
+  // Entêtes des jours
+  h+='<div class="wk2-entetes"><div></div>';
+  jours.forEach(dd=>{h+=`<div class="wk2-h ${iso(dd)===auj?'auj':''}">${DS[jSem(dd)-1]} ${dd.getDate()}</div>`});
+  h+='</div>';
+  // Corps : colonne des heures + 7 colonnes de la semaine
+  const HT=(H1-H0)*PPH;
+  h+='<div class="wk2-corps"><div class="wk2-heures" style="height:'+HT+'px">';
+  for(let hr=H0;hr<H1;hr++)h+=`<div style="height:${PPH}px">${hr}:00</div>`;
+  h+='</div>';
+  jours.forEach(dd=>{
+    h+=`<div class="wk2-col" data-j="${iso(dd)}" style="height:${HT}px">`;
+    for(let hr=H0+1;hr<H1;hr++)h+=`<div class="wk2-ligne" style="top:${(hr-H0)*PPH}px"></div>`;
+    // Blocs : activités (avec durée) + événements horodatés
+    const items=[];
+    actsDuJour(dd).filter(a=>visible(a.cat)).forEach(a=>{
+      const deb=minutes(a.hd);if(deb<0)return;
+      items.push({deb,fin:a.hf&&minutes(a.hf)>deb?minutes(a.hf):deb+60,
+        titre:a.titre,hr:a.hd+(a.hf?'–'+a.hf:''),cat:a.cat,ann:a.annuleeCeJour});
     });
-  }
+    evtsDuJour(dd).filter(e=>visible(e.cat)&&e.heure).forEach(e=>{
+      const m=String(e.heure).match(/(\d{1,2}[:h]\d{2})\s*[-–]\s*(\d{1,2}[:h]\d{2})/);
+      const deb=minutes(m?m[1]:e.heure);if(deb<0)return;
+      items.push({deb,fin:m&&minutes(m[2])>deb?minutes(m[2]):deb+60,titre:e.titre,hr:e.heure,cat:e.cat});
+    });
+    // Répartition côte à côte en cas de chevauchement
+    items.sort((a,b)=>a.deb-b.deb);
+    const finsLanes=[];
+    items.forEach(it=>{
+      let l=0;
+      while(finsLanes[l]!==undefined&&finsLanes[l]>it.deb)l++;
+      it.lane=l;finsLanes[l]=it.fin;
+    });
+    const nb=Math.max(1,finsLanes.length);
+    items.forEach(it=>{
+      const top=Math.max(0,(it.deb-H0*60)/60*PPH);
+      const bas=Math.min(HT,(it.fin-H0*60)/60*PPH);
+      const ht=Math.max(16,bas-top-2);
+      const larg=100/nb;
+      h+=`<div class="wk2-ev" style="top:${top}px;height:${ht}px;left:${it.lane*larg}%;width:calc(${larg}% - 2px);background:${coul(it.cat)};${it.ann?'opacity:.4;text-decoration:line-through':''}">`+
+        `${ht>=30?`<div class="wk2-hr">${echap(it.hr)}</div>`:''}${echap(it.titre)}</div>`;
+    });
+    h+='</div>';
+  });
   h+='</div>';
   co.innerHTML=h;
-  co.querySelectorAll('.wc').forEach(c=>{c.onclick=()=>ouvrirJour(deIso(c.dataset.j))});
+  co.querySelectorAll('.wk2-col').forEach(c=>{c.onclick=()=>ouvrirJour(deIso(c.dataset.j))});
 }
 
 /* ================== VUE ANNÉE ================== */
