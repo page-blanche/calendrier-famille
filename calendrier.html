@@ -1466,7 +1466,7 @@ function renderCadeaux(zone){
 }
 
 /* ================== 🪄 SAISIE MAGIQUE ================== */
-let MAGIE_PROPS=[];
+let MAGIE_PROPS=[];let MAGIE_TEXTE='';
 function formMagie(pre){
   ouvrirTiroirBrut('🪄 Dis-moi tout');
   const corps=document.getElementById('dbd');
@@ -1492,6 +1492,7 @@ function formMagie(pre){
       return;
     }
     if(!data.actions.length){toast('Je n\'ai rien trouvé à ranger dans cette phrase 🤔');return}
+    MAGIE_TEXTE=texte;
     magiAfficher(data);
   };
   btn.onclick=analyser;
@@ -1527,7 +1528,14 @@ function magiAfficher(data){
       ${a.type!=='course'?`<button class="todo-act" data-corr="${i}" title="Corriger dans le formulaire">✏️</button>`:''}
     </div>`;
   }).join('');
-  h+=`<div style="display:flex;gap:8px;margin-top:12px">
+  h+=`<div style="margin-top:10px">
+    <label style="font-size:.74rem;font-weight:700;color:var(--ink-2)">🗣️ Pas tout à fait ? Dis-lui quoi corriger (écris ou dicte) :</label>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <input type="text" id="mg-correction" placeholder="« non c'est jeudi, et c'est pour Darya »" style="flex:1">
+      <button class="btn" id="mg-corriger" title="Envoyer la correction à Lya">↩︎</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:12px">
     <button class="btn" id="mg-annuler" style="flex:1">Annuler</button>
     <button class="btn primaire" id="mg-save" style="flex:2">✓ Enregistrer</button></div>`;
   zone.innerHTML=h;
@@ -1548,6 +1556,27 @@ function magiAfficher(data){
   zone.querySelectorAll('[data-corr]').forEach(b=>{
     b.onclick=()=>magiCorriger(MAGIE_PROPS[Number(b.dataset.corr)]);
   });
+  const corrigerIA=async()=>{
+    const corr=document.getElementById('mg-correction').value.trim();
+    if(!corr){toast('Dis-moi ce qui cloche 🙂');return}
+    const bc=document.getElementById('mg-corriger');
+    bc.disabled=true;bc.textContent='🪄';
+    let d2=null,err=null;
+    try{
+      const r=await sb.functions.invoke('saisie-magique',{body:{texte:MAGIE_TEXTE,correction:corr,precedent:MAGIE_PROPS,
+        contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)}}});
+      d2=r.data;err=r.error;
+    }catch(e){err=e}
+    if(err||!d2||d2.erreur||!Array.isArray(d2.actions)){
+      bc.disabled=false;bc.textContent='↩︎';
+      toast('⚠️ La magie a raté : '+((d2&&d2.erreur)||(err&&err.message)||'réessaie'));
+      return;
+    }
+    toast('Proposition corrigée ✨');
+    magiAfficher(d2);
+  };
+  document.getElementById('mg-corriger').onclick=corrigerIA;
+  document.getElementById('mg-correction').addEventListener('keydown',e=>{if(e.key==='Enter')corrigerIA()});
 }
 function magiEnregistrer(actions){
   let n=0;
@@ -1838,6 +1867,7 @@ function renderFichePersonne(zone,p){
         <span>${dateNoteFr(n.cree_le)}</span>
         <span>${n.partagee?'👥 partagée'+(aMoi?'':' par '+echap(n.ajoute_par||'?')):'🔒 privée'}</span>
         ${aMoi?`<span style="flex:1"></span>
+        <button class="todo-act" data-act="modif" title="Modifier la note">✏️</button>
         <button class="todo-act" data-act="basculer" title="${n.partagee?'Repasser en privée':'Partager avec la famille'}">${n.partagee?'🔒':'👥'}</button>
         <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>`:''}
       </div>
@@ -1875,6 +1905,20 @@ function renderFichePersonne(zone,p){
       const n=CACHE.notes.find(x=>x.id===id);
       if(!n)return;
       if(el.dataset.act==='basculer'){enregistrerObjet(id,'notes',{partagee:!n.partagee});renderMemoire()}
+      else if(el.dataset.act==='modif'){
+        const div=el.closest('.mem-note');
+        div.innerHTML=`<textarea id="ed-note" style="min-height:74px">${echap(n.texte)}</textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn mini" id="ed-annule" style="flex:1">Annuler</button>
+            <button class="btn primaire mini" id="ed-save" style="flex:1">Enregistrer</button></div>`;
+        document.getElementById('ed-save').onclick=()=>{
+          const v=document.getElementById('ed-note').value.trim();
+          if(!v){toast('La note ne peut pas être vide');return}
+          enregistrerObjet(id,'notes',{texte:v});toast('Note modifiée ✔');renderMemoire();
+        };
+        document.getElementById('ed-annule').onclick=()=>renderMemoire();
+        document.getElementById('ed-note').focus();
+      }
       else if(el.dataset.act==='suppr'){if(confirm('Supprimer cette note ?')){supprimerObjet(id);renderMemoire()}}
     });
   });
