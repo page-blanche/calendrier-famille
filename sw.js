@@ -16,12 +16,23 @@ self.addEventListener('push', (e) => {
   }));
 });
 
-// Clic sur la notification : ouvre (ou remet au premier plan) l'app
+// Clic sur la notification : ouvre l'app (ou la remet au premier plan)
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((liste) => {
-    for (const c of liste) { if ('focus' in c) return c.focus(); }
-    return self.clients.openWindow((e.notification.data && e.notification.data.url) || './');
-  }));
+  const cible = new URL('calendrier.html', self.registration.scope).href;
+  e.waitUntil((async () => {
+    const fenetres = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // 1. une fenêtre du calendrier déjà ouverte → premier plan
+    for (const f of fenetres) {
+      if (f.url && f.url.indexOf('calendrier') !== -1) {
+        try { return await f.focus(); } catch (_) {}
+      }
+    }
+    // 2. sinon : ouvrir l'app installée sur la bonne page
+    try { return await self.clients.openWindow(cible); } catch (_) {}
+    // 3. dernier recours : une fenêtre du site, qu'on redirige
+    if (fenetres[0]) {
+      try { await fenetres[0].focus(); await fenetres[0].navigate(cible); } catch (_) {}
+    }
+  })());
 });
-
