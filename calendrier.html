@@ -33,6 +33,13 @@
 .mem-note-texte{font-size:.92rem;line-height:1.45;white-space:normal}
 .mem-partage{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.86rem;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
 .mem-partage input{width:auto}
+.magie{grid-column:1/-1;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-radius:18px;padding:12px 14px;box-shadow:0 3px 10px rgba(120,80,180,.08)}
+.magie-titre{font-size:.7rem;font-weight:800;letter-spacing:.06em;color:#8a5fc0;margin-bottom:8px;text-transform:uppercase}
+.magie-aide{font-size:.72rem;color:var(--ink-3);margin-top:7px}
+.mg-prop{display:flex;gap:10px;align-items:flex-start;border:1.5px solid #b7dfc2;background:#f4fbf6;border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.mg-prop input[type=checkbox]{width:auto;margin-top:4px}
+.mg-type{font-size:.64rem;font-weight:800;color:var(--ink-3);letter-spacing:.05em}
+.mg-titre{font-weight:600;font-size:.9rem;margin-top:1px}
 .ps-titre{font-size:1.25rem;letter-spacing:-.02em;margin:2px 0 4px}
 .discret2{color:var(--ink-2);font-size:.85rem;margin-bottom:12px}
 .ps-ajout{display:flex;gap:8px;margin:12px 0 18px}
@@ -963,6 +970,9 @@ function ouvrirAjout(datePre){
   const corps=document.getElementById('dbd');
   corps.innerHTML=`
   ${datePre?`<p style="font-size:.84rem;color:var(--ink-2);margin-bottom:4px">Pour le <strong>${deIso(datePre).getDate()} ${MFR[deIso(datePre).getMonth()]}</strong> :</p>`:''}
+  <div class="type-grid" style="margin-bottom:10px">
+    <button class="type-card" data-t="magie" style="grid-column:1/-1;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border-color:#e7d9f5"><div class="tc-ico">🪄</div><div class="tc-titre">Saisie magique</div><div class="tc-sous">Dis tout en une phrase — l'app range toute seule</div></button>
+  </div>
   <div class="todo-section-title" style="margin:4px 0 6px">📌 Une info — ça s'affiche dans le calendrier</div>
   <div class="type-grid">
     <button class="type-card" data-t="evt"><div class="tc-ico">📌</div><div class="tc-titre">Événement</div><div class="tc-sous">Fête, sortie, voyage, absence…</div></button>
@@ -979,6 +989,7 @@ function ouvrirAjout(datePre){
     <button class="type-card" data-t="note"><div class="tc-ico">🧠</div><div class="tc-titre">Note sur quelqu'un</div><div class="tc-sous">Privée par défaut, dans ta Mémoire</div></button>
     <button class="type-card" data-t="envie"><div class="tc-ico">✨</div><div class="tc-titre">Envie</div><div class="tc-sous">Livre, resto, film, sortie… avant d'oublier</div></button>`:''}
   </div>`;
+  corps.querySelector('[data-t="magie"]').onclick=()=>formMagie('');
   corps.querySelector('[data-t="evt"]').onclick=()=>formEvt(null,datePre);
   corps.querySelector('[data-t="vac"]').onclick=()=>formVac(null,datePre);
   corps.querySelector('[data-t="bday"]').onclick=()=>formBday(null,datePre);
@@ -1454,6 +1465,142 @@ function renderCadeaux(zone){
   });
 }
 
+/* ================== 🪄 SAISIE MAGIQUE ================== */
+let MAGIE_PROPS=[];
+function formMagie(pre){
+  ouvrirTiroirBrut('🪄 Dis-moi tout');
+  const corps=document.getElementById('dbd');
+  corps.innerHTML=`
+    <textarea id="mg-texte" placeholder="« Foot pour Maxime mercredi à 17h et racheter des chaussettes de sport »" style="min-height:84px">${echap(pre||'')}</textarea>
+    <div class="discret2" style="margin:6px 0 0">🎤 Astuce : le micro du clavier permet de dicter au lieu de taper.</div>
+    <button class="btn primaire" id="mg-analyser" style="margin-top:10px;width:100%">✨ Analyser</button>
+    <div id="mg-resultat" style="margin-top:12px"></div>`;
+  const btn=document.getElementById('mg-analyser');
+  const analyser=async()=>{
+    const texte=document.getElementById('mg-texte').value.trim();
+    if(!texte){toast('Dis-moi d\'abord quelque chose 🙂');return}
+    btn.disabled=true;btn.textContent='🪄 Je réfléchis…';
+    let data=null,error=null;
+    try{
+      const r=await sb.functions.invoke('saisie-magique',{body:{texte,
+        contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)}}});
+      data=r.data;error=r.error;
+    }catch(e){error=e}
+    btn.disabled=false;btn.textContent='✨ Analyser';
+    if(error||!data||data.erreur||!Array.isArray(data.actions)){
+      toast('⚠️ La magie a raté : '+((data&&data.erreur)||(error&&error.message)||'réessaie dans un instant'));
+      return;
+    }
+    if(!data.actions.length){toast('Je n\'ai rien trouvé à ranger dans cette phrase 🤔');return}
+    magiAfficher(data);
+  };
+  btn.onclick=analyser;
+  if(pre&&pre.trim())analyser();
+}
+function magiResume(a){
+  const dfr=s=>{if(!s)return '';const d=deIso(s);return DFR[jSem(d)-1].toLowerCase()+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()};
+  const badge=x=>x?'👥 partagée':'🔒 privée';
+  switch(a.type){
+    case 'evenement':return {ico:'📌',type:'Événement',titre:a.titre,det:[dfr(a.debut),a.fin&&a.fin!==a.debut?'→ '+dfr(a.fin):null,a.heure,a.qui?'pour '+a.qui:null].filter(Boolean).join(' · ')};
+    case 'tache':return {ico:'✅',type:'Tâche',titre:a.texte,det:[a.ech?'avant le '+dfr(a.ech):null,a.qui?'pour '+a.qui:null].filter(Boolean).join(' · ')||'sans échéance'};
+    case 'course':return {ico:'🛒',type:'Courses',titre:a.texte,det:'ajouté à la liste partagée'};
+    case 'cadeau':return {ico:'🎁',type:'Idée cadeau',titre:a.idee,det:'pour '+(a.personne||'?')+' · '+badge(a.partagee)};
+    case 'note':return {ico:'🧠',type:'Note',titre:a.texte,det:'sur '+(a.personne||'?')+' · '+badge(a.partagee)};
+    case 'envie':return {ico:'✨',type:'Envie',titre:a.titre,det:(ENV_CATS.find(c=>c[0]===a.categorie)||[,'','Autre'])[2]+' · '+badge(a.partagee)};
+    default:return {ico:'❓',type:String(a.type||'?'),titre:'(non reconnu)',det:''};
+  }
+}
+function magiAfficher(data){
+  const zone=document.getElementById('mg-resultat');
+  MAGIE_PROPS=data.actions;
+  let h=`<div class="todo-section-title">J'ai compris ça — décoche ce qui est faux :</div>`;
+  if(data.remarque)h+=`<p class="discret2" style="margin:4px 0 8px">💭 ${echap(data.remarque)}</p>`;
+  h+=data.actions.map((a,i)=>{
+    const r=magiResume(a);
+    return `<div class="mg-prop">
+      <input type="checkbox" checked id="mg-c${i}">
+      <div style="flex:1">
+        <div class="mg-type">${r.ico} ${echap(r.type.toUpperCase())}</div>
+        <div class="mg-titre">${echap(r.titre||'')}</div>
+        ${r.det?`<div class="todo-date">${r.det}</div>`:''}
+      </div>
+      ${a.type!=='course'?`<button class="todo-act" data-corr="${i}" title="Corriger dans le formulaire">✏️</button>`:''}
+    </div>`;
+  }).join('');
+  h+=`<div style="display:flex;gap:8px;margin-top:12px">
+    <button class="btn" id="mg-annuler" style="flex:1">Annuler</button>
+    <button class="btn primaire" id="mg-save" style="flex:2">✓ Enregistrer</button></div>`;
+  zone.innerHTML=h;
+  const majBtn=()=>{
+    const n=MAGIE_PROPS.filter((_,i)=>document.getElementById('mg-c'+i).checked).length;
+    const b=document.getElementById('mg-save');
+    b.textContent='✓ Enregistrer ('+n+')';b.disabled=!n;
+  };
+  MAGIE_PROPS.forEach((_,i)=>{document.getElementById('mg-c'+i).addEventListener('change',majBtn)});
+  majBtn();
+  document.getElementById('mg-annuler').onclick=fermerTiroir;
+  document.getElementById('mg-save').onclick=()=>{
+    const retenues=MAGIE_PROPS.filter((_,i)=>document.getElementById('mg-c'+i).checked);
+    const n=magiEnregistrer(retenues);
+    toast(n+' élément'+(n>1?'s':'')+' enregistré'+(n>1?'s':'')+' ✔');
+    render();fermerTiroir();
+  };
+  zone.querySelectorAll('[data-corr]').forEach(b=>{
+    b.onclick=()=>magiCorriger(MAGIE_PROPS[Number(b.dataset.corr)]);
+  });
+}
+function magiEnregistrer(actions){
+  let n=0;
+  actions.forEach(a=>{
+    if(a.type==='evenement'&&a.titre){
+      enregistrerObjet(null,'evts',{titre:a.titre,cat:['event','voyage','pro','rentree'].includes(a.cat)?a.cat:'event',
+        debut:a.debut||iso(new Date()),fin:a.fin||null,heure:a.heure||null,qui:a.qui||null,detail:a.detail||null});n++;
+    }else if(a.type==='tache'&&a.texte){
+      const ech=a.ech||null;
+      const base=ech?deIso(ech):new Date();
+      enregistrerObjet(null,'taches',{texte:a.texte,cat:'other',qui:a.qui||'',ech,
+        dateTexte:ech?'Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase():'',
+        persistante:false,lien:'',y:base.getFullYear(),m:base.getMonth()+1,debY:null,debM:null,finY:null,finM:null});n++;
+    }else if(a.type==='course'&&a.texte){
+      enregistrerObjet(null,'courses',{texte:a.texte,coche:false,achete_le:null});n++;
+    }else if(a.type==='cadeau'&&a.idee){
+      enregistrerObjet(null,'cadeaux',{personne:(a.personne||'?').trim(),idee:a.idee,detail:a.detail||null,offert:false,
+        partagee:!!a.partagee,email_auteur:EMAIL_CONNECTE});n++;
+    }else if(a.type==='note'&&a.texte){
+      const nom=(a.personne||'?').trim();
+      let pers=CACHE.personnes.find(x=>x.nom.trim().toLowerCase()===nom.toLowerCase());
+      if(!pers){pers={id:genId(),nom};enregistrerObjet(null,'personnes',{id:pers.id,nom,groupe:null})}
+      enregistrerObjet(null,'notes',{personne_id:pers.id,texte:a.texte,partagee:!!a.partagee,
+        email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});n++;
+    }else if(a.type==='envie'&&a.titre){
+      enregistrerObjet(null,'envies',{categorie:ENV_CATS.some(c=>c[0]===a.categorie)?a.categorie:'autre',titre:a.titre,
+        detail:a.detail||null,faite:false,partagee:!!a.partagee,email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});n++;
+    }
+  });
+  return n;
+}
+function magiCorriger(a){
+  const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
+  const coche=(id,v)=>{const el=document.getElementById(id);if(el)el.checked=!!v};
+  if(a.type==='evenement'){
+    formEvt(null,a.debut||null);
+    setTimeout(()=>{set('f-titre',a.titre);set('f-cat',['event','voyage','pro','rentree'].includes(a.cat)?a.cat:'event');
+      set('f-debut',a.debut);set('f-fin',a.fin||a.debut);set('f-heure',a.heure||'');set('f-qui',a.qui||'');set('f-detail',a.detail||'')},60);
+  }else if(a.type==='tache'){
+    formTache(null);
+    setTimeout(()=>{set('f-texte',a.texte);set('f-ech',a.ech||'');set('f-qui',a.qui||'')},60);
+  }else if(a.type==='cadeau'){
+    formCadeau();
+    setTimeout(()=>{set('fk-personne',a.personne||'');set('fk-idee',a.idee||'');set('fk-detail',a.detail||'');coche('fk-partagee',a.partagee)},60);
+  }else if(a.type==='note'){
+    formNote();
+    setTimeout(()=>{set('fn-personne',a.personne||'');set('fn-texte',a.texte||'');coche('fn-partagee',a.partagee)},60);
+  }else if(a.type==='envie'){
+    formEnvie();
+    setTimeout(()=>{set('fe-titre',a.titre||'');set('fe-cat',ENV_CATS.some(c=>c[0]===a.categorie)?a.categorie:'autre');set('fe-detail',a.detail||'');coche('fe-partagee',a.partagee)},60);
+  }
+}
+
 /* ================== 🧠 MÉMOIRE ================== */
 function formEnvie(){
   ouvrirTiroirBrut('✨ Une envie à garder');
@@ -1814,6 +1961,14 @@ function renderAccueil(){
     <h2 class="ps-titre">Bonjour ${echap(UTILISATEUR||'')} 👋</h2>
     <div class="discret2" style="margin:0">${DFR[jSem(auj)-1]} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}${nbAuj?` — ${nbAuj} chose${nbAuj>1?'s':''} au programme aujourd'hui`:" — rien de prévu aujourd'hui 🌿"}</div>
   </div>
+  <div class="magie">
+    <div class="magie-titre">🪄 Dis-moi tout</div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="magie-accueil" placeholder="« foot Maxime mercredi 17h »…" style="flex:1">
+      <button class="btn primaire" id="magie-btn">🪄</button>
+    </div>
+    <div class="magie-aide">Écris ou dicte 🎤 : événement, tâche, courses, idée cadeau, note, envie… ou plusieurs à la fois.</div>
+  </div>
   <button class="acc-carte" data-sec="cal"><div class="acc-ico">📅</div><div class="acc-titre">Calendrier</div>
     <div class="acc-info">${prochain?'Prochain : '+echap(prochain.titre.substring(0,32))+' · '+deIso(prochain.debut).getDate()+' '+MFR[deIso(prochain.debut).getMonth()].toLowerCase():"Toute l'année de la famille"}</div></button>
   <button class="acc-carte" data-sec="todo"><div class="acc-ico">✅</div><div class="acc-titre">To-do</div>
@@ -1830,6 +1985,9 @@ function renderAccueil(){
     <button class="btn" id="btnDeconnexion" style="border-color:transparent;color:var(--ink-3);font-size:.8rem">Se déconnecter</button>
   </div>`;
   zone.querySelectorAll('.acc-carte').forEach(c=>{c.onclick=()=>setSection(c.dataset.sec)});
+  const lancerMagie=()=>formMagie(document.getElementById('magie-accueil').value.trim());
+  document.getElementById('magie-btn').onclick=lancerMagie;
+  document.getElementById('magie-accueil').addEventListener('keydown',e=>{if(e.key==='Enter')lancerMagie()});
   majBoutonNotifs();
   document.getElementById('btnDeconnexion').onclick=async()=>{
     await sb.auth.signOut();
