@@ -103,7 +103,6 @@
 <button class="view-btn" data-sec="cal">📅<span class="vb-lbl"> Calendrier</span></button>
 <button class="view-btn" data-sec="todo">✅<span class="vb-lbl"> To-do</span></button>
 <button class="view-btn" data-sec="courses">🛒<span class="vb-lbl"> Courses</span></button>
-<button class="view-btn" data-sec="cadeaux">🎁<span class="vb-lbl"> Cadeaux</span></button>
 <button class="view-btn" data-sec="memoire">🧠<span class="vb-lbl"> Mémoire</span></button>
 </div>
 <button class="today-btn" id="btnAccueil"><span class="exit-court">🏡</span><span class="vb-lbl">🏡 Accueil</span></button>
@@ -128,7 +127,6 @@
 </div>
 <div class="todo-panel" id="todoPanel"></div>
 <div class="page-solo" id="vueCourses" style="display:none"></div>
-<div class="page-solo" id="vueCadeaux" style="display:none"></div>
 <div class="page-solo" id="vueMemoire" style="display:none"></div>
 <div class="page-accueil" id="vueAccueil" style="display:none"></div>
 </div>
@@ -869,7 +867,7 @@ function ouvrirJour(d){
   }
 
   bds.forEach(b=>{
-    const idees=CACHE.cadeaux.filter(c=>!c.offert&&c.personne&&c.personne.trim().toLowerCase()===b.nom.trim().toLowerCase());
+    const idees=cadeauxVisibles().filter(c=>!c.offert&&c.personne&&c.personne.trim().toLowerCase()===b.nom.trim().toLowerCase());
     h+=`<div class="de" style="border-left-color:${coul('bday')}">
       <div class="evtit">${echap(b.titre)}</div>
       ${b.detail?`<div class="evdetail">${echap(b.detail)}</div>`:''}
@@ -1239,6 +1237,7 @@ function formCadeau(){
     <input type="text" id="fk-idee" placeholder="Coffret céramique">
     <label>Détail ou lien (optionnel)</label>
     <input type="text" id="fk-detail">
+    <label class="mem-partage"><input type="checkbox" id="fk-partagee"> 👥 Visible par toute la famille <span class="todo-date">(sinon : 🔒 rien que pour toi)</span></label>
     <div style="margin-top:14px;display:flex;gap:8px">
       <button class="btn primaire" id="fk-add" style="flex:1">Ajouter l'idée</button>
       <button class="btn" id="fk-fin">Fermer</button>
@@ -1247,8 +1246,10 @@ function formCadeau(){
     const personne=document.getElementById('fk-personne').value.trim();
     const idee=document.getElementById('fk-idee').value.trim();
     if(!personne||!idee){toast('Personne et idée obligatoires');return}
-    enregistrerObjet(null,'cadeaux',{personne,idee,detail:document.getElementById('fk-detail').value.trim()||null,offert:false});
-    toast('Idée notée ✔');
+    const partagee=document.getElementById('fk-partagee').checked;
+    enregistrerObjet(null,'cadeaux',{personne,idee,detail:document.getElementById('fk-detail').value.trim()||null,offert:false,
+      partagee,email_auteur:EMAIL_CONNECTE});
+    toast(partagee?'Idée notée et partagée ✔':'Idée notée, rien que pour toi 🤫');
     fermerTiroir();render();
   };
   document.getElementById('fk-fin').onclick=fermerTiroir;
@@ -1370,23 +1371,25 @@ function renderCourses(){
   };
 }
 
-function renderCadeaux(){
-  const zone=document.getElementById('vueCadeaux');
-  const noms=[...new Set(lesBdays().filter(b=>b.type!=='evenement').map(b=>b.nom))];
-  let h=`<h2 class="ps-titre">🎁 Idées cadeaux</h2>
-  <p class="discret2">Notez une idée dès qu'elle passe — elle réapparaîtra sur la fiche anniversaire de la personne.</p>
+function renderCadeaux(zone){
+  const visibles=cadeauxVisibles();
+  const noms=[...new Set([...lesBdays().filter(b=>b.type!=='evenement').map(b=>b.nom),...CACHE.personnes.map(p=>p.nom)])];
+  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
+  ${ongletsMem()}
+  <p class="discret2">Notez une idée dès qu'elle passe. 🔒 Privée par défaut — parfait pour préparer une surprise à quelqu'un de la famille 🤫. Cochez 👥 pour les idées à coordonner à deux.</p>
   <div class="carte-solo">
     <div class="grille-form">
       <div><label>Pour qui ?</label>
-        <input type="text" id="cadeau-personne" list="liste-personnes" placeholder="Tina, la maîtresse…">
-        <datalist id="liste-personnes">${noms.map(n=>`<option value="${echap(n).replace(/"/g,'&quot;')}">`).join('')}</datalist></div>
+        <input type="text" id="cadeau-personne" list="liste-personnes" placeholder="Tina, Didier, la maîtresse…">
+        <datalist id="liste-personnes">${noms.map(n=>`<option value="${attr(n)}">`).join('')}</datalist></div>
       <div><label>L'idée</label><input type="text" id="cadeau-idee" placeholder="Coffret céramique"></div>
     </div>
     <label>Détail ou lien (optionnel)</label>
     <input type="text" id="cadeau-detail" placeholder="https://…">
+    <label class="mem-partage"><input type="checkbox" id="cadeau-partagee"> 👥 Visible par toute la famille <span class="todo-date">(sinon : 🔒 rien que pour toi)</span></label>
     <button class="btn primaire" id="cadeau-ajouter" style="margin-top:12px;width:100%">Ajouter l'idée</button>
   </div>`;
-  const actifs=CACHE.cadeaux.filter(c=>!c.offert);
+  const actifs=visibles.filter(c=>!c.offert);
   const parPersonne={};
   actifs.forEach(c=>{const p=(c.personne||'?').trim();(parPersonne[p]=parPersonne[p]||[]).push(c)});
   const cles=Object.keys(parPersonne).sort((a,b)=>a.localeCompare(b));
@@ -1395,49 +1398,58 @@ function renderCadeaux(){
     const bd=lesBdays().find(b=>b.nom.trim().toLowerCase()===p.toLowerCase());
     h+=`<div class="todo-section"><div class="todo-section-title">${echap(p)}${bd?' · 🎂 le '+bd.jour+' '+MFR[bd.mois-1].toLowerCase():''}</div>`;
     parPersonne[p].forEach(c=>{
+      const aMoi=(c.email_auteur||'').toLowerCase()===EMAIL_CONNECTE;
       h+=`<div class="todo-item" data-id="${c.id}">
         <div style="flex-shrink:0">🎁</div>
         <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(c.idee)}</div>
-        ${c.detail||c.ajoute_par?`<div class="todo-date">${c.detail?linkifie(c.detail):''}${c.detail&&c.ajoute_par?' · ':''}${c.ajoute_par?'ajouté par '+echap(c.ajoute_par):''}</div>`:''}</div>
+        <div class="todo-date">${c.partagee?'👥 partagée'+(aMoi?'':' par '+echap(c.ajoute_par||'?')):'🔒 privée'}${c.detail?' · '+linkifie(c.detail):''}</div></div>
         <div class="todo-actions">
           <button class="todo-act" data-act="offert" title="Marquer comme offert">✅</button>
-          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
+          ${aMoi?`<button class="todo-act" data-act="basculer" title="${c.partagee?'Repasser en privée':'Partager avec la famille'}">${c.partagee?'🔒':'👥'}</button>
+          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>`:''}
         </div></div>`;
     });
     h+='</div>';
   });
-  const offerts=CACHE.cadeaux.filter(c=>c.offert);
+  const offerts=visibles.filter(c=>c.offert);
   if(offerts.length){
     h+=`<div class="todo-section" style="border-top:1px dashed var(--border);padding-top:10px">
       <div class="todo-section-title" style="color:var(--ink-3)">Déjà offerts</div>`;
     offerts.forEach(c=>{
+      const aMoi=(c.email_auteur||'').toLowerCase()===EMAIL_CONNECTE;
       h+=`<div class="todo-item done" data-id="${c.id}">
         <div style="flex-shrink:0">🎁</div>
         <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(c.idee)} <span class="todo-date">· ${echap(c.personne)}</span></div></div>
         <div class="todo-actions">
           <button class="todo-act" data-act="restaurer" title="Remettre dans les idées">↩️</button>
-          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
+          ${aMoi?`<button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>`:''}
         </div></div>`;
     });
     h+='</div>';
   }
   zone.innerHTML=h;
+  brancherOngletsMem(zone);
   document.getElementById('cadeau-ajouter').onclick=()=>{
     const personne=document.getElementById('cadeau-personne').value.trim();
     const idee=document.getElementById('cadeau-idee').value.trim();
     if(!personne||!idee){toast('Personne et idée obligatoires');return}
-    enregistrerObjet(null,'cadeaux',{personne,idee,detail:document.getElementById('cadeau-detail').value.trim()||null,offert:false,ajoute_par:UTILISATEUR});
-    toast('Idée notée ✔');
-    renderCadeaux();
+    const partagee=document.getElementById('cadeau-partagee').checked;
+    enregistrerObjet(null,'cadeaux',{personne,idee,detail:document.getElementById('cadeau-detail').value.trim()||null,offert:false,
+      partagee,email_auteur:EMAIL_CONNECTE,ajoute_par:UTILISATEUR});
+    toast(partagee?'Idée notée et partagée ✔':'Idée notée, rien que pour toi 🤫');
+    renderMemoire();
   };
   zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
     el.addEventListener('click',ev=>{
       ev.stopPropagation();
       const id=el.closest('.todo-item').dataset.id;
+      const c=CACHE.cadeaux.find(x=>x.id===id);
+      if(!c)return;
       const act=el.dataset.act;
-      if(act==='offert'){enregistrerObjet(id,'cadeaux',{offert:true});toast('Marqué comme offert 🎉');renderCadeaux()}
-      else if(act==='restaurer'){enregistrerObjet(id,'cadeaux',{offert:false});renderCadeaux()}
-      else if(act==='suppr'){if(confirm('Supprimer cette idée ?')){supprimerObjet(id);renderCadeaux()}}
+      if(act==='offert'){enregistrerObjet(id,'cadeaux',{offert:true});toast('Marqué comme offert 🎉');renderMemoire()}
+      else if(act==='restaurer'){enregistrerObjet(id,'cadeaux',{offert:false});renderMemoire()}
+      else if(act==='basculer'){enregistrerObjet(id,'cadeaux',{partagee:!c.partagee});renderMemoire()}
+      else if(act==='suppr'){if(confirm('Supprimer cette idée ?')){supprimerObjet(id);renderMemoire()}}
     });
   });
 }
@@ -1495,11 +1507,13 @@ function formNote(){
 let persOuverte=null,rechercheMem='',ongletMem='gens';
 function notesVisibles(){return CACHE.notes.filter(n=>n.partagee||((n.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
 function enviesVisibles(){return CACHE.envies.filter(n=>n.partagee||((n.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
+function cadeauxVisibles(){return CACHE.cadeaux.filter(c=>c.partagee||((c.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
 const ENV_CATS=[['lire','📚','À lire'],['regarder','🎬','À regarder'],['resto','🍽️','Restos'],['sortie','🏛️','Sorties & lieux'],['autre','💡','Autre']];
 function ongletsMem(){
   return `<div class="onglets-todo" style="margin-bottom:12px">
     <button class="${ongletMem==='gens'?'actif':''}" data-om="gens">🧑 Les gens</button>
     <button class="${ongletMem==='envies'?'actif':''}" data-om="envies">✨ Les envies</button>
+    <button class="${ongletMem==='cadeaux'?'actif':''}" data-om="cadeaux">🎁 Les cadeaux</button>
   </div>`;
 }
 function brancherOngletsMem(zone){
@@ -1519,6 +1533,7 @@ function renderMemoire(){
   if(p){renderFichePersonne(zone,p);return}
   persOuverte=null;
   if(ongletMem==='envies'){renderEnvies(zone);return}
+  if(ongletMem==='cadeaux'){renderCadeaux(zone);return}
   const visibles=notesVisibles();
   const parPers={};visibles.forEach(n=>{(parPers[n.personne_id]=parPers[n.personne_id]||[]).push(n)});
   let liste=[...CACHE.personnes].sort((a,b)=>a.nom.localeCompare(b.nom));
@@ -1649,7 +1664,7 @@ function renderFichePersonne(zone,p){
   const notes=notesVisibles().filter(n=>n.personne_id===p.id).sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?1:-1);
   const nomCle=p.nom.trim().toLowerCase();
   const bd=lesBdays().find(b=>(b.nom||'').trim().toLowerCase()===nomCle&&b.type!=='evenement');
-  const kdo=CACHE.cadeaux.filter(c=>!c.offert&&(c.personne||'').trim().toLowerCase()===nomCle);
+  const kdo=cadeauxVisibles().filter(c=>!c.offert&&(c.personne||'').trim().toLowerCase()===nomCle);
   let h=`<button class="btn mini" id="mem-retour" style="margin-bottom:12px">‹ Toutes les fiches</button>
   <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
     <h2 class="ps-titre" style="margin-bottom:2px">🧑 ${echap(p.nom)}</h2>
@@ -1661,7 +1676,7 @@ function renderFichePersonne(zone,p){
   ${bd?`<div class="discret2" style="margin:4px 0 0">🎂 Anniversaire le ${bd.jour} ${MFR[bd.mois-1].toLowerCase()}${bd.annee?` · ${new Date().getFullYear()-bd.annee} ans cette année`:''}</div>`:''}
   ${kdo.length?`<div class="mem-encart">
     <div class="mem-note-tete"><span>🎁 Idées cadeaux notées pour ${echap(p.nom)}</span></div>
-    ${kdo.map(c=>`<div class="mem-note-texte">· ${echap(c.idee)}${c.ajoute_par?` <span class="todo-date">(${echap(c.ajoute_par)})</span>`:''}</div>`).join('')}
+    ${kdo.map(c=>`<div class="mem-note-texte">· ${echap(c.idee)} <span class="todo-date">${c.partagee?'👥':'🔒'}${c.ajoute_par?' '+echap(c.ajoute_par):''}</span></div>`).join('')}
   </div>`:''}
   <div class="carte-solo" style="margin-top:12px">
     <textarea id="note-texte" placeholder="Une info à ne pas oublier : son fils s'appelle Martin, elle déménage à Lyon en mars…"></textarea>
@@ -1793,7 +1808,7 @@ function renderAccueil(){
   const aFaire=tachesDuMois(y,m).filter(t=>!estFaite(t.id)).length;
   const nbCourses=CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length;
   const nbCaddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche).length;
-  const nbIdees=CACHE.cadeaux.filter(c=>!c.offert).length;
+  const nbIdees=cadeauxVisibles().filter(c=>!c.offert).length;
   zone.innerHTML=`
   <div style="grid-column:1/-1;margin-bottom:2px">
     <h2 class="ps-titre">Bonjour ${echap(UTILISATEUR||'')} 👋</h2>
@@ -1805,10 +1820,8 @@ function renderAccueil(){
     <div class="acc-info">${enRetard?'🚨 '+enRetard+' en retard · ':''}${aFaire} à faire ce mois-ci</div></button>
   <button class="acc-carte" data-sec="courses"><div class="acc-ico">🛒</div><div class="acc-titre">Liste de courses</div>
     <div class="acc-info">${nbCourses?nbCourses+' article'+(nbCourses>1?'s':'')+' à acheter':'Liste vide'}${nbCaddie?' · '+nbCaddie+' au caddie':''}</div></button>
-  <button class="acc-carte" data-sec="cadeaux"><div class="acc-ico">🎁</div><div class="acc-titre">Idées cadeaux</div>
-    <div class="acc-info">${nbIdees?nbIdees+' idée'+(nbIdees>1?'s':'')+' en réserve':"Notez vos idées au fil de l'eau"}</div></button>
-  <button class="acc-carte" data-sec="memoire" style="grid-column:1/-1"><div class="acc-ico">🧠</div><div class="acc-titre">Mémoire</div>
-    <div class="acc-info">${CACHE.personnes.length||enviesVisibles().length?[CACHE.personnes.length+' fiche'+(CACHE.personnes.length>1?'s':''),notesVisibles().length+' note'+(notesVisibles().length>1?'s':''),enviesVisibles().filter(e=>!e.faite).length+' envie'+(enviesVisibles().filter(e=>!e.faite).length>1?'s':'')].join(' · '):'Ton second cerveau : les gens à retenir, les envies à ne pas oublier'}</div></button>
+  <button class="acc-carte" data-sec="memoire"><div class="acc-ico">🧠</div><div class="acc-titre">Mémoire</div>
+    <div class="acc-info">${CACHE.personnes.length||enviesVisibles().length||nbIdees?[CACHE.personnes.length+' fiche'+(CACHE.personnes.length>1?'s':''),enviesVisibles().filter(e=>!e.faite).length+' envie'+(enviesVisibles().filter(e=>!e.faite).length>1?'s':''),nbIdees+' idée'+(nbIdees>1?'s':'')+' cadeau'+(nbIdees>1?'x':'')].join(' · '):'Ton second cerveau : gens, envies, idées cadeaux'}</div></button>
   <div style="grid-column:1/-1;text-align:center;margin-top:14px">
     <button class="btn" id="btnNotifs" style="display:none">🔔 Activer les notifications</button>
     <div class="discret2" id="notifEtat" style="margin:8px 0 0"></div>
@@ -1839,7 +1852,6 @@ function setSection(s){
   document.querySelector('.cal-area').style.display=s==='cal'?'':'none';
   document.getElementById('todoPanel').style.display=(s==='cal'&&vue!=='annee')||s==='todo'?'block':'none';
   document.getElementById('vueCourses').style.display=s==='courses'?'block':'none';
-  document.getElementById('vueCadeaux').style.display=s==='cadeaux'?'block':'none';
   document.getElementById('vueMemoire').style.display=s==='memoire'?'block':'none';
   document.getElementById('vueAccueil').style.display=s==='accueil'?'grid':'none';
   document.getElementById('navBar').style.visibility=s==='cal'?'visible':'hidden';
@@ -1870,7 +1882,6 @@ function setVue(v){
 function render(){
   if(section==='accueil'){renderAccueil();return}
   if(section==='courses'){renderCourses();return}
-  if(section==='cadeaux'){renderCadeaux();return}
   if(section==='memoire'){renderMemoire();return}
   if(section==='todo'){renderTodo();return}
   if(vue==='mois')renderMois();
