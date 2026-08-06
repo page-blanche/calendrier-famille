@@ -27,6 +27,12 @@
 .wk2-ev .wk2-hr{opacity:.8;font-weight:500;font-size:.55rem}
 /* Pages To-do / Courses / Cadeaux */
 .page-solo{flex:1;max-width:620px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px 26px}
+.mem-note{border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:10px;background:var(--surface)}
+.mem-encart{border:1px solid #f3e5c8;border-radius:12px;padding:10px 14px;margin-top:10px;background:#fdf8ef}
+.mem-note-tete{display:flex;gap:10px;align-items:center;font-size:.76rem;color:var(--ink-3);margin-bottom:5px}
+.mem-note-texte{font-size:.92rem;line-height:1.45;white-space:normal}
+.mem-partage{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.86rem;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
+.mem-partage input{width:auto}
 .ps-titre{font-size:1.25rem;letter-spacing:-.02em;margin:2px 0 4px}
 .discret2{color:var(--ink-2);font-size:.85rem;margin-bottom:12px}
 .ps-ajout{display:flex;gap:8px;margin:12px 0 18px}
@@ -98,6 +104,7 @@
 <button class="view-btn" data-sec="todo">✅<span class="vb-lbl"> To-do</span></button>
 <button class="view-btn" data-sec="courses">🛒<span class="vb-lbl"> Courses</span></button>
 <button class="view-btn" data-sec="cadeaux">🎁<span class="vb-lbl"> Cadeaux</span></button>
+<button class="view-btn" data-sec="memoire">🧠<span class="vb-lbl"> Mémoire</span></button>
 </div>
 <button class="today-btn" id="btnAccueil"><span class="exit-court">🏡</span><span class="vb-lbl">🏡 Accueil</span></button>
 </div>
@@ -122,6 +129,7 @@
 <div class="todo-panel" id="todoPanel"></div>
 <div class="page-solo" id="vueCourses" style="display:none"></div>
 <div class="page-solo" id="vueCadeaux" style="display:none"></div>
+<div class="page-solo" id="vueMemoire" style="display:none"></div>
 <div class="page-accueil" id="vueAccueil" style="display:none"></div>
 </div>
 
@@ -195,11 +203,11 @@ const LOGI=[
    Toutes les données vivent dans Supabase. On les charge en mémoire,
    chaque modification est appliquée immédiatement à l'écran puis
    envoyée à la base (avec rechargement en cas d'erreur). */
-let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],membres:[],etatsAuto:{}};
-const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux'};
+let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],personnes:[],notes:[],envies:[],membres:[],etatsAuto:{}};
+const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux',personnes:'personnes',notes:'notes_personnes',envies:'envies'};
 
 async function chargerTout(){
-  const [e,v,b,a,t,s,co,ca,us]=await Promise.all([
+  const [e,v,b,a,t,s,co,ca,pe,no,en,us]=await Promise.all([
     sb.from('evenements').select('*'),
     sb.from('vacances').select('*'),
     sb.from('anniversaires').select('*'),
@@ -208,6 +216,9 @@ async function chargerTout(){
     sb.from('etats_auto').select('*'),
     sb.from('courses').select('*'),
     sb.from('cadeaux').select('*'),
+    sb.from('personnes').select('*'),
+    sb.from('notes_personnes').select('*'),
+    sb.from('envies').select('*'),
     sb.from('app_users').select('nom'),
   ]);
   const err=[e,v,b,a,t,s].find(r=>r.error);
@@ -218,6 +229,9 @@ async function chargerTout(){
   s.data.forEach(x=>CACHE.etatsAuto[x.id]=x);
   CACHE.courses=co.error?[]:co.data;
   CACHE.cadeaux=ca.error?[]:ca.data;
+  CACHE.personnes=pe.error?[]:pe.data;
+  CACHE.notes=no.error?[]:no.data;
+  CACHE.envies=en.error?[]:en.data;
   CACHE.membres=us.error?[]:us.data.map(x=>x.nom).filter(Boolean);
   return true;
 }
@@ -282,7 +296,7 @@ function supprimerObjet(id){
     pousser(sb.from('etats_auto').upsert(e));
     return;
   }
-  for(const coll of ['evts','vac','bdays','acts','taches','courses','cadeaux']){
+  for(const coll of ['evts','vac','bdays','acts','taches','courses','cadeaux','notes','envies','personnes']){
     const i=CACHE[coll].findIndex(x=>x.id===id);
     if(i>=0){
       CACHE[coll].splice(i,1);
@@ -963,7 +977,9 @@ function ouvrirAjout(datePre){
     <button class="type-card" data-t="tache"><div class="tc-ico">✅</div><div class="tc-titre">Tâche</div><div class="tc-sous">Avec échéance (visible au calendrier) ou reportée chaque mois</div></button>
     ${section!=='cal'?`
     <button class="type-card" data-t="course"><div class="tc-ico">🛒</div><div class="tc-titre">Article de courses</div><div class="tc-sous">Hop, dans la liste partagée</div></button>
-    <button class="type-card" data-t="cadeau"><div class="tc-ico">🎁</div><div class="tc-titre">Idée cadeau</div><div class="tc-sous">Notée avant d'oublier</div></button>`:''}
+    <button class="type-card" data-t="cadeau"><div class="tc-ico">🎁</div><div class="tc-titre">Idée cadeau</div><div class="tc-sous">Notée avant d'oublier</div></button>
+    <button class="type-card" data-t="note"><div class="tc-ico">🧠</div><div class="tc-titre">Note sur quelqu'un</div><div class="tc-sous">Privée par défaut, dans ta Mémoire</div></button>
+    <button class="type-card" data-t="envie"><div class="tc-ico">✨</div><div class="tc-titre">Envie</div><div class="tc-sous">Livre, resto, film, sortie… avant d'oublier</div></button>`:''}
   </div>`;
   corps.querySelector('[data-t="evt"]').onclick=()=>formEvt(null,datePre);
   corps.querySelector('[data-t="vac"]').onclick=()=>formVac(null,datePre);
@@ -972,6 +988,8 @@ function ouvrirAjout(datePre){
   corps.querySelector('[data-t="tache"]').onclick=()=>formTache(null);
   const bc=corps.querySelector('[data-t="course"]');if(bc)bc.onclick=()=>formCourse();
   const bk=corps.querySelector('[data-t="cadeau"]');if(bk)bk.onclick=()=>formCadeau();
+  const bn=corps.querySelector('[data-t="note"]');if(bn)bn.onclick=()=>formNote();
+  const be=corps.querySelector('[data-t="envie"]');if(be)be.onclick=()=>formEnvie();
 }
 
 function boutonsForm(onSave){
@@ -1424,6 +1442,282 @@ function renderCadeaux(){
   });
 }
 
+/* ================== 🧠 MÉMOIRE ================== */
+function formEnvie(){
+  ouvrirTiroirBrut('✨ Une envie à garder');
+  const corps=document.getElementById('dbd');
+  const b=boutonsForm(()=>{
+    const titre=document.getElementById('fe-titre').value.trim();
+    if(!titre){toast('Dis-moi au moins quoi 🙂');return}
+    enregistrerObjet(null,'envies',{categorie:document.getElementById('fe-cat').value,titre,
+      detail:document.getElementById('fe-detail').value.trim()||null,faite:false,
+      partagee:document.getElementById('fe-partagee').checked,
+      email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});
+    apresEnregistrement('Envie gardée');
+  });
+  corps.innerHTML=`
+    <label>Quoi ?</label>
+    <input type="text" id="fe-titre" placeholder="Le resto Chez Georges, le dernier Ferrante…">
+    <label>Catégorie</label>
+    <select id="fe-cat">${ENV_CATS.map(c=>`<option value="${c[0]}">${c[1]} ${c[2]}</option>`).join('')}</select>
+    <label>Détail ou lien (optionnel)</label>
+    <input type="text" id="fe-detail" placeholder="Conseillé par Caro, https://…">
+    <label class="mem-partage"><input type="checkbox" id="fe-partagee"> 👥 Visible par toute la famille</label>
+    ${b.html}`;
+  b.wire();
+}
+function formNote(){
+  ouvrirTiroirBrut('🧠 Note sur quelqu\'un');
+  const corps=document.getElementById('dbd');
+  const noms=[...CACHE.personnes].sort((a,b)=>a.nom.localeCompare(b.nom)).map(x=>x.nom);
+  const b=boutonsForm(()=>{
+    const nom=document.getElementById('fn-personne').value.trim();
+    const texte=document.getElementById('fn-texte').value.trim();
+    if(!nom||!texte){toast('Personne et note obligatoires');return}
+    let pers=CACHE.personnes.find(x=>x.nom.trim().toLowerCase()===nom.toLowerCase());
+    if(!pers){pers={id:genId(),nom};enregistrerObjet(null,'personnes',{id:pers.id,nom,groupe:null})}
+    enregistrerObjet(null,'notes',{personne_id:pers.id,texte,
+      partagee:document.getElementById('fn-partagee').checked,
+      email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});
+    apresEnregistrement('Note ajoutée');
+  });
+  corps.innerHTML=`
+    <label>À propos de qui ?</label>
+    <input type="text" id="fn-personne" list="fn-liste" placeholder="Caro, la maîtresse…">
+    <datalist id="fn-liste">${noms.map(n=>`<option value="${attr(n)}">`).join('')}</datalist>
+    <label>La note</label>
+    <textarea id="fn-texte" placeholder="Son fils s'appelle Martin…"></textarea>
+    <label class="mem-partage"><input type="checkbox" id="fn-partagee"> 👥 Visible par toute la famille</label>
+    ${b.html}`;
+  b.wire();
+}
+
+let persOuverte=null,rechercheMem='',ongletMem='gens';
+function notesVisibles(){return CACHE.notes.filter(n=>n.partagee||((n.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
+function enviesVisibles(){return CACHE.envies.filter(n=>n.partagee||((n.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
+const ENV_CATS=[['lire','📚','À lire'],['regarder','🎬','À regarder'],['resto','🍽️','Restos'],['sortie','🏛️','Sorties & lieux'],['autre','💡','Autre']];
+function ongletsMem(){
+  return `<div class="onglets-todo" style="margin-bottom:12px">
+    <button class="${ongletMem==='gens'?'actif':''}" data-om="gens">🧑 Les gens</button>
+    <button class="${ongletMem==='envies'?'actif':''}" data-om="envies">✨ Les envies</button>
+  </div>`;
+}
+function brancherOngletsMem(zone){
+  zone.querySelectorAll('[data-om]').forEach(b=>{
+    b.onclick=()=>{ongletMem=b.dataset.om;persOuverte=null;renderMemoire()};
+  });
+}
+function dateNoteFr(ts){
+  if(!ts)return "à l'instant";
+  const d=new Date(ts);
+  if(isNaN(d))return '';
+  return d.getDate()+' '+MFR[d.getMonth()].toLowerCase()+' '+d.getFullYear();
+}
+function renderMemoire(){
+  const zone=document.getElementById('vueMemoire');
+  const p=persOuverte?CACHE.personnes.find(x=>x.id===persOuverte):null;
+  if(p){renderFichePersonne(zone,p);return}
+  persOuverte=null;
+  if(ongletMem==='envies'){renderEnvies(zone);return}
+  const visibles=notesVisibles();
+  const parPers={};visibles.forEach(n=>{(parPers[n.personne_id]=parPers[n.personne_id]||[]).push(n)});
+  let liste=[...CACHE.personnes].sort((a,b)=>a.nom.localeCompare(b.nom));
+  if(rechercheMem)liste=liste.filter(x=>x.nom.toLowerCase().includes(rechercheMem.toLowerCase()));
+  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
+  ${ongletsMem()}
+  <p class="discret2">Une fiche par personne, des notes datées. 🔒 Chaque note est privée — sauf si tu la partages avec la famille.</p>
+  <div class="ps-ajout"><input type="text" id="mem-nom" placeholder="Ajouter une personne : Caro, la maîtresse…">
+  <button class="btn primaire" id="mem-ajouter">Créer la fiche</button></div>`;
+  if(CACHE.personnes.length>6)
+    h+=`<input type="text" id="mem-recherche" placeholder="🔍 Chercher quelqu'un…" value="${attr(rechercheMem)}" style="margin-bottom:10px">`;
+  if(!CACHE.personnes.length)
+    h+=`<div class="todo-empty" style="text-align:center;padding:24px 0">Aucune fiche pour l'instant.<br>Commence par la personne que tu as peur d'oublier 😉</div>`;
+  if(CACHE.personnes.length&&!liste.length)
+    h+=`<div class="todo-empty" style="text-align:center;padding:16px 0">Personne ne correspond à « ${echap(rechercheMem)} »</div>`;
+  liste.forEach(x=>{
+    const notes=(parPers[x.id]||[]).sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?1:-1);
+    h+=`<div class="todo-item" data-id="${x.id}" style="cursor:pointer">
+      <div style="flex-shrink:0;font-size:1.15rem">🧑</div>
+      <div class="todo-corps"><div class="todo-text">${echap(x.nom)}${x.groupe?` <span class="todo-date">· ${echap(x.groupe)}</span>`:''}</div>
+      <div class="todo-date">${notes.length?notes.length+' note'+(notes.length>1?'s':'')+' · dernière le '+dateNoteFr(notes[0].cree_le):'Pas encore de note'}</div></div>
+      <div style="color:var(--ink-3)">›</div></div>`;
+  });
+  zone.innerHTML=h;
+  const ajouter=()=>{
+    const nom=document.getElementById('mem-nom').value.trim();
+    if(!nom)return;
+    const deja=CACHE.personnes.find(x=>x.nom.trim().toLowerCase()===nom.toLowerCase());
+    if(deja){persOuverte=deja.id;renderMemoire();return}
+    const id=genId();
+    enregistrerObjet(null,'personnes',{id,nom,groupe:null});
+    persOuverte=id;
+    toast('Fiche créée ✔');
+    renderMemoire();
+  };
+  document.getElementById('mem-ajouter').onclick=ajouter;
+  document.getElementById('mem-nom').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
+  brancherOngletsMem(zone);
+  const rech=document.getElementById('mem-recherche');
+  if(rech){
+    rech.addEventListener('input',()=>{rechercheMem=rech.value;renderMemoire();
+      const r2=document.getElementById('mem-recherche');r2.focus();r2.setSelectionRange(r2.value.length,r2.value.length);});
+  }
+  zone.querySelectorAll('.todo-item[data-id]').forEach(el=>{
+    el.onclick=()=>{persOuverte=el.dataset.id;renderMemoire()};
+  });
+}
+function renderEnvies(zone){
+  const visibles=enviesVisibles();
+  const actives=visibles.filter(e=>!e.faite);
+  const faites=visibles.filter(e=>e.faite);
+  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
+  ${ongletsMem()}
+  <p class="discret2">Le livre dont on t'a parlé, ce resto, cette expo… Dépose-le ici avant d'oublier. 🔒 Privé par défaut.</p>
+  <div class="carte-solo">
+    <div class="grille-form">
+      <div><label>Quoi ?</label><input type="text" id="env-titre" placeholder="Le resto Chez Georges, le dernier Ferrante…"></div>
+      <div><label>Catégorie</label><select id="env-cat">${ENV_CATS.map(c=>`<option value="${c[0]}">${c[1]} ${c[2]}</option>`).join('')}</select></div>
+    </div>
+    <label>Détail ou lien (optionnel)</label>
+    <input type="text" id="env-detail" placeholder="Conseillé par Caro, https://…">
+    <label class="mem-partage"><input type="checkbox" id="env-partagee"> 👥 Visible par toute la famille</label>
+    <button class="btn primaire" id="env-ajouter" style="margin-top:10px;width:100%">Garder cette envie</button>
+  </div>`;
+  if(!actives.length&&!faites.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">Rien pour l'instant.<br>La prochaine fois que tu dis « faut que je note ça »… c'est ici 😉</div>`;
+  ENV_CATS.forEach(([cat,ico,titre])=>{
+    const liste=actives.filter(e=>e.categorie===cat).sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?1:-1);
+    if(!liste.length)return;
+    h+=`<div class="todo-section"><div class="todo-section-title">${ico} ${titre} (${liste.length})</div>`;
+    liste.forEach(e=>{
+      const aMoi=(e.email_auteur||'').toLowerCase()===EMAIL_CONNECTE;
+      h+=`<div class="todo-item" data-id="${e.id}">
+        ${aMoi?`<div class="todo-check" data-act="fait" title="Ça y est, c'est fait !"></div>`:`<div style="flex-shrink:0">${ico}</div>`}
+        <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(e.titre)}</div>
+          <div class="todo-date">${e.partagee?'👥 partagée'+(aMoi?'':' par '+echap(e.ajoute_par||'?')):'🔒 privée'}${e.detail?' · '+linkifie(e.detail):''}</div></div>
+        ${aMoi?`<div class="todo-actions">
+          <button class="todo-act" data-act="basculer" title="${e.partagee?'Repasser en privée':'Partager avec la famille'}">${e.partagee?'🔒':'👥'}</button>
+          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div>`:''}
+      </div>`;
+    });
+    h+='</div>';
+  });
+  if(faites.length){
+    h+=`<div class="todo-section" style="border-top:1px dashed var(--border);padding-top:10px">
+      <div class="todo-section-title" style="color:var(--ink-3)">Déjà lu · vu · testé (${faites.length})</div>`;
+    faites.forEach(e=>{
+      const aMoi=(e.email_auteur||'').toLowerCase()===EMAIL_CONNECTE;
+      const ico=(ENV_CATS.find(c=>c[0]===e.categorie)||['','💡'])[1];
+      h+=`<div class="todo-item done" data-id="${e.id}">
+        <div style="flex-shrink:0">${ico}</div>
+        <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(e.titre)}</div></div>
+        ${aMoi?`<div class="todo-actions">
+          <button class="todo-act" data-act="restaurer" title="Remettre dans les envies">↩️</button>
+          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div>`:''}
+      </div>`;
+    });
+    h+='</div>';
+  }
+  zone.innerHTML=h;
+  brancherOngletsMem(zone);
+  const ajouter=()=>{
+    const titre=document.getElementById('env-titre').value.trim();
+    if(!titre){toast('Dis-moi au moins quoi 🙂');return}
+    enregistrerObjet(null,'envies',{categorie:document.getElementById('env-cat').value,titre,
+      detail:document.getElementById('env-detail').value.trim()||null,faite:false,
+      partagee:document.getElementById('env-partagee').checked,
+      email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});
+    toast('Envie gardée ✔');
+    renderMemoire();
+  };
+  document.getElementById('env-ajouter').onclick=ajouter;
+  document.getElementById('env-titre').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
+  zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
+    el.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const id=el.closest('.todo-item').dataset.id;
+      const e=CACHE.envies.find(x=>x.id===id);
+      if(!e)return;
+      const act=el.dataset.act;
+      if(act==='fait'){enregistrerObjet(id,'envies',{faite:true});toast('Et une envie réalisée 🎉');renderMemoire()}
+      else if(act==='restaurer'){enregistrerObjet(id,'envies',{faite:false});renderMemoire()}
+      else if(act==='basculer'){enregistrerObjet(id,'envies',{partagee:!e.partagee});renderMemoire()}
+      else if(act==='suppr'){if(confirm('Supprimer cette envie ?')){supprimerObjet(id);renderMemoire()}}
+    });
+  });
+}
+function renderFichePersonne(zone,p){
+  const notes=notesVisibles().filter(n=>n.personne_id===p.id).sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?1:-1);
+  const nomCle=p.nom.trim().toLowerCase();
+  const bd=lesBdays().find(b=>(b.nom||'').trim().toLowerCase()===nomCle&&b.type!=='evenement');
+  const kdo=CACHE.cadeaux.filter(c=>!c.offert&&(c.personne||'').trim().toLowerCase()===nomCle);
+  let h=`<button class="btn mini" id="mem-retour" style="margin-bottom:12px">‹ Toutes les fiches</button>
+  <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+    <h2 class="ps-titre" style="margin-bottom:2px">🧑 ${echap(p.nom)}</h2>
+    ${p.groupe?`<span class="todo-date">${echap(p.groupe)}</span>`:''}
+    <span style="flex:1"></span>
+    <button class="todo-act" id="mem-editer" title="Renommer / groupe">✏️</button>
+    <button class="todo-act" id="mem-suppr" title="Supprimer la fiche">🗑️</button>
+  </div>
+  ${bd?`<div class="discret2" style="margin:4px 0 0">🎂 Anniversaire le ${bd.jour} ${MFR[bd.mois-1].toLowerCase()}${bd.annee?` · ${new Date().getFullYear()-bd.annee} ans cette année`:''}</div>`:''}
+  ${kdo.length?`<div class="mem-encart">
+    <div class="mem-note-tete"><span>🎁 Idées cadeaux notées pour ${echap(p.nom)}</span></div>
+    ${kdo.map(c=>`<div class="mem-note-texte">· ${echap(c.idee)}${c.ajoute_par?` <span class="todo-date">(${echap(c.ajoute_par)})</span>`:''}</div>`).join('')}
+  </div>`:''}
+  <div class="carte-solo" style="margin-top:12px">
+    <textarea id="note-texte" placeholder="Une info à ne pas oublier : son fils s'appelle Martin, elle déménage à Lyon en mars…"></textarea>
+    <label class="mem-partage"><input type="checkbox" id="note-partagee"> 👥 Visible par toute la famille <span class="todo-date">(sinon : 🔒 privée, rien que pour toi)</span></label>
+    <button class="btn primaire" id="note-ajouter" style="margin-top:10px;width:100%">Ajouter la note</button>
+  </div>`;
+  if(!notes.length)h+=`<div class="todo-empty" style="text-align:center;padding:20px 0">Aucune note visible sur ${echap(p.nom)} pour l'instant.</div>`;
+  notes.forEach(n=>{
+    const aMoi=(n.email_auteur||'').toLowerCase()===EMAIL_CONNECTE;
+    h+=`<div class="mem-note" data-id="${n.id}">
+      <div class="mem-note-tete">
+        <span>${dateNoteFr(n.cree_le)}</span>
+        <span>${n.partagee?'👥 partagée'+(aMoi?'':' par '+echap(n.ajoute_par||'?')):'🔒 privée'}</span>
+        ${aMoi?`<span style="flex:1"></span>
+        <button class="todo-act" data-act="basculer" title="${n.partagee?'Repasser en privée':'Partager avec la famille'}">${n.partagee?'🔒':'👥'}</button>
+        <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>`:''}
+      </div>
+      <div class="mem-note-texte">${echap(n.texte).replace(/\n/g,'<br>')}</div>
+    </div>`;
+  });
+  zone.innerHTML=h;
+  document.getElementById('mem-retour').onclick=()=>{persOuverte=null;renderMemoire()};
+  document.getElementById('mem-editer').onclick=()=>{
+    const nom=prompt('Nom :',p.nom);
+    if(nom===null)return;
+    const groupe=prompt('Groupe (famille, amis, école, travail…) — vide si aucun :',p.groupe||'');
+    if(nom.trim())enregistrerObjet(p.id,'personnes',{nom:nom.trim(),groupe:(groupe||'').trim()||null});
+    renderMemoire();
+  };
+  document.getElementById('mem-suppr').onclick=()=>{
+    if(!confirm('Supprimer la fiche de '+p.nom+' et toutes ses notes (y compris celles de l\'autre) ?'))return;
+    supprimerObjet(p.id);
+    persOuverte=null;
+    renderMemoire();
+  };
+  document.getElementById('note-ajouter').onclick=()=>{
+    const texte=document.getElementById('note-texte').value.trim();
+    if(!texte){toast('Écris d\'abord ta note 🙂');return}
+    enregistrerObjet(null,'notes',{personne_id:p.id,texte,
+      partagee:document.getElementById('note-partagee').checked,
+      email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});
+    toast('Note ajoutée ✔');
+    renderMemoire();
+  };
+  zone.querySelectorAll('.mem-note [data-act]').forEach(el=>{
+    el.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const id=el.closest('.mem-note').dataset.id;
+      const n=CACHE.notes.find(x=>x.id===id);
+      if(!n)return;
+      if(el.dataset.act==='basculer'){enregistrerObjet(id,'notes',{partagee:!n.partagee});renderMemoire()}
+      else if(el.dataset.act==='suppr'){if(confirm('Supprimer cette note ?')){supprimerObjet(id);renderMemoire()}}
+    });
+  });
+}
+
 /* ================== PAGE D'ACCUEIL ================== */
 /* ================== NOTIFICATIONS PUSH ================== */
 const VAPID_PUBLIC='BJ6JYMZBND83sjrKKG8oUH5u6COjzmuwVPMKp0o0PWl7Myd1OIqNwKozFNLytuZz0V4DF9375pyH78eS8PHClC4';
@@ -1513,6 +1807,8 @@ function renderAccueil(){
     <div class="acc-info">${nbCourses?nbCourses+' article'+(nbCourses>1?'s':'')+' à acheter':'Liste vide'}${nbCaddie?' · '+nbCaddie+' au caddie':''}</div></button>
   <button class="acc-carte" data-sec="cadeaux"><div class="acc-ico">🎁</div><div class="acc-titre">Idées cadeaux</div>
     <div class="acc-info">${nbIdees?nbIdees+' idée'+(nbIdees>1?'s':'')+' en réserve':"Notez vos idées au fil de l'eau"}</div></button>
+  <button class="acc-carte" data-sec="memoire" style="grid-column:1/-1"><div class="acc-ico">🧠</div><div class="acc-titre">Mémoire</div>
+    <div class="acc-info">${CACHE.personnes.length||enviesVisibles().length?[CACHE.personnes.length+' fiche'+(CACHE.personnes.length>1?'s':''),notesVisibles().length+' note'+(notesVisibles().length>1?'s':''),enviesVisibles().filter(e=>!e.faite).length+' envie'+(enviesVisibles().filter(e=>!e.faite).length>1?'s':'')].join(' · '):'Ton second cerveau : les gens à retenir, les envies à ne pas oublier'}</div></button>
   <div style="grid-column:1/-1;text-align:center;margin-top:14px">
     <button class="btn" id="btnNotifs" style="display:none">🔔 Activer les notifications</button>
     <div class="discret2" id="notifEtat" style="margin:8px 0 0"></div>
@@ -1544,6 +1840,7 @@ function setSection(s){
   document.getElementById('todoPanel').style.display=(s==='cal'&&vue!=='annee')||s==='todo'?'block':'none';
   document.getElementById('vueCourses').style.display=s==='courses'?'block':'none';
   document.getElementById('vueCadeaux').style.display=s==='cadeaux'?'block':'none';
+  document.getElementById('vueMemoire').style.display=s==='memoire'?'block':'none';
   document.getElementById('vueAccueil').style.display=s==='accueil'?'grid':'none';
   document.getElementById('navBar').style.visibility=s==='cal'?'visible':'hidden';
   document.getElementById('navOutils').style.visibility=(s==='cal'&&vue!=='annee')?'visible':'hidden';
@@ -1574,6 +1871,7 @@ function render(){
   if(section==='accueil'){renderAccueil();return}
   if(section==='courses'){renderCourses();return}
   if(section==='cadeaux'){renderCadeaux();return}
+  if(section==='memoire'){renderMemoire();return}
   if(section==='todo'){renderTodo();return}
   if(vue==='mois')renderMois();
   else if(vue==='semaine')renderSemaine();
