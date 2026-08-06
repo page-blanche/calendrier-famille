@@ -1425,6 +1425,70 @@ function renderCadeaux(){
 }
 
 /* ================== PAGE D'ACCUEIL ================== */
+/* ================== NOTIFICATIONS PUSH ================== */
+const VAPID_PUBLIC='BJ6JYMZBND83sjrKKG8oUH5u6COjzmuwVPMKp0o0PWl7Myd1OIqNwKozFNLytuZz0V4DF9375pyH78eS8PHClC4';
+function b64VersUint8(ch){
+  const pad='='.repeat((4-ch.length%4)%4);
+  const b=(ch+pad).replace(/-/g,'+').replace(/_/g,'/');
+  const brut=atob(b);
+  return Uint8Array.from([...brut].map(c=>c.charCodeAt(0)));
+}
+function pushDispo(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window}
+async function etatPush(){
+  if(!pushDispo())return 'indispo';
+  if(Notification.permission==='denied')return 'refuse';
+  try{
+    const reg=await navigator.serviceWorker.getRegistration();
+    if(!reg)return 'indispo';
+    const sub=await reg.pushManager.getSubscription();
+    return sub?'active':'inactive';
+  }catch(_){return 'inactive'}
+}
+async function activerPush(){
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){majBoutonNotifs();return}
+    const reg=await navigator.serviceWorker.getRegistration();
+    if(!reg){toast('⚠️ Service worker absent — réessaie après avoir rechargé');return}
+    const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64VersUint8(VAPID_PUBLIC)});
+    const j=sub.toJSON();
+    const {error}=await sb.from('push_subscriptions').upsert({endpoint:sub.endpoint,email:EMAIL_CONNECTE,p256dh:j.keys.p256dh,auth:j.keys.auth});
+    if(error){toast('⚠️ Non enregistré : '+error.message);return}
+    toast('Notifications activées sur cet appareil 🎉');
+  }catch(e){toast('⚠️ Impossible d’activer : '+(e.message||e))}
+  majBoutonNotifs();
+}
+async function desactiverPush(){
+  try{
+    const reg=await navigator.serviceWorker.getRegistration();
+    const sub=reg&&await reg.pushManager.getSubscription();
+    if(sub){
+      await sb.from('push_subscriptions').delete().eq('endpoint',sub.endpoint);
+      await sub.unsubscribe();
+    }
+    toast('Notifications désactivées sur cet appareil');
+  }catch(e){toast('⚠️ '+(e.message||e))}
+  majBoutonNotifs();
+}
+async function majBoutonNotifs(){
+  const btn=document.getElementById('btnNotifs'),info=document.getElementById('notifEtat');
+  if(!btn)return;
+  const etat=await etatPush();
+  if(etat==='indispo'){
+    btn.style.display='none';
+    info.textContent='Pour les notifications : installe d’abord l’app sur l’écran d’accueil.';
+  }else if(etat==='refuse'){
+    btn.style.display='none';
+    info.textContent='Notifications bloquées — autorise-les dans les réglages du téléphone (Notifications > Famille).';
+  }else if(etat==='active'){
+    btn.style.display='';btn.textContent='🔕 Désactiver sur cet appareil';btn.onclick=desactiverPush;
+    info.textContent='Notifications activées sur cet appareil ✓';
+  }else{
+    btn.style.display='';btn.textContent='🔔 Activer les notifications';btn.onclick=activerPush;
+    info.textContent='Sois prévenu·e quand quelqu’un ajoute un événement.';
+  }
+}
+
 function renderAccueil(){
   const zone=document.getElementById('vueAccueil');
   const auj=new Date();const sAuj=iso(auj);
@@ -1450,9 +1514,14 @@ function renderAccueil(){
   <button class="acc-carte" data-sec="cadeaux"><div class="acc-ico">🎁</div><div class="acc-titre">Idées cadeaux</div>
     <div class="acc-info">${nbIdees?nbIdees+' idée'+(nbIdees>1?'s':'')+' en réserve':"Notez vos idées au fil de l'eau"}</div></button>
   <div style="grid-column:1/-1;text-align:center;margin-top:14px">
+    <button class="btn" id="btnNotifs" style="display:none">🔔 Activer les notifications</button>
+    <div class="discret2" id="notifEtat" style="margin:8px 0 0"></div>
+  </div>
+  <div style="grid-column:1/-1;text-align:center;margin-top:6px">
     <button class="btn" id="btnDeconnexion" style="border-color:transparent;color:var(--ink-3);font-size:.8rem">Se déconnecter</button>
   </div>`;
   zone.querySelectorAll('.acc-carte').forEach(c=>{c.onclick=()=>setSection(c.dataset.sec)});
+  majBoutonNotifs();
   document.getElementById('btnDeconnexion').onclick=async()=>{
     await sb.auth.signOut();
     window.location.replace('index.html');
@@ -1461,7 +1530,7 @@ function renderAccueil(){
 
 /* ================== NAVIGATION & VUES ================== */
 let section='cal';
-let UTILISATEUR=null;
+let UTILISATEUR=null;let EMAIL_CONNECTE='';
 function fabAction(){
   if(section==='todo'){formTache(null);return}
   ouvrirAjout(null);
@@ -1559,6 +1628,7 @@ document.addEventListener('visibilitychange',async()=>{
   const s=await getSessionEtRole();
   if(!s.session||!s.role){window.location.replace('index.html');return}
   UTILISATEUR=s.nom||s.session.user.email;
+  EMAIL_CONNECTE=(s.session.user.email||'').toLowerCase();
   if(await chargerTout()){setVue(vue);setSection('accueil')}
 })();
 
