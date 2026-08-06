@@ -40,6 +40,7 @@
 .mg-prop input[type=checkbox]{width:auto;margin-top:4px}
 .mg-type{font-size:.64rem;font-weight:800;color:var(--ink-3);letter-spacing:.05em}
 .mg-titre{font-weight:600;font-size:.9rem;margin-top:1px}
+.mg-reponse{background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-radius:16px;padding:14px 16px;font-size:.93rem;line-height:1.5}
 .ps-titre{font-size:1.25rem;letter-spacing:-.02em;margin:2px 0 4px}
 .discret2{color:var(--ink-2);font-size:.85rem;margin-bottom:12px}
 .ps-ajout{display:flex;gap:8px;margin:12px 0 18px}
@@ -1467,6 +1468,22 @@ function renderCadeaux(zone){
 
 /* ================== 🪄 SAISIE MAGIQUE ================== */
 let MAGIE_PROPS=[];let MAGIE_TEXTE='';
+function donneesPourIA(){
+  const auj=iso(new Date());
+  return {
+    evenements:CACHE.evts.filter(e=>(e.fin||e.debut)>=auj).map(e=>({titre:e.titre,debut:e.debut,fin:e.fin||undefined,heure:e.heure||undefined,qui:e.qui||undefined})),
+    vacances_scolaires:CACHE.vac.map(v=>({nom:v.nom,debut:v.debut,fin:v.fin})),
+    anniversaires:CACHE.bdays.map(b=>({nom:b.nom,jour:b.jour,mois:b.mois,annee:b.annee||undefined})),
+    activites_hebdo:CACHE.acts.map(a=>({titre:a.titre,jours_semaine:a.jours,debut:a.hd,fin:a.hf||undefined,qui:a.qui||undefined})),
+    taches_a_faire:toutesTaches().filter(t=>!estFaite(t.id)).map(t=>({texte:t.texte,echeance:t.ech||undefined,qui:t.qui||undefined})),
+    liste_courses:CACHE.courses.filter(c=>!c.achete_le&&!c.coche).map(c=>c.texte),
+    fiches_memoire:CACHE.personnes.map(p=>({nom:p.nom,groupe:p.groupe||undefined,
+      notes:notesVisibles().filter(n=>n.personne_id===p.id).map(n=>({date:(n.cree_le||'').slice(0,10),texte:n.texte})),
+      idees_cadeaux:cadeauxVisibles().filter(c=>!c.offert&&(c.personne||'').trim().toLowerCase()===p.nom.trim().toLowerCase()).map(c=>c.idee)})),
+    idees_cadeaux_autres:cadeauxVisibles().filter(c=>!c.offert&&!CACHE.personnes.some(p=>p.nom.trim().toLowerCase()===(c.personne||'').trim().toLowerCase())).map(c=>({pour:c.personne,idee:c.idee})),
+    envies:enviesVisibles().filter(e=>!e.faite).map(e=>({categorie:e.categorie,titre:e.titre})),
+  };
+}
 function formMagie(pre){
   ouvrirTiroirBrut('🪄 Dis-moi tout');
   const corps=document.getElementById('dbd');
@@ -1483,20 +1500,27 @@ function formMagie(pre){
     let data=null,error=null;
     try{
       const r=await sb.functions.invoke('saisie-magique',{body:{texte,
-        contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)}}});
+        contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)},
+        donnees:donneesPourIA()}});
       data=r.data;error=r.error;
     }catch(e){error=e}
     btn.disabled=false;btn.textContent='✨ Analyser';
-    if(error||!data||data.erreur||!Array.isArray(data.actions)){
+    if(error||!data||data.erreur||(data.mode!=='reponse'&&!Array.isArray(data.actions))){
       toast('⚠️ La magie a raté : '+((data&&data.erreur)||(error&&error.message)||'réessaie dans un instant'));
       return;
     }
+    if(data.mode==='reponse'&&data.texte){magiReponse(data.texte);return}
     if(!data.actions.length){toast('Je n\'ai rien trouvé à ranger dans cette phrase 🤔');return}
     MAGIE_TEXTE=texte;
     magiAfficher(data);
   };
   btn.onclick=analyser;
   if(pre&&pre.trim())analyser();
+}
+function magiReponse(texte){
+  const zone=document.getElementById('mg-resultat');
+  zone.innerHTML=`<div class="mg-reponse">💬 ${echap(texte).replace(/\n/g,'<br>')}</div>
+    <p class="discret2" style="margin-top:8px">Tu peux modifier ta question ci-dessus et relancer ✨ — ou dicter autre chose.</p>`;
 }
 function magiResume(a){
   const dfr=s=>{if(!s)return '';const d=deIso(s);return DFR[jSem(d)-1].toLowerCase()+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()};
@@ -1564,7 +1588,8 @@ function magiAfficher(data){
     let d2=null,err=null;
     try{
       const r=await sb.functions.invoke('saisie-magique',{body:{texte:MAGIE_TEXTE,correction:corr,precedent:MAGIE_PROPS,
-        contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)}}});
+        contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)},
+        donnees:donneesPourIA()}});
       d2=r.data;err=r.error;
     }catch(e){err=e}
     if(err||!d2||d2.erreur||!Array.isArray(d2.actions)){
@@ -2011,7 +2036,7 @@ function renderAccueil(){
       <input type="text" id="magie-accueil" placeholder="« foot Maxime mercredi 17h »…" style="flex:1">
       <button class="btn primaire" id="magie-btn">🪄</button>
     </div>
-    <div class="magie-aide">Écris ou dicte 🎤 : événement, tâche, courses, idée cadeau, note, envie… ou plusieurs à la fois.</div>
+    <div class="magie-aide">Écris ou dicte 🎤 : quelque chose à ranger… ou une question — « qu'est-ce qu'on fait samedi ? », « rappelle-moi qui est Aude »</div>
   </div>
   <button class="acc-carte" data-sec="cal"><div class="acc-ico">📅</div><div class="acc-titre">Calendrier</div>
     <div class="acc-info">${prochain?'Prochain : '+echap(prochain.titre.substring(0,32))+' · '+deIso(prochain.debut).getDate()+' '+MFR[deIso(prochain.debut).getMonth()].toLowerCase():"Toute l'année de la famille"}</div></button>
