@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Calendrier Famille</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#fafaf9">
@@ -35,6 +35,12 @@
 .main-layout.mode-todo .todo-panel{width:100%;max-width:620px;margin:0 auto;position:static;max-height:none}
 @media(max-width:820px){#mainNav .view-btn{padding:5px 8px;font-size:.76rem}}
 .pill-cont{height:5px;border-radius:3px;margin:3px 0;opacity:.45}
+.day-cell.sel{border-color:var(--ink);box-shadow:var(--shadow)}
+@media(max-width:700px){
+  .main-layout.mode-cal .todo-panel{display:none!important}
+  #viewBar [data-vue="semaine"]{display:none}
+}
+@media(max-width:1000px){.year-sidebar{max-height:none;overflow:visible}}
 @media(max-width:1230px){.h-centre{order:3;flex:0 0 100%;justify-content:center}}
 .points-jour{display:flex;gap:3px;flex-wrap:wrap;margin-top:3px;justify-content:center}
 .pt-j{width:7px;height:7px;border-radius:50%;display:inline-block}
@@ -44,12 +50,13 @@
 .exit-court{display:none}
 @media(max-width:700px){
   .grille-form{grid-template-columns:1fr;gap:0}
-  #btnQuitter .exit-court{display:inline}
-  #mainNav .vb-lbl,#btnQuitter .vb-lbl{display:none}
+  #mainNav .vb-lbl,#btnAccueil .vb-lbl{display:none}
+  #btnAccueil .exit-court{display:inline}
   #mainNav .view-btn.active .vb-lbl{display:inline}
   #mainNav .view-btn{padding:6px 11px;font-size:.9rem}
   #navBar{flex-wrap:wrap;row-gap:6px;justify-content:center}
-  .cal-area{max-width:calc(100vw - 32px)}
+  .cal-area{max-width:calc(100vw - 32px);width:100%}
+  .main-layout{align-items:stretch}
   .day-cell{min-height:48px;padding:3px 2px;border-radius:8px}
   .day-num{margin:0 auto 1px}
   .cell-add{display:none}
@@ -92,7 +99,7 @@
 <button class="view-btn" data-sec="courses">🛒<span class="vb-lbl"> Courses</span></button>
 <button class="view-btn" data-sec="cadeaux">🎁<span class="vb-lbl"> Cadeaux</span></button>
 </div>
-<button class="today-btn" id="btnQuitter"><span class="exit-court">Exit</span><span class="vb-lbl">Quitter</span></button>
+<button class="today-btn" id="btnAccueil"><span class="exit-court">🏡</span><span class="vb-lbl">🏡 Accueil</span></button>
 </div>
 </div>
 
@@ -107,6 +114,7 @@
 <div class="month-view" id="monthView">
 <div class="weekday-header"><div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div></div>
 <div class="month-grid" id="monthGrid"></div>
+<div id="jourDetail"></div>
 </div>
 <div class="week-view" id="weekView"></div>
 <div class="agenda-view" id="agendaView"></div>
@@ -117,7 +125,7 @@
 <div class="page-accueil" id="vueAccueil" style="display:none"></div>
 </div>
 
-<button class="fab" onclick="ouvrirAjout()">＋ Ajouter</button>
+<button class="fab" onclick="fabAction()">＋ Ajouter</button>
 <div class="toast" id="toast"></div>
 
 <div class="overlay" id="ov" onclick="fermerTiroir()"></div>
@@ -139,6 +147,11 @@ const COULEURS={darya:'var(--darya)',kyan:'var(--kyan)',cyrus:'var(--cyrus)',bot
 function coul(c){return COULEURS[c]||'#94908a'}
 const PERS_COUL={'Mandana':'#15aabf','Didier':'#2f9e44','Darya':'var(--darya)','Kyan':'var(--kyan)','Cyrus':'var(--cyrus)'};
 function coulEvt(e){return PERS_COUL[(e.qui||'').trim()]||coul(e.cat)}
+function membresOptions(v){
+  const liste=['',...(CACHE.membres||[])];
+  if(v&&!liste.includes(v))liste.splice(1,0,v);
+  return liste.map(x=>`<option value="${x.replace(/"/g,'&quot;')}" ${x===(v||'')?'selected':''}>${x||'—'}</option>`).join('');
+}
 function quiOptions(v){
   const liste=['','Toute la famille','Mandana','Didier','Darya','Kyan','Cyrus'];
   if(v&&!liste.includes(v))liste.splice(1,0,v);
@@ -182,11 +195,11 @@ const LOGI=[
    Toutes les données vivent dans Supabase. On les charge en mémoire,
    chaque modification est appliquée immédiatement à l'écran puis
    envoyée à la base (avec rechargement en cas d'erreur). */
-let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],etatsAuto:{}};
+let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],membres:[],etatsAuto:{}};
 const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux'};
 
 async function chargerTout(){
-  const [e,v,b,a,t,s,co,ca]=await Promise.all([
+  const [e,v,b,a,t,s,co,ca,us]=await Promise.all([
     sb.from('evenements').select('*'),
     sb.from('vacances').select('*'),
     sb.from('anniversaires').select('*'),
@@ -195,6 +208,7 @@ async function chargerTout(){
     sb.from('etats_auto').select('*'),
     sb.from('courses').select('*'),
     sb.from('cadeaux').select('*'),
+    sb.from('app_users').select('nom'),
   ]);
   const err=[e,v,b,a,t,s].find(r=>r.error);
   if(err){toast('⚠️ Erreur de chargement : '+err.error.message);return false}
@@ -204,6 +218,7 @@ async function chargerTout(){
   s.data.forEach(x=>CACHE.etatsAuto[x.id]=x);
   CACHE.courses=co.error?[]:co.data;
   CACHE.cadeaux=ca.error?[]:ca.data;
+  CACHE.membres=us.error?[]:us.data.map(x=>x.nom).filter(Boolean);
   return true;
 }
 const lesEvts=()=>CACHE.evts;
@@ -400,8 +415,15 @@ function pastilles(d){
 }
 
 /* ================== VUE MOIS ================== */
+let jourSel=null;
 function renderMois(){
   const y=cur.getFullYear(),m=cur.getMonth();
+  const estMobile=window.innerWidth<700;
+  if(estMobile){
+    const auj=new Date();
+    if(!jourSel||jourSel.slice(0,7)!==(y+'-'+String(m+1).padStart(2,'0')))
+      jourSel=(auj.getFullYear()===y&&auj.getMonth()===m)?iso(auj):null;
+  }
   document.getElementById('navTitle').textContent=MFR[m]+' '+y;
   const g=document.getElementById('monthGrid');g.innerHTML='';
   const decal=(new Date(y,m,1).getDay()+6)%7;
@@ -418,9 +440,10 @@ function renderMois(){
     if(iso(d)===auj)cls.push('today');
     if(estRentree)cls.push('rentree');else if(enVoyage)cls.push('voyage');
     else if(v&&visible('vacances'))cls.push('vacation');else if(we)cls.push('weekend');
+    if(estMobile&&iso(d)===jourSel)cls.push('sel');
     const c=document.createElement('div');c.className=cls.join(' ');
     const dd=new Date(d);
-    c.onclick=()=>ouvrirJour(dd);
+    c.onclick=()=>{if(estMobile){jourSel=iso(dd);if(dd.getMonth()!==m)cur=new Date(dd.getFullYear(),dd.getMonth(),1);renderMois()}else ouvrirJour(dd)};
     const mobile=window.innerWidth<700;
     let h=`<div class="day-num${f?' ferie':''}">${d.getDate()}</div>`;
     h+=`<button class="cell-add" title="Ajouter ce jour-là">＋</button>`;
@@ -449,6 +472,41 @@ function renderMois(){
     c.querySelector('.cell-add').onclick=(ev)=>{ev.stopPropagation();ouvrirAjout(iso(dd))};
     g.appendChild(c);
   }
+  renderJourDetail();
+}
+
+function renderJourDetail(){
+  const zone=document.getElementById('jourDetail');
+  if(!zone)return;
+  if(window.innerWidth>=700||!jourSel||vue!=='mois'||section!=='cal'){zone.innerHTML='';return}
+  const d=deIso(jourSel);
+  const v=enVacances(d),fe=ferie(d);
+  const bds=bdaysDuJour(d);
+  const evs=evtsDuJour(d);
+  const dues=toutesTaches().filter(t=>t.ech===jourSel&&!estFaite(t.id));
+  const acs=actsDuJour(d);
+  const items=[
+    ...bds.map(b=>({h:'',titre:b.titre,c:coul('bday'),qui:''})),
+    ...evs.map(e=>({h:e.heure||'',titre:e.titre,c:coulEvt(e),qui:e.qui||''})),
+    ...dues.map(t=>({h:'',titre:'☐ '+t.texte,c:coul('alert'),qui:t.qui||''})),
+    ...acs.map(a=>({h:a.hd+(a.hf?'–'+a.hf:''),titre:a.titre,c:coul(a.cat),qui:a.qui||'',annulee:a.annuleeCeJour})),
+  ].sort((a,b)=>minutes(a.h)-minutes(b.h));
+  let hh=`<div class="jour-agenda" style="margin-top:10px${v?';background:var(--vac-bg)':''}">
+    <div class="tete"><span class="jnom">${DFR[jSem(d)-1]} ${d.getDate()} ${MFR[d.getMonth()]}</span>
+    <span class="jinfo">${fe?'🇫🇷 '+echap(fe)+' ':''}${v?'☀️ '+echap(v.nom):''}</span></div>`;
+  if(!items.length)hh+='<div class="todo-empty" style="padding:6px 0">Rien de prévu ce jour-là 🌿</div>';
+  items.forEach(it=>{
+    hh+=`<div class="ligne-ev" style="${it.annulee?'opacity:.5':''}"><div class="barre" style="background:${it.c}"></div>
+      <div class="heure">${echap(it.h)}</div>
+      <div class="corps"><span style="${it.annulee?'text-decoration:line-through':''}">${echap(it.titre)}</span>${it.annulee?' <span class="qui" style="color:var(--alert);font-weight:700">Annulée</span>':''}${it.qui?` <span class="qui">· ${echap(it.qui)}</span>`:''}</div></div>`;
+  });
+  hh+=`<div style="display:flex;gap:8px;margin-top:10px">
+    <button class="btn mini" id="jd-detail" style="flex:1">Tout le détail</button>
+    <button class="btn primaire mini" id="jd-add" style="flex:1">＋ Ajouter ce jour</button>
+  </div></div>`;
+  zone.innerHTML=hh;
+  document.getElementById('jd-detail').onclick=()=>ouvrirJour(deIso(jourSel));
+  document.getElementById('jd-add').onclick=()=>ouvrirAjout(jourSel);
 }
 
 // Sélecteur de mois (popover sous le titre)
@@ -582,7 +640,7 @@ function renderAnnee(){
   co.querySelectorAll('.mini-month').forEach(mm=>{
     mm.onclick=()=>{const[yy,mo]=mm.dataset.ym.split('-').map(Number);cur=new Date(yy,mo,1);setVue('mois')};
   });
-  document.getElementById('navTitle').textContent='Mars 2026 — Décembre 2027';
+  document.getElementById('navTitle').textContent='';
   renderYearSidebar();
 }
 
@@ -613,13 +671,14 @@ function miniMois(y,m,auj){
 function renderYearSidebar(){
   const el=document.getElementById('yearSidebar');
   const debut='2026-03-01',fin='2027-12-31';
+  const auj=iso(new Date());
   const fmt=(s)=>{const d=deIso(s);return d.getDate()+' '+MFR[d.getMonth()].substring(0,4)};
   const cats={'🎂 Anniversaires':[],'💒 Événements':[],'💼 Absences':[],'✈️ Voyages':[]};
   // Anniversaires : première occurrence dans la période
   lesBdays().forEach(b=>{
     for(const y of [2026,2027]){
       const s=y+'-'+String(b.mois).padStart(2,'0')+'-'+String(b.jour).padStart(2,'0');
-      if(s>=debut&&s<=fin){
+      if(s>=debut&&s<=fin&&s>=auj){
         const age=b.annee?y-b.annee:null;
         cats['🎂 Anniversaires'].push({tri:s,dateStr:fmt(s),titre:(b.type==='evenement'?(b.icone||'💍')+' ':'🎂 ')+b.nom+(age?' ('+age+' ans)':'')});
         break;
@@ -628,12 +687,13 @@ function renderYearSidebar(){
   });
   lesEvts().forEach(e=>{
     if(e.cat==='alert')return;
+    if((e.fin||e.debut)<auj)return;
     const cible=e.cat==='pro'?'💼 Absences':e.cat==='voyage'?'✈️ Voyages':'💒 Événements';
     const lien=e.detail?(e.detail.match(/href="([^"]+)"/)||[])[1]:null;
     const dateStr=e.fin&&e.fin!==e.debut?fmt(e.debut)+' → '+deIso(e.fin).getDate():fmt(e.debut);
     cats[cible].push({tri:e.debut,dateStr,titre:e.titre,lien});
   });
-  let h='<h3>📅 Tous les événements</h3>';
+  let h='<h3>📅 À venir</h3>';
   for(const [cat,items] of Object.entries(cats)){
     if(!items.length)continue;
     items.sort((a,b)=>a.tri<b.tri?-1:1);
@@ -901,12 +961,17 @@ function ouvrirAjout(datePre){
   <div class="todo-section-title" style="margin:14px 0 6px">✅ Une chose à faire — ça se coche</div>
   <div class="type-grid">
     <button class="type-card" data-t="tache"><div class="tc-ico">✅</div><div class="tc-titre">Tâche</div><div class="tc-sous">Avec échéance (visible au calendrier) ou reportée chaque mois</div></button>
+    ${section!=='cal'?`
+    <button class="type-card" data-t="course"><div class="tc-ico">🛒</div><div class="tc-titre">Article de courses</div><div class="tc-sous">Hop, dans la liste partagée</div></button>
+    <button class="type-card" data-t="cadeau"><div class="tc-ico">🎁</div><div class="tc-titre">Idée cadeau</div><div class="tc-sous">Notée avant d'oublier</div></button>`:''}
   </div>`;
   corps.querySelector('[data-t="evt"]').onclick=()=>formEvt(null,datePre);
   corps.querySelector('[data-t="vac"]').onclick=()=>formVac(null,datePre);
   corps.querySelector('[data-t="bday"]').onclick=()=>formBday(null,datePre);
   corps.querySelector('[data-t="act"]').onclick=()=>formAct(null);
   corps.querySelector('[data-t="tache"]').onclick=()=>formTache(null);
+  const bc=corps.querySelector('[data-t="course"]');if(bc)bc.onclick=()=>formCourse();
+  const bk=corps.querySelector('[data-t="cadeau"]');if(bk)bk.onclick=()=>formCadeau();
 }
 
 function boutonsForm(onSave){
@@ -1117,6 +1182,60 @@ function formPause(idAct,jourRetour){
   }});
 }
 
+/* ---------- Ajout rapide : article de courses ---------- */
+function formCourse(){
+  ouvrirTiroirBrut('🛒 Ajouter aux courses');
+  const corps=document.getElementById('dbd');
+  corps.innerHTML=`
+    <label>L'article</label>
+    <input type="text" id="fc-texte" placeholder="Lait, piles, cadeau Léa…">
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn primaire" id="fc-add" style="flex:1">Ajouter</button>
+      <button class="btn" id="fc-fin">Terminé</button>
+    </div>
+    <p class="discret2" id="fc-note" style="margin-top:12px"></p>`;
+  const ajouter=()=>{
+    const t=document.getElementById('fc-texte').value.trim();
+    if(!t)return;
+    enregistrerObjet(null,'courses',{texte:t,coche:false,achete_le:null});
+    document.getElementById('fc-note').textContent='✔ « '+t+' » ajouté — tu peux enchaîner.';
+    document.getElementById('fc-texte').value='';
+    document.getElementById('fc-texte').focus();
+  };
+  document.getElementById('fc-add').onclick=ajouter;
+  document.getElementById('fc-texte').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
+  document.getElementById('fc-fin').onclick=()=>{fermerTiroir();render()};
+  setTimeout(()=>document.getElementById('fc-texte').focus(),150);
+}
+
+/* ---------- Ajout rapide : idée cadeau ---------- */
+function formCadeau(){
+  ouvrirTiroirBrut('🎁 Nouvelle idée cadeau');
+  const corps=document.getElementById('dbd');
+  const noms=[...new Set(lesBdays().filter(b=>b.type!=='evenement').map(b=>b.nom))];
+  corps.innerHTML=`
+    <label>Pour qui ?</label>
+    <input type="text" id="fk-personne" list="fk-noms" placeholder="Tina, la maîtresse…">
+    <datalist id="fk-noms">${noms.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('')}</datalist>
+    <label>L'idée</label>
+    <input type="text" id="fk-idee" placeholder="Coffret céramique">
+    <label>Détail ou lien (optionnel)</label>
+    <input type="text" id="fk-detail">
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn primaire" id="fk-add" style="flex:1">Ajouter l'idée</button>
+      <button class="btn" id="fk-fin">Fermer</button>
+    </div>`;
+  document.getElementById('fk-add').onclick=()=>{
+    const personne=document.getElementById('fk-personne').value.trim();
+    const idee=document.getElementById('fk-idee').value.trim();
+    if(!personne||!idee){toast('Personne et idée obligatoires');return}
+    enregistrerObjet(null,'cadeaux',{personne,idee,detail:document.getElementById('fk-detail').value.trim()||null,offert:false});
+    toast('Idée notée ✔');
+    fermerTiroir();render();
+  };
+  document.getElementById('fk-fin').onclick=fermerTiroir;
+}
+
 /* ---------- Formulaire tâche ---------- */
 function formTache(id,lienPre){
   const t=id?trouverParId(id):null;
@@ -1154,7 +1273,7 @@ function formTache(id,lienPre){
     <input type="text" id="f-texte" value="${attr(t?.texte)}" placeholder="🎁 Acheter le cadeau de…">
     <div class="grille-form">
       <div><label>Échéance (optionnel)</label><input type="date" id="f-ech" value="${t?.ech||''}"></div>
-      <div><label>Qui s'en occupe ?</label><input type="text" id="f-qui" value="${attr(t?.qui)}" placeholder="Mandana / Didier"></div>
+      <div><label>Qui s'en occupe ?</label><select id="f-qui">${membresOptions(t?.qui)}</select></div>
     </div>
     <label>Échéance en toutes lettres (optionnel)</label>
     <input type="text" id="f-datetexte" value="${attr(t?.dateTexte)}" placeholder="Avant le 15">
@@ -1329,17 +1448,29 @@ function renderAccueil(){
   <button class="acc-carte" data-sec="courses"><div class="acc-ico">🛒</div><div class="acc-titre">Liste de courses</div>
     <div class="acc-info">${nbCourses?nbCourses+' article'+(nbCourses>1?'s':'')+' à acheter':'Liste vide'}${nbCaddie?' · '+nbCaddie+' au caddie':''}</div></button>
   <button class="acc-carte" data-sec="cadeaux"><div class="acc-ico">🎁</div><div class="acc-titre">Idées cadeaux</div>
-    <div class="acc-info">${nbIdees?nbIdees+' idée'+(nbIdees>1?'s':'')+' en réserve':"Notez vos idées au fil de l'eau"}</div></button>`;
+    <div class="acc-info">${nbIdees?nbIdees+' idée'+(nbIdees>1?'s':'')+' en réserve':"Notez vos idées au fil de l'eau"}</div></button>
+  <div style="grid-column:1/-1;text-align:center;margin-top:14px">
+    <button class="btn" id="btnDeconnexion" style="border-color:transparent;color:var(--ink-3);font-size:.8rem">Se déconnecter</button>
+  </div>`;
   zone.querySelectorAll('.acc-carte').forEach(c=>{c.onclick=()=>setSection(c.dataset.sec)});
+  document.getElementById('btnDeconnexion').onclick=async()=>{
+    await sb.auth.signOut();
+    window.location.replace('index.html');
+  };
 }
 
 /* ================== NAVIGATION & VUES ================== */
 let section='cal';
 let UTILISATEUR=null;
+function fabAction(){
+  if(section==='todo'){formTache(null);return}
+  ouvrirAjout(null);
+}
 function setSection(s){
   section=s;
   document.querySelectorAll('#mainNav .view-btn').forEach(b=>b.classList.toggle('active',b.dataset.sec===s));
   document.querySelector('.main-layout').classList.toggle('mode-todo',s==='todo');
+  document.querySelector('.main-layout').classList.toggle('mode-cal',s==='cal');
   document.querySelector('.cal-area').style.display=s==='cal'?'':'none';
   document.getElementById('todoPanel').style.display=(s==='cal'&&vue!=='annee')||s==='todo'?'block':'none';
   document.getElementById('vueCourses').style.display=s==='courses'?'block':'none';
@@ -1347,7 +1478,8 @@ function setSection(s){
   document.getElementById('vueAccueil').style.display=s==='accueil'?'grid':'none';
   document.getElementById('navBar').style.visibility=s==='cal'?'visible':'hidden';
   document.getElementById('navOutils').style.visibility=(s==='cal'&&vue!=='annee')?'visible':'hidden';
-  document.querySelector('.fab').style.display=(s==='cal'||s==='todo')?'':'none';
+  document.querySelector('.fab').style.display=(s==='cal'||s==='todo'||s==='accueil')?'':'none';
+  document.getElementById('btnAccueil').style.visibility=s==='accueil'?'hidden':'visible';
   render();
 }
 function navMois(dir){
@@ -1410,13 +1542,10 @@ document.addEventListener('click',(e)=>{
 document.querySelectorAll('#viewBar .view-btn').forEach(b=>{b.onclick=()=>setVue(b.dataset.vue)});
 document.querySelectorAll('#mainNav .view-btn').forEach(b=>{b.onclick=()=>setSection(b.dataset.sec)});
 document.getElementById('titreAccueil').onclick=()=>setSection('accueil');
+document.getElementById('btnAccueil').onclick=()=>setSection('accueil');
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){fermerTiroir();fermerPopovers()}});
 let _rT=null;
 window.addEventListener('resize',()=>{clearTimeout(_rT);_rT=setTimeout(render,200)});
-document.getElementById('btnQuitter').onclick=async()=>{
-  await sb.auth.signOut();
-  window.location.replace('index.html');
-};
 // Recharge les données quand on revient sur l'onglet (si >60 s)
 let derniereSync=Date.now();
 document.addEventListener('visibilitychange',async()=>{
