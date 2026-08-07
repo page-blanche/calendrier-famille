@@ -1649,8 +1649,9 @@ function donneesPourIA(){
     vacances_scolaires:CACHE.vac.map(v=>({nom:v.nom,debut:v.debut,fin:v.fin})),
     anniversaires:CACHE.bdays.map(b=>({nom:b.nom,jour:b.jour,mois:b.mois,annee:b.annee||undefined})),
     activites_hebdo:CACHE.acts.map(a=>({titre:a.titre,jours_semaine:a.jours,debut:a.hd,fin:a.hf||undefined,qui:a.qui||undefined})),
-    taches_a_faire:toutesTaches().filter(t=>!estFaite(t.id)).map(t=>({texte:t.texte,echeance:t.ech||undefined,qui:t.qui||undefined})),
-    liste_courses:CACHE.courses.filter(c=>!c.achete_le&&!c.coche).map(c=>c.texte),
+    taches_a_faire:toutesTaches().filter(t=>!estFaite(t.id)).map(t=>({id:t.id,texte:t.texte,echeance:t.ech||undefined,qui:t.qui||undefined})),
+    taches_faites_recemment:toutesTaches().filter(t=>estFaite(t.id)&&t.ech&&t.ech>=iso(new Date(Date.now()-7*864e5))).map(t=>({id:t.id,texte:t.texte})),
+    liste_courses:CACHE.courses.filter(c=>!c.achete_le&&!c.coche).map(c=>({id:c.id,texte:c.texte})),
     fiches_memoire:CACHE.personnes.map(p=>({nom:p.nom,groupe:p.groupe||undefined,
       notes:notesVisibles().filter(n=>n.personne_id===p.id).map(n=>({date:(n.cree_le||'').slice(0,10),texte:n.texte})),
       idees_cadeaux:cadeauxVisibles().filter(c=>!c.offert&&(c.personne||'').trim().toLowerCase()===p.nom.trim().toLowerCase()).map(c=>c.idee)})),
@@ -1804,8 +1805,8 @@ function mgCartes(actions){
         ${r.det?`<div class="todo-date">${r.det}</div>`:''}
         <div class="mg-prop-btns">
           <button class="btn primaire mini" data-mgok="${i}">✓ OK</button>
-          <button class="btn mini" data-mgedit="${i}">✏️ Modifier</button>
-          <button class="btn mini" data-mgsuppr="${i}">🗑️</button>
+          ${['cocher','reporter','supprimer'].includes(a.type)?'':`<button class="btn mini" data-mgedit="${i}">✏️ Modifier</button>`}
+          <button class="btn mini" data-mgsuppr="${i}">${['cocher','reporter','supprimer'].includes(a.type)?'✕ Non':'🗑️'}</button>
         </div>
       </div>
     </div>`;
@@ -1830,7 +1831,10 @@ function mgCartes(actions){
   d.querySelectorAll('[data-mgok]').forEach(b=>{b.onclick=()=>{
     const i=Number(b.dataset.mgok);
     const n=magiEnregistrer([actions[i]]);
-    if(n){enregistres++;fige(i,'✓ enregistré')}else fige(i,'⚠️ incomplet, non enregistré');
+    const t=actions[i].type;
+    const mot=t==='cocher'?(actions[i].faite===false?'✓ remise à faire':'✓ cochée')
+      :t==='reporter'?'✓ reportée':t==='supprimer'?'✓ supprimée':'✓ enregistré';
+    if(n){enregistres++;fige(i,mot)}else fige(i,'⚠️ incomplet, non enregistré');
   }});
   d.querySelectorAll('[data-mgsuppr]').forEach(b=>{b.onclick=()=>fige(Number(b.dataset.mgsuppr),'retiré')});
   d.querySelectorAll('[data-mgedit]').forEach(b=>{b.onclick=()=>{
@@ -1838,6 +1842,10 @@ function mgCartes(actions){
     fige(i,'✏️ ouvert en formulaire');
     magiCorriger(actions[i]);
   }});
+}
+function nomDe(id){
+  const o=trouverParId(String(id||''));
+  return o?(o.texte||o.titre||o.idee||'') : '(introuvable)';
 }
 function magiResume(a){
   const dfr=s=>{if(!s)return '';const d=deIso(s);return DFR[jSem(d)-1].toLowerCase()+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()};
@@ -1849,6 +1857,11 @@ function magiResume(a){
     case 'cadeau':return {ico:'🎁',type:'Idée cadeau',titre:a.idee,det:'pour '+(a.personne||'?')+' · '+badge(a.partagee)};
     case 'note':return {ico:'🧠',type:'Note',titre:a.texte,det:'sur '+(a.personne||'?')+' · '+badge(a.partagee)};
     case 'envie':return {ico:'✨',type:'Envie',titre:a.titre,det:(ENV_CATS.find(c=>c[0]===a.categorie)||[,'','Autre'])[2]+' · '+badge(a.partagee)};
+    case 'cocher':return {ico:a.faite===false?'↩️':'☑️',type:a.faite===false?'À refaire':'Fait',titre:a.texte||nomDe(a.id),
+      det:a.faite===false?'on la remet à faire':'on la coche comme faite'};
+    case 'reporter':return {ico:'📆',type:'Reporté',titre:a.texte||nomDe(a.id),
+      det:a.ech?'nouvelle échéance : '+dfr(a.ech):'sans date'};
+    case 'supprimer':return {ico:'🗑️',type:'Suppression',titre:a.texte||nomDe(a.id),det:'on la retire de la liste'};
     default:return {ico:'❓',type:String(a.type||'?'),titre:'(non reconnu)',det:''};
   }
 }
@@ -1876,6 +1889,23 @@ function magiEnregistrer(actions){
       if(!pers){pers={id:genId(),nom};enregistrerObjet(null,'personnes',{id:pers.id,nom,groupe:null})}
       enregistrerObjet(null,'notes',{personne_id:pers.id,texte:a.texte,partagee:!!a.partagee,
         email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});n++;
+    }else if((a.type==='cocher'||a.type==='reporter'||a.type==='supprimer')&&a.id){
+      const cible=trouverParId(String(a.id));
+      if(!cible){toast('⚠️ Je n\'ai pas retrouvé cet élément');return}
+      if(a.type==='cocher'){
+        const veut=a.faite!==false;
+        if(estFaite(cible.id)!==veut)basculerFaite(cible.id);
+        n++;
+      }else if(a.type==='supprimer'){
+        supprimerObjet(cible.id);n++;
+      }else{
+        const ech=a.ech||null;
+        const base=ech?deIso(ech):new Date();
+        enregistrerObjet(cible.id,'taches',{ech,
+          dateTexte:ech?'Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase():'',
+          y:base.getFullYear(),m:base.getMonth()+1});n++;
+      }
+      render();
     }else if(a.type==='envie'&&a.titre){
       enregistrerObjet(null,'envies',{categorie:ENV_CATS.some(c=>c[0]===a.categorie)?a.categorie:'autre',titre:a.titre,
         detail:a.detail||null,faite:false,partagee:!!a.partagee,email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});n++;
