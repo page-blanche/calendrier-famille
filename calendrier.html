@@ -1638,6 +1638,11 @@ function formPersonne(id,datePre){
   document.getElementById('fp-ok').onclick=()=>{
     const nom=document.getElementById('fp-nom').value.trim();
     if(!nom){toast('Il faut un prénom');return}
+    if(!p){
+      const deja=CACHE.personnes.find(x=>x.nom.trim().toLowerCase()===nom.toLowerCase());
+      if(deja){fermerTiroir();persOuverte=deja.id;toast('On la connaît déjà 🙂');
+        if(section==='memoire')renderMemoire();return}
+    }
     const j=parseInt(document.getElementById('fp-jour').value)||null;
     const m=parseInt(document.getElementById('fp-mois').value)||null;
     const an=parseInt(document.getElementById('fp-annee').value)||null;
@@ -1649,7 +1654,11 @@ function formPersonne(id,datePre){
       cadeau:document.getElementById('fp-cadeau').checked};
     // le rôle est écrit de MON point de vue : on retient qui l'a écrit
     if((role||'')!==(roleAvant||''))l.role_auteur=role?EMAIL_CONNECTE:null;
-    if(!p)l.foyer=false;   // qui vit à la maison se décide dans ⚙️ Réglages
+    if(!p){
+      l.foyer=false;   // qui vit à la maison se décide dans ⚙️ Réglages
+      l.id=genId();
+      persOuverte=l.id;   // on ouvre sa page : autant noter tout de suite
+    }
     enregistrerObjet(id,'personnes',l);
     apresEnregistrement(p?'C\'est noté ✔':'C\'est ajouté ✔');
   };
@@ -2951,14 +2960,15 @@ function renderMemoire(){
   let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
   ${ongletsMem()}
   <p class="discret2">Ce que tu veux garder sur les gens. 🔒 Ce que tu écris reste pour toi — sauf si tu le partages.</p>
-  <div class="ps-ajout"><input type="text" id="mem-nom" placeholder="Ajouter quelqu'un : Caro, la maîtresse…">
-  <button class="btn primaire" id="mem-ajouter">Ajouter</button></div>`;
-  if(CACHE.personnes.length>6)
-    h+=`<input type="text" id="mem-recherche" placeholder="🔍 Chercher quelqu'un…" value="${attr(rechercheMem)}" style="margin-bottom:6px">`;
+  <div class="ps-ajout">
+    ${CACHE.personnes.length>6?`<input type="text" id="mem-recherche" placeholder="🔍 Chercher quelqu'un…" value="${attr(rechercheMem)}">`:''}
+    <button class="btn primaire" id="mem-ajouter" style="${CACHE.personnes.length>6?'':'width:100%'}">+ Ajouter</button>
+  </div>`;
   if(!CACHE.personnes.length){
     h+=`<div class="todo-empty" style="text-align:center;padding:24px 0">Personne pour l'instant.<br>Commence par celle que tu as peur d'oublier 😉</div>`;
   }else if(enRecherche){
-    if(!trouves.length)h+=`<div class="todo-empty" style="text-align:center;padding:16px 0">Personne ne correspond à « ${echap(rechercheMem)} »</div>`;
+    if(!trouves.length)h+=`<div class="todo-empty" style="text-align:center;padding:16px 0">Personne ne correspond à « ${echap(rechercheMem)} »<br>
+      <button class="btn mini" id="mem-creer-cherche" style="margin-top:10px">Ajouter « ${echap(rechercheMem.trim())} »</button></div>`;
     trouves.forEach(x=>{h+=ligneGens(x)});
   }else{
     const vus=new Set();
@@ -2997,19 +3007,15 @@ function renderMemoire(){
       h+=`<button class="btn" id="mem-ranger" style="width:100%;margin-top:14px">🗂️ Dire qui est qui — ${sansCat.length} personnes</button>`;
   }
   zone.innerHTML=h;
-  const ajouter=()=>{
-    const nom=document.getElementById('mem-nom').value.trim();
-    if(!nom)return;
-    const deja=CACHE.personnes.find(x=>x.nom.trim().toLowerCase()===nom.toLowerCase());
-    if(deja){persOuverte=deja.id;renderMemoire();return}
-    const id=genId();
-    enregistrerObjet(null,'personnes',{id,nom});
-    persOuverte=id;
-    toast('C\'est ajouté ✔');
-    renderMemoire();
+  document.getElementById('mem-ajouter').onclick=()=>formPersonne(null);
+  const cc=document.getElementById('mem-creer-cherche');
+  if(cc)cc.onclick=()=>{
+    const nom=rechercheMem.trim();
+    rechercheMem='';
+    formPersonne(null);
+    const ch=document.getElementById('fp-nom');
+    if(ch){ch.value=nom;ch.dispatchEvent(new Event('input'))}
   };
-  document.getElementById('mem-ajouter').onclick=ajouter;
-  document.getElementById('mem-nom').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
   brancherOngletsMem(zone);
   const rech=document.getElementById('mem-recherche');
   if(rech){
