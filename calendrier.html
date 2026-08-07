@@ -203,29 +203,6 @@ const FER={
 '2027-05-08':'Victoire 1945','2027-05-17':'Lundi de Pentecôte','2027-07-14':'Fête nationale',
 '2027-08-15':'Assomption'};
 
-/* Routines logistiques (affichage seul) */
-const LOGI=[
-{jours:[3],prio:2,t:'Logistique mercredi (Option 2bis)',s:[
-{t:'9:45',x:'Zora emmène Darya+Kyan au Conservatoire (2 min)'},{t:'10:00',x:'Darya en danse / Kyan avec Zora'},
-{t:'11:00',x:'Marche Musique et Cie (3 min)'},{t:'11:30',x:'Darya+Kyan en musique'},
-{t:'12:15',x:'Retour maison, déjeuner'},{t:'13:40',x:'Parent part avec Darya → Mont-Valérien (20 min)'},
-{t:'14:00',x:'Darya déposée à la gym'},{t:'14:20',x:'Zora part avec Kyan → piscine (19 min)'},
-{t:'14:40',x:'Kyan en piscine'},{t:'15:15',x:'Fin piscine + habillage (~10 min)'},
-{t:'15:25',x:'Zora+Kyan → Chat Perché (16 min)'},{t:'15:30',x:'Parent récupère Darya → maison'},
-{t:'~15:40',x:'Cyrus récupéré à Chat Perché'},{t:'~16:00',x:'Tout le monde à la maison'}]},
-{jours:[2],prio:2,t:'Logistique mardi soir',s:[
-{t:'16:30',x:'Zora récupère Darya+Kyan à Raguidelles'},{t:'~17:00',x:'Bus → Nanterre-la-Boule'},
-{t:'17:05',x:'Récup Cyrus à Montessori 21'},{t:'17:25',x:'Retour maison'},
-{t:'17:40',x:'Départ Palais des Sports (19 min ou bus)'},{t:'18:00',x:'Darya en piscine'},
-{t:'18:45',x:'Fin piscine'},{t:'~19:05',x:'Retour maison'}]},
-{jours:[1,2,4,5],prio:1,t:'Logistique jour standard',s:[
-{t:'16:30',x:'Zora récupère Darya+Kyan à Raguidelles'},{t:'~17:00',x:'Bus → Nanterre-la-Boule'},
-{t:'17:05',x:'Récup Cyrus à Montessori 21'},{t:'~17:25',x:'Retour maison'}]},
-{jours:[6],prio:1,t:'Logistique samedi',s:[
-{t:'9:15',x:'Départ → Musique et Cie (5 min)'},{t:'9:30',x:'Cyrus déposé à la musique'},
-{t:'9:45',x:'Départ Stade Guimier'},{t:'10:00',x:'Darya+Kyan en athlétisme'},
-{t:'~10:15',x:'Récup Cyrus'},{t:'11:30',x:'Récup Darya+Kyan'},{t:'~12:00',x:'Retour maison'}]}];
-
 /* ================== DONNÉES : CACHE + SUPABASE ==================
    Toutes les données vivent dans Supabase. On les charge en mémoire,
    chaque modification est appliquée immédiatement à l'écran puis
@@ -360,13 +337,6 @@ function actsDuJour(d){
     .filter(a=>!(a.pauses||[]).some(p=>s>=p.debut&&s<=p.fin))
     .map(a=>(a.annulations||[]).includes(s)?{...a,annuleeCeJour:true}:a);
 }
-function routineDuJour(d){
-  if(enVacances(d)||ferie(d))return null;
-  const js=jSem(d);
-  const c=LOGI.filter(r=>r.jours.includes(js));
-  return c.length?c.sort((a,b)=>b.prio-a.prio)[0]:null;
-}
-
 /* ================== ACTIONS GÉNÉRÉES AUTOMATIQUEMENT ================== */
 const p2=(n)=>String(n).padStart(2,'0');
 function tachesAuto(){
@@ -949,12 +919,6 @@ function ouvrirJour(d){
           <button class="btn mini danger" data-suppr="${a.id}">🗑️</button>
         </div></div>`;
     });
-    h+='</div>';
-  }
-  const lo=routineDuJour(d);
-  if(lo){
-    h+=`<div class="dsec"><h3>🚸 ${echap(lo.t)}</h3>`;
-    lo.s.forEach(s=>{h+=`<div class="ls"><span class="lt">${echap(s.t)}</span><span>${echap(s.x)}</span></div>`});
     h+='</div>';
   }
   h+=`<button class="btn primaire" style="width:100%;margin-top:18px" data-ajout-ici="1">＋ Ajouter ce jour-là</button>`;
