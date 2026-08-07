@@ -108,6 +108,52 @@
 }
 @media(max-width:1000px){.year-sidebar{max-height:none;overflow:visible}}
 @media(max-width:1230px){.h-centre{order:3;flex:0 0 100%;justify-content:center}}
+/* ---------- « À venir » : la suite, dans le langage de Ta journée ---------- */
+/* L'aperçu du jour, sous la grille du mois */
+.jd-carte{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px 14px;margin-top:12px;box-shadow:var(--shadow)}
+.jd-tete{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+.jd-j{font-size:.88rem;font-weight:800;letter-spacing:-.02em;text-transform:capitalize}
+.jd-i{font-size:.7rem;color:var(--ink-3);margin-left:auto}
+.jd-l{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-top:1px solid #f2f0ec}
+.jd-tete + .jd-l{border-top:none}
+.jd-h{width:42px;flex-shrink:0;font-size:.72rem;font-weight:800;color:var(--event);text-align:center}
+.jd-t{font-size:.85rem;font-weight:600;line-height:1.3;flex:1;min-width:0}
+.jd-q{font-size:.7rem;color:var(--ink-3);flex-shrink:0}
+.jd-x{font-size:.73rem;color:var(--ink-3);padding:5px 0 0;font-style:italic}
+.jd-vide{font-size:.83rem;color:var(--ink-3);padding:6px 0}
+.agenda-view{gap:0!important;max-width:620px;margin:0 auto;width:100%}
+.av-mois{font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+  margin:20px 0 2px;padding-top:12px;border-top:1px solid var(--border)}
+.av-mois:first-child{margin-top:2px;padding-top:0;border-top:none}
+.av-jt{display:flex;align-items:baseline;gap:8px;margin:15px 0 1px}
+.av-jt .j{font-size:.86rem;font-weight:800;letter-spacing:-.02em;text-transform:capitalize}
+.av-jt .j.auj{color:#c2255c}
+.av-jt .b{flex:1;height:1px;background:#f2f0ec}
+.av-jt .info{font-size:.7rem;color:var(--ink-3)}
+.av-li{display:flex;gap:12px;align-items:flex-start;padding:8px 0;cursor:pointer}
+.av-li:hover{opacity:.72}
+.av-rail{width:11px;flex-shrink:0;align-self:stretch;position:relative}
+.av-rail::before{content:'';position:absolute;left:5px;top:0;bottom:0;width:1.5px;background:#e2ded7}
+.av-li.av-premier .av-rail::before{top:10px}
+.av-li.av-dernier .av-rail::before{bottom:calc(100% - 10px)}
+.av-pa{position:absolute;left:.5px;top:4px;width:10px;height:10px;border-radius:999px;background:var(--surface);
+  border:1.6px solid #cfcac2;box-sizing:border-box;z-index:1}
+.av-co{flex:1;min-width:0}
+.av-ti{font-size:.87rem;font-weight:600;line-height:1.3}
+.av-su{font-size:.72rem;color:var(--ink-3)}
+.av-rout{display:flex;gap:12px;align-items:center;padding:5px 0 7px;cursor:pointer}
+.av-rout .av-rail{align-self:stretch;min-height:18px}
+.av-rout .av-rail::before{background:repeating-linear-gradient(to bottom,#e2ded7 0 3px,transparent 3px 7px)}
+.av-rout .lb{font-size:.74rem;color:var(--ink-3)}
+.av-rout .lb b{font-weight:700;color:var(--ink-2)}
+.av-bande{display:flex;align-items:center;gap:8px;background:#e9f1fa;color:#1864ab;border-radius:10px;
+  padding:5px 11px;font-size:.76rem;font-weight:700;margin:6px 0 2px;cursor:pointer}
+.av-vide{text-align:center;color:var(--ink-3);padding:40px 10px;font-size:.9rem}
+/* Le mois sur mobile : un emoji vaut mieux qu'un point de couleur */
+.emo-jour{display:flex;gap:1px;align-items:center;justify-content:center;margin-top:2px;line-height:1.05}
+.emo-jour .emo{font-size:.9rem}
+.emo-jour.duo .emo{font-size:.72rem}
+.emo-plus{font-size:.52rem;color:var(--ink-3);font-weight:800;line-height:1;margin-top:1px}
 .points-jour{display:flex;gap:3px;flex-wrap:wrap;margin-top:3px;justify-content:center}
 .pt-j{width:7px;height:7px;border-radius:50%;display:inline-block}
 .pt-plus{font-size:.55rem;color:var(--ink-3);font-weight:700;line-height:1}
@@ -209,7 +255,7 @@
 <button class="view-btn" data-vue="annee">Année</button>
 <button class="view-btn" data-vue="mois">Mois</button>
 <button class="view-btn" data-vue="semaine">Sem.</button>
-<button class="view-btn" data-vue="agenda">Agenda</button>
+<button class="view-btn" data-vue="agenda">À venir</button>
 </div>
 </div>
 <div class="h-zone h-droite">
@@ -495,6 +541,39 @@ function fermerTiroir(){
 }
 
 /* ================== PASTILLES D'UN JOUR (mois/année) ================== */
+/* L'emoji d'un élément : celui de son titre, sinon celui de sa catégorie.
+   (Tes titres en portent déjà un deux fois sur trois, et l'IA en ajoute un à chaque dictée.) */
+const EMOJI_CAT={voyage:'🧳',rentree:'🎒',pro:'💼',event:'📌',bday:'🎂',
+  deadline:'📋',facture:'💳',family:'🎁',other:'📌',school:'🏫',
+  darya:'🤸',kyan:'🎵',cyrus:'🧸',both:'👨‍👩‍👧'};
+const RE_EMOJI=/^(\p{Extended_Pictographic}\uFE0F?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*)/u;
+function sansEmoji(txt){return String(txt||'').trim().replace(RE_EMOJI,'').trim()}
+function emojiDe(txt,cat){
+  const m=String(txt||'').trim().match(RE_EMOJI);
+  if(m)return m[1];
+  return EMOJI_CAT[cat]||'📌';
+}
+/* Ce que la case du mois doit montrer. Un séjour ne compte qu'une fois,
+   au jour du départ : ensuite c'est la couleur de la case qui porte la suite. */
+function tachesDuJour(d,sansDoublonAnniv){
+  const s=iso(d);
+  let out=toutesTaches().filter(t=>t.ech===s&&!estFaite(t.id));
+  if(sansDoublonAnniv&&bdaysDuJour(d).length)out=out.filter(t=>!String(t.id).startsWith('auto-souhait-'));
+  return out;
+}
+function emojisJour(d){
+  const s=iso(d);const brut=[];
+  bdaysDuJour(d).forEach(b=>brut.push(emojiDe(b.titre,'bday')));
+  evtsDuJour(d).forEach(e=>{
+    const multi=e.fin&&e.fin!==e.debut;
+    if(multi&&s!==e.debut)return;
+    brut.push(emojiDe(e.titre,e.cat));
+  });
+  tachesDuJour(d,true).forEach(t=>brut.push(emojiDe(t.texte,t.cat)));
+  const uniques=[];
+  brut.forEach(e=>{if(!uniques.includes(e))uniques.push(e)});
+  return {uniques,total:brut.length};
+}
 function pastilles(d){
   const out=[];
   if(visible('bday'))bdaysDuJour(d).forEach(b=>out.push({titre:b.titre,c:coul('bday')}));
@@ -543,16 +622,18 @@ function renderMois(){
     c.onclick=()=>{if(estMobile){jourSel=iso(dd);if(dd.getMonth()!==m)cur=new Date(dd.getFullYear(),dd.getMonth(),1);renderMois()}else ouvrirJour(dd)};
     const mobile=window.innerWidth<700;
     let h=`<div class="day-num${f?' ferie':''}">${d.getDate()}</div>`;
-    h+=`<button class="cell-add" title="Ajouter ce jour-là">＋</button>`;
+    // Le ＋ n'existe plus sur mobile : le doigt l'attrapait sans le vouloir.
+    if(!mobile)h+=`<button class="cell-add" title="Ajouter ce jour-là">＋</button>`;
     const pil=pastilles(d);
     if(mobile){
-      // Mobile : des points colorés, lisibles et nets — le détail est à un tap
-      const pleins=pil.filter(p=>!p.barre);
-      if(pleins.length){
-        h+='<div class="points-jour">'
-          +pleins.slice(0,4).map(p=>`<span class="pt-j" style="background:${p.c}"></span>`).join('')
-          +(pleins.length>4?`<span class="pt-plus">+${pleins.length-4}</span>`:'')
-          +'</div>';
+      // Mobile : l'emoji de ce qui se passe — un point de couleur ne dit rien
+      const {uniques,total}=emojisJour(d);
+      if(total){
+        const montres=uniques.slice(0,2);
+        const reste=total-montres.length;
+        h+=`<div class="emo-jour${montres.length>1?' duo':''}">`
+          +montres.map(e=>`<span class="emo">${e}</span>`).join('')+'</div>'
+          +(reste>0?`<div class="emo-plus">+${reste}</div>`:'');
       }
     }else{
       if(v&&!hors&&visible('vacances')&&(iso(d)===v.debut||jSem(d)===1))h+=`<div class="vac-tag">☀️ ${echap(v.nom)}</div>`;
@@ -566,7 +647,8 @@ function renderMois(){
       if(pil.length>3)h+=`<div class="plus">+${pil.length-3} autres</div>`;
     }
     c.innerHTML=h;
-    c.querySelector('.cell-add').onclick=(ev)=>{ev.stopPropagation();ouvrirAjout(iso(dd))};
+    const bAdd=c.querySelector('.cell-add');
+    if(bAdd)bAdd.onclick=(ev)=>{ev.stopPropagation();ouvrirAjout(iso(dd))};
     g.appendChild(c);
   }
   renderJourDetail();
@@ -578,30 +660,31 @@ function renderJourDetail(){
   if(window.innerWidth>=700||!jourSel||vue!=='mois'||section!=='cal'){zone.innerHTML='';return}
   const d=deIso(jourSel);
   const v=enVacances(d),fe=ferie(d);
-  const bds=bdaysDuJour(d);
-  const evs=evtsDuJour(d);
-  const dues=toutesTaches().filter(t=>t.ech===jourSel&&!estFaite(t.id));
-  const acs=actsDuJour(d);
-  const items=[
-    ...bds.map(b=>({h:'',titre:b.titre,c:coul('bday'),qui:''})),
-    ...evs.map(e=>({h:e.heure||'',titre:e.titre,c:coulEvt(e),qui:e.qui||''})),
-    ...dues.map(t=>({h:'',titre:'☐ '+t.texte,c:coul('alert'),qui:t.qui||''})),
-    ...acs.map(a=>({h:a.hd+(a.hf?'–'+a.hf:''),titre:a.titre,c:coul(a.cat),qui:a.qui||'',annulee:a.annuleeCeJour})),
-  ].sort((a,b)=>minutes(a.h)-minutes(b.h));
-  let hh=`<div class="jour-agenda" style="margin-top:10px${v?';background:var(--vac-bg)':''}">
-    <div class="tete"><span class="jnom">${DFR[jSem(d)-1]} ${d.getDate()} ${MFR[d.getMonth()]}</span>
-    <span class="jinfo">${fe?'🇫🇷 '+echap(fe)+' ':''}${v?'☀️ '+echap(v.nom):''}</span></div>`;
-  if(!items.length)hh+='<div class="todo-empty" style="padding:6px 0">Rien de prévu ce jour-là 🌿</div>';
-  items.forEach(it=>{
-    hh+=`<div class="ligne-ev" style="${it.annulee?'opacity:.5':''}"><div class="barre" style="background:${it.c}"></div>
-      <div class="heure">${echap(it.h)}</div>
-      <div class="corps"><span style="${it.annulee?'text-decoration:line-through':''}">${echap(it.titre)}</span>${it.annulee?' <span class="qui" style="color:var(--alert);font-weight:700">Annulée</span>':''}${it.qui?` <span class="qui">· ${echap(it.qui)}</span>`:''}</div></div>`;
+  const bds=bdaysDuJour(d),evs=evtsDuJour(d),acs=actsDuJour(d);
+  const tks=tachesDuJour(d,true);
+  const lignes=[];
+  // L'emoji occupe la colonne de gauche : on ne le répète pas dans le titre.
+  bds.forEach(b=>lignes.push({h:'',ti:sansEmoji(b.titre),ico:emojiDe(b.titre,'bday'),qui:''}));
+  evs.forEach(e=>lignes.push({h:e.heure||'',ti:sansEmoji(e.titre),ico:emojiDe(e.titre,e.cat),qui:e.qui||''}));
+  tks.forEach(t=>lignes.push({h:'',ti:sansEmoji(t.texte),ico:emojiDe(t.texte,t.cat),qui:t.qui||'',tache:true}));
+  lignes.sort((a,b)=>minutes(a.h)-minutes(b.h));
+  const info=[fe?'🇫🇷 '+fe:'',v?v.nom:''].filter(Boolean).join(' · ');
+  let h=`<div class="jd-carte">
+    <div class="jd-tete"><span class="jd-j">${DFR[jSem(d)-1]} ${d.getDate()} ${MFR[d.getMonth()]}</span>
+      ${info?`<span class="jd-i">${echap(info)}</span>`:''}</div>`;
+  if(!lignes.length&&!acs.length)h+='<div class="jd-vide">Rien de prévu ce jour-là 🌿</div>';
+  lignes.slice(0,4).forEach(l=>{
+    h+=`<div class="jd-l"><span class="jd-h">${l.h?echap(l.h):l.ico}</span>
+      <span class="jd-t">${echap(l.ti)}</span>
+      ${l.qui?`<span class="jd-q">${echap(l.qui)}</span>`:''}</div>`;
   });
-  hh+=`<div style="display:flex;gap:8px;margin-top:10px">
-    <button class="btn mini" id="jd-detail" style="flex:1">Tout le détail</button>
-    <button class="btn primaire mini" id="jd-add" style="flex:1">＋ Ajouter ce jour</button>
+  if(lignes.length>4)h+=`<div class="jd-x">＋ ${lignes.length-4} autre${lignes.length-4>1?'s':''}</div>`;
+  if(acs.length)h+=`<div class="jd-x">＋ ${acs.length} habitude${acs.length>1?'s':''}</div>`;
+  h+=`<div style="display:flex;gap:8px;margin-top:11px">
+    <button class="btn mini" id="jd-detail" style="flex:1">Voir toute la journée ›</button>
+    <button class="btn primaire mini" id="jd-add">＋ Ajouter</button>
   </div></div>`;
-  zone.innerHTML=hh;
+  zone.innerHTML=h;
   document.getElementById('jd-detail').onclick=()=>ouvrirJour(deIso(jourSel));
   document.getElementById('jd-add').onclick=()=>ouvrirAjout(jourSel);
 }
@@ -621,41 +704,86 @@ function renderPopMois(){
   });
 }
 
-/* ================== VUE AGENDA ================== */
+/* ================== VUE « À VENIR » ==================
+   Ce n'est pas le mois en liste : ça part d'aujourd'hui et ça continue,
+   par-dessus la fin du mois. Et la routine de la semaine (école, trajets,
+   activités hebdo) se replie en une ligne — sinon elle noie tout le reste. */
+let avRoutineOuverte={};
 function renderAgenda(){
-  const y=cur.getFullYear(),m=cur.getMonth();
-  document.getElementById('navTitle').textContent=MFR[m]+' '+y;
   const zone=document.getElementById('agendaView');zone.innerHTML='';
-  const nb=new Date(y,m+1,0).getDate();
-  const auj=iso(new Date());
-  for(let j=1;j<=nb;j++){
-    const d=new Date(y,m,j);
-    const v=enVacances(d),f=ferie(d);
-    const bds=visible('bday')?bdaysDuJour(d):[];
-    const evs=evtsDuJour(d).filter(e=>visible(e.cat));
-    const acs=actsDuJour(d).filter(a=>visible(a.cat));
-    const dues=toutesTaches().filter(t=>t.ech===iso(d)&&!estFaite(t.id));
-    const items=[
-      ...bds.map(b=>({h:'',titre:b.titre,c:coul('bday'),qui:''})),
-      ...evs.map(e=>({h:e.heure||'',titre:e.titre,c:coulEvt(e),qui:e.qui||''})),
-      ...dues.map(t=>({h:'',titre:'☐ '+t.texte,c:coul('alert'),qui:t.qui||''})),
-      ...acs.map(a=>({h:a.hd+(a.hf?'–'+a.hf:''),titre:a.titre,c:coul(a.cat),qui:a.qui||'',annulee:a.annuleeCeJour})),
-    ].sort((a,b)=>minutes(a.h)-minutes(b.h));
-    if(!items.length&&!f&&!(v&&iso(d)===v.debut))continue;
-    const carte=document.createElement('div');
-    carte.className='jour-agenda'+(v&&visible('vacances')?' vacances':'');
-    let h=`<div class="tete"><span class="jnom ${iso(d)===auj?'auj':''}">${DS[jSem(d)-1]} ${j}</span>
-      <span class="jinfo">${f?'🇫🇷 '+echap(f)+' ':''}${v&&visible('vacances')?'☀️ '+echap(v.nom):''}</span></div>`;
-    items.forEach(it=>{
-      h+=`<div class="ligne-ev" style="${it.annulee?'opacity:.5':''}"><div class="barre" style="background:${it.c}"></div>
-        <div class="heure">${echap(it.h)}</div>
-        <div class="corps"><span style="${it.annulee?'text-decoration:line-through':''}">${echap(it.titre)}</span>${it.annulee?' <span class="qui" style="color:var(--alert);font-weight:700">Annulée</span>':''}${it.qui?` <span class="qui">· ${echap(it.qui)}</span>`:''}</div></div>`;
+  const auj=new Date(),sAuj=iso(auj);
+  document.getElementById('navTitle').textContent='À venir';
+  let h='',moisAffiche='',rendus=0;
+  for(let i=0;i<120&&rendus<40;i++){
+    const d=new Date(auj);d.setDate(d.getDate()+i);
+    const s=iso(d);
+    const v=enVacances(d),fe=ferie(d);
+    // Les séjours : au jour du départ, et rappelés aujourd'hui s'ils sont en cours
+    const evs=evtsDuJour(d).filter(e=>{
+      const multi=e.fin&&e.fin!==e.debut;
+      return !multi||s===e.debut||(i===0&&s>e.debut);
     });
-    carte.innerHTML=h;
-    carte.querySelector('.tete').onclick=()=>ouvrirJour(new Date(y,m,j));
-    zone.appendChild(carte);
+    const bds=bdaysDuJour(d);
+    const tks=tachesDuJour(d,true);
+    const acs=actsDuJour(d).filter(a=>!a.annuleeCeJour);
+    if(!evs.length&&!bds.length&&!tks.length&&!acs.length)continue;
+    if(!evs.length&&!bds.length&&!tks.length&&i>0)continue; // un jour de pure routine ne mérite pas sa ligne
+    rendus++;
+
+    const moisCourt=MFR[d.getMonth()]+' '+d.getFullYear();
+    if(moisCourt!==moisAffiche){moisAffiche=moisCourt;h+=`<div class="av-mois">${echap(moisCourt)}</div>`}
+
+    const nomJour=i===0?"Aujourd'hui":i===1?'Demain':DFR[jSem(d)-1].toLowerCase()+' '+d.getDate();
+    const info=[fe?'🇫🇷 '+fe:'',v?v.nom:''].filter(Boolean).join(' · ');
+    h+=`<div class="av-jt"><span class="j ${i===0?'auj':''}">${echap(nomJour)}</span>
+      <span class="b"></span>${info?`<span class="info">${echap(info)}</span>`:''}</div>`;
+
+    const lignes=[];
+    bds.forEach(b=>lignes.push({id:b.id,ti:b.titre.replace(/^🎂 /,''),su:'',qui:null,h:null}));
+    evs.forEach(e=>{
+      const multi=e.fin&&e.fin!==e.debut;
+      const su=multi
+        ? (s===e.debut?'du '+deIso(e.debut).getDate()+' au '+deIso(e.fin).getDate()+' '+MFR[deIso(e.fin).getMonth()].toLowerCase()
+                      :"jusqu'au "+deIso(e.fin).getDate()+' '+MFR[deIso(e.fin).getMonth()].toLowerCase())
+        : (e.heure||'');
+      lignes.push({id:e.id,ti:e.titre,su,qui:e.qui,h:e.heure||null});
+    });
+    tks.forEach(t=>lignes.push({id:t.id,ti:t.texte,su:'à faire',qui:t.qui,h:null,tache:true}));
+    lignes.sort((a,b)=>minutes(a.h||'')-minutes(b.h||''));
+    lignes.forEach((l,k)=>{
+      h+=`<div class="av-li ${k===0?'av-premier':''} ${k===lignes.length-1&&!acs.length?'av-dernier':''}" data-av="${l.id}" data-avd="${s}">
+        <div class="av-rail"><span class="av-pa"></span></div>
+        <div class="av-co"><div class="av-ti">${echap(l.ti)}</div>
+          ${l.su?`<div class="av-su">${echap(l.su)}</div>`:''}</div>
+        ${etiquettePersonne(l.qui)}</div>`;
+    });
+    if(acs.length){
+      const ouvert=!!avRoutineOuverte[s];
+      if(ouvert){
+        acs.sort((a,b)=>minutes(a.hd)-minutes(b.hd)).forEach((a,k)=>{
+          h+=`<div class="av-li ${k===acs.length-1?'av-dernier':''}" data-av="${a.id}" data-avd="${s}">
+            <div class="av-rail"><span class="av-pa"></span></div>
+            <div class="av-co"><div class="av-ti" style="font-weight:450;color:var(--ink-2)">${echap(a.titre.split('—')[0].trim())}</div>
+              <div class="av-su">${echap((a.hd||'')+(a.hf?' → '+a.hf:''))}</div></div>
+            ${etiquettePersonne(a.qui)}</div>`;
+        });
+      }
+      const quoi=[...new Set(acs.map(a=>a.titre.split('—')[0].trim().split(' ')[0].replace(/^\S*[\u{1F300}-\u{1FAFF}]\S*$/u,'').trim()).filter(Boolean))].slice(0,3);
+      h+=`<div class="av-rout" data-avrout="${s}"><div class="av-rail"></div>
+        <span class="lb">${ouvert?'▾':'▸'} <b>${acs.length} habitude${acs.length>1?'s':''}</b>${!ouvert&&quoi.length?' — '+echap(quoi.join(', ').toLowerCase()):''}</span></div>`;
+    }
   }
-  if(!zone.children.length)zone.innerHTML='<div style="text-align:center;color:var(--ink-3);padding:40px">Rien ce mois-ci 🌿</div>';
+  zone.innerHTML=h||'<div class="av-vide">Rien devant toi pour l\'instant 🌿</div>';
+  zone.querySelectorAll('[data-avrout]').forEach(el=>{
+    el.onclick=()=>{const k=el.dataset.avrout;avRoutineOuverte[k]=!avRoutineOuverte[k];renderAgenda()};
+  });
+  zone.querySelectorAll('[data-av]').forEach(el=>{
+    el.onclick=()=>{
+      const id=el.dataset.av,jour=deIso(el.dataset.avd);
+      if(String(id).startsWith('auto-')||CACHE.taches.some(t=>t.id===id)){ouvrirJour(jour);return}
+      detailJour(id,jour);
+    };
+  });
 }
 
 /* ================== VUE SEMAINE ================== */
@@ -2457,7 +2585,7 @@ function allerAujourdhui(){cur=new Date();render()}
 function setVue(v){
   vue=v;
   document.querySelectorAll('#viewBar .view-btn').forEach(b=>b.classList.toggle('active',b.dataset.vue===v));
-  document.getElementById('navOutils').style.visibility=v==='annee'?'hidden':'visible';
+  document.getElementById('navOutils').style.visibility=(v==='annee'||v==='agenda')?'hidden':'visible';
   document.getElementById('monthView').style.display=v==='mois'?'block':'none';
   document.getElementById('weekView').style.display=v==='semaine'?'block':'none';
   document.getElementById('agendaView').style.display=v==='agenda'?'flex':'none';
