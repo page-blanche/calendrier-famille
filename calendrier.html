@@ -40,7 +40,26 @@
 .mg-prop input[type=checkbox]{width:auto;margin-top:4px}
 .mg-type{font-size:.64rem;font-weight:800;color:var(--ink-3);letter-spacing:.05em}
 .mg-titre{font-weight:600;font-size:.9rem;margin-top:1px}
-.mg-reponse{background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-radius:16px;padding:14px 16px;font-size:.93rem;line-height:1.5}
+#mg-fil{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto;padding:2px 2px 6px}
+.mg-b{max-width:86%;border-radius:16px;padding:9px 13px;font-size:.88rem;line-height:1.45}
+.mg-ia{align-self:flex-start;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-bottom-left-radius:6px}
+.mg-moi{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:6px}
+.mg-pense{align-self:flex-start;color:var(--ink-3);font-size:.8rem;padding:2px 6px}
+.mg-chips{display:flex;flex-wrap:wrap;gap:6px;align-self:flex-start;max-width:95%}
+.mg-chip{border:1.5px solid var(--ink);border-radius:99px;padding:7px 14px;font-size:.82rem;font-weight:700;background:var(--surface);color:var(--ink);cursor:pointer;font-family:inherit}
+.mg-chip:active{background:var(--ink);color:#fff}
+.mg-cartes{align-self:stretch;background:#f4fbf6;border:1.5px solid #b7dfc2;border-radius:16px;padding:10px 12px}
+.mg-cartes-titre{font-size:.74rem;font-weight:800;color:var(--ink-2);margin-bottom:8px}
+.mg-cartes.mg-fige{opacity:.55}
+.mg-prop-btns{display:flex;gap:6px;margin-top:8px}
+.mg-prop-btns .btn.mini{padding:7px 12px;font-size:.74rem}
+.cloche{position:fixed;bottom:18px;right:16px;z-index:40;display:none;align-items:center;gap:5px;
+  background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:99px;
+  padding:6px 12px;font-size:.7rem;font-weight:600;color:var(--ink-2);font-family:inherit;cursor:pointer;
+  box-shadow:0 2px 8px rgba(28,27,24,.08)}
+.acc-carte.bientot{opacity:.55;cursor:default}
+.acc-carte.bientot:hover{transform:none;box-shadow:none;border-color:var(--border)}
+.badge-bientot{font-size:.6rem;font-weight:800;letter-spacing:.05em;color:var(--ink-3);background:#f2f1ee;border-radius:99px;padding:2px 8px;margin-left:6px;text-transform:uppercase}
 .ps-titre{font-size:1.25rem;letter-spacing:-.02em;margin:2px 0 4px}
 .discret2{color:var(--ink-2);font-size:.85rem;margin-bottom:12px}
 .ps-ajout{display:flex;gap:8px;margin:12px 0 18px}
@@ -80,7 +99,7 @@
   .year-grid{gap:8px}
 }
 /* Page d'accueil */
-.page-accueil{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;align-content:start;max-width:820px;margin:14px auto 0}
+.page-accueil{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;align-content:start;max-width:820px;margin:14px auto 0;padding-bottom:64px}
 .acc-carte{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px 24px;cursor:pointer;transition:.15s;text-align:left;font-family:inherit}
 .acc-carte:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px);border-color:var(--border-strong)}
 .acc-ico{font-size:2.1rem}
@@ -114,6 +133,7 @@
 <button class="view-btn" data-sec="memoire">🧠<span class="vb-lbl"> Mémoire</span></button>
 </div>
 <button class="today-btn" id="btnAccueil"><span class="exit-court">🏡</span><span class="vb-lbl">🏡 Accueil</span></button>
+<button class="today-btn" id="btnParams" title="Réglages" style="visibility:hidden">⚙️</button>
 </div>
 </div>
 
@@ -140,6 +160,7 @@
 </div>
 
 <button class="fab" onclick="fabAction()">＋ Ajouter</button>
+<button class="cloche" id="cloche"></button>
 <div class="toast" id="toast"></div>
 
 <div class="overlay" id="ov" onclick="fermerTiroir()"></div>
@@ -1466,8 +1487,10 @@ function renderCadeaux(zone){
   });
 }
 
-/* ================== 🪄 SAISIE MAGIQUE ================== */
-let MAGIE_PROPS=[];let MAGIE_TEXTE='';
+/* ================== 🪄 SAISIE MAGIQUE (chat) ================== */
+let MAGIE_PROPS=null;   // cartes en attente de validation
+let MAGIE_TEXTE='';     // dernier texte analysé (pour les corrections)
+let MAGIE_ATTENTE=null; // question « qui ? » en cours
 function donneesPourIA(){
   const auj=iso(new Date());
   return {
@@ -1488,120 +1511,155 @@ function formMagie(pre){
   ouvrirTiroirBrut('🪄 Dis-moi tout');
   const corps=document.getElementById('dbd');
   corps.innerHTML=`
-    <textarea id="mg-texte" placeholder="« Foot pour Maxime mercredi à 17h et racheter des chaussettes de sport »" style="min-height:84px">${echap(pre||'')}</textarea>
-    <div class="discret2" style="margin:6px 0 0">🎤 Astuce : le micro du clavier permet de dicter au lieu de taper.</div>
-    <button class="btn primaire" id="mg-analyser" style="margin-top:10px;width:100%">✨ Analyser</button>
-    <div id="mg-resultat" style="margin-top:12px"></div>`;
-  const btn=document.getElementById('mg-analyser');
-  const analyser=async()=>{
-    const texte=document.getElementById('mg-texte').value.trim();
-    if(!texte){toast('Dis-moi d\'abord quelque chose 🙂');return}
-    btn.disabled=true;btn.textContent='🪄 Je réfléchis…';
-    let data=null,error=null;
-    try{
-      const r=await sb.functions.invoke('saisie-magique',{body:{texte,
-        contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)},
-        donnees:donneesPourIA()}});
-      data=r.data;error=r.error;
-    }catch(e){error=e}
-    btn.disabled=false;btn.textContent='✨ Analyser';
-    if(error||!data||data.erreur||(data.mode!=='reponse'&&!Array.isArray(data.actions))){
-      toast('⚠️ La magie a raté : '+((data&&data.erreur)||(error&&error.message)||'réessaie dans un instant'));
-      return;
-    }
-    if(data.mode==='reponse'&&data.texte){magiReponse(data.texte);return}
-    if(!data.actions.length){toast('Je n\'ai rien trouvé à ranger dans cette phrase 🤔');return}
-    MAGIE_TEXTE=texte;
-    magiAfficher(data);
-  };
-  btn.onclick=analyser;
-  if(pre&&pre.trim())analyser();
+    <div id="mg-fil"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <input type="text" id="mg-texte" placeholder="Écris ou dicte 🎤 …" style="flex:1">
+      <button class="btn primaire" id="mg-envoyer" style="padding:0 18px;font-size:1.05rem">↑</button>
+    </div>`;
+  MAGIE_PROPS=null;MAGIE_ATTENTE=null;
+  mgBulle('ia','Dis-moi tout : quelque chose à ranger, ou une question 🙂');
+  const input=document.getElementById('mg-texte');
+  document.getElementById('mg-envoyer').onclick=mgEnvoyer;
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')mgEnvoyer()});
+  if(pre&&pre.trim()){input.value=pre;mgEnvoyer()}
+  else setTimeout(()=>input.focus(),150);
 }
-function magiReponse(texte){
-  const zone=document.getElementById('mg-resultat');
-  zone.innerHTML=`<div class="mg-reponse">💬 ${echap(texte).replace(/\n/g,'<br>')}</div>
-    <p class="discret2" style="margin-top:8px">Tu peux modifier ta question ci-dessus et relancer ✨ — ou dicter autre chose.</p>`;
+function mgFil(){return document.getElementById('mg-fil')}
+function mgScroll(){const f=mgFil();if(f)f.scrollTop=f.scrollHeight}
+function mgBulle(qui,html){
+  const d=document.createElement('div');
+  d.className='mg-b '+(qui==='moi'?'mg-moi':'mg-ia');
+  d.innerHTML=html;
+  mgFil().appendChild(d);mgScroll();return d;
+}
+function mgPense(){
+  const d=document.createElement('div');d.className='mg-pense';d.id='mg-pense';
+  d.textContent='🪄 réfléchit…';mgFil().appendChild(d);mgScroll();
+}
+function mgFiniPense(){const d=document.getElementById('mg-pense');if(d)d.remove()}
+function mgChips(liste){
+  const c=document.createElement('div');c.className='mg-chips';
+  liste.forEach(([lbl,cb])=>{
+    const ch=document.createElement('button');ch.className='mg-chip';ch.textContent=lbl;
+    ch.onclick=()=>{c.remove();mgBulle('moi',echap(lbl));cb()};
+    c.appendChild(ch);
+  });
+  mgFil().appendChild(c);mgScroll();
+}
+async function mgEnvoyer(){
+  const input=document.getElementById('mg-texte');
+  const texte=input.value.trim();
+  if(!texte)return;
+  input.value='';
+  mgBulle('moi',echap(texte));
+  if(MAGIE_ATTENTE){mgRepondreQui(texte);return}
+  const enCorrection=!!MAGIE_PROPS;
+  mgPense();
+  let data=null,error=null;
+  try{
+    const body={texte:enCorrection?MAGIE_TEXTE:texte,
+      contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)},
+      donnees:donneesPourIA()};
+    if(enCorrection){body.correction=texte;body.precedent=MAGIE_PROPS}
+    const r=await sb.functions.invoke('saisie-magique',{body});
+    data=r.data;error=r.error;
+  }catch(e){error=e}
+  mgFiniPense();
+  if(error||!data||data.erreur||(data.mode!=='reponse'&&!Array.isArray(data.actions))){
+    mgBulle('ia','⚠️ Oups, la magie a raté — redis-le moi ? <span class="todo-date">('+echap(String((data&&data.erreur)||(error&&error.message)||'petit souci réseau'))+')</span>');
+    return;
+  }
+  if(data.mode==='reponse'&&data.texte){
+    MAGIE_PROPS=null;
+    mgBulle('ia',echap(data.texte).replace(/\n/g,'<br>'));
+    return;
+  }
+  if(!data.actions.length){mgBulle('ia','Hmm, je n\'ai rien trouvé à ranger là-dedans 🤔 Reformule ?');return}
+  if(!enCorrection)MAGIE_TEXTE=texte;
+  mgProposer(data);
+}
+function mgProposer(data){
+  MAGIE_PROPS=data.actions;
+  if(data.remarque)mgBulle('ia','💭 '+echap(data.remarque));
+  const manquantes=data.actions.map((a,i)=>a.type==='tache'&&!a.qui?i:-1).filter(i=>i>=0);
+  if(manquantes.length){
+    MAGIE_ATTENTE={actions:data.actions,manquantes};
+    mgBulle('ia','Super, je te prépare ça 👍 Juste une précision — <b>qui s\'en occupe ?</b>');
+    const membres=CACHE.membres.length?CACHE.membres:['Mandana','Didier'];
+    mgChips([
+      ...membres.map(m=>[m,()=>mgRepondreQui(m)]),
+      ['Les deux 💪',()=>mgRepondreQui(membres.slice(0,2).join(' & '))],
+      ['Peu importe',()=>mgRepondreQui('')],
+    ]);
+    return;
+  }
+  mgCartes(data.actions);
+}
+function mgRepondreQui(rep){
+  const att=MAGIE_ATTENTE;MAGIE_ATTENTE=null;
+  if(!att)return;
+  att.manquantes.forEach(i=>{att.actions[i].qui=(rep||'').trim()||null});
+  mgCartes(att.actions);
+}
+function mgCartes(actions){
+  MAGIE_PROPS=actions;
+  const d=document.createElement('div');d.className='mg-cartes';
+  let h='<div class="mg-cartes-titre">Vérifie chaque proposition :</div>';
+  h+=actions.map((a,i)=>{
+    const r=magiResume(a);
+    return `<div class="mg-prop" data-i="${i}">
+      <div style="flex:1">
+        <div class="mg-type">${r.ico} ${echap(r.type.toUpperCase())}</div>
+        <div class="mg-titre">${echap(r.titre||'')}</div>
+        ${r.det?`<div class="todo-date">${r.det}</div>`:''}
+        <div class="mg-prop-btns">
+          <button class="btn primaire mini" data-mgok="${i}">✓ OK</button>
+          <button class="btn mini" data-mgedit="${i}">✏️ Modifier</button>
+          <button class="btn mini" data-mgsuppr="${i}">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  h+=`<div class="discret2" style="margin:4px 0 0;font-size:.72rem">Pas tout à fait ? Écris ta correction ci-dessous 👇</div>`;
+  d.innerHTML=h;
+  mgFil().appendChild(d);mgScroll();
+  let restants=actions.length,enregistres=0;
+  const clore=()=>{
+    if(restants>0)return;
+    MAGIE_PROPS=null;
+    render();
+    mgBulle('ia',(enregistres?enregistres+' élément'+(enregistres>1?'s':'')+' enregistré'+(enregistres>1?'s':'')+' ✅ ':'Ok, rien gardé 🙂 ')+'Autre chose ?');
+  };
+  const fige=(i,txt)=>{
+    const p=d.querySelector('.mg-prop[data-i="'+i+'"]');
+    p.style.opacity=.5;
+    p.querySelector('.mg-prop-btns').innerHTML='<span class="todo-date">'+txt+'</span>';
+    restants--;clore();
+  };
+  d.querySelectorAll('[data-mgok]').forEach(b=>{b.onclick=()=>{
+    const i=Number(b.dataset.mgok);
+    const n=magiEnregistrer([actions[i]]);
+    if(n){enregistres++;fige(i,'✓ enregistré')}else fige(i,'⚠️ incomplet, non enregistré');
+  }});
+  d.querySelectorAll('[data-mgsuppr]').forEach(b=>{b.onclick=()=>fige(Number(b.dataset.mgsuppr),'retiré')});
+  d.querySelectorAll('[data-mgedit]').forEach(b=>{b.onclick=()=>{
+    const i=Number(b.dataset.mgedit);
+    fige(i,'✏️ ouvert en formulaire');
+    magiCorriger(actions[i]);
+  }});
 }
 function magiResume(a){
   const dfr=s=>{if(!s)return '';const d=deIso(s);return DFR[jSem(d)-1].toLowerCase()+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()};
   const badge=x=>x?'👥 partagée':'🔒 privée';
   switch(a.type){
     case 'evenement':return {ico:'📌',type:'Événement',titre:a.titre,det:[dfr(a.debut),a.fin&&a.fin!==a.debut?'→ '+dfr(a.fin):null,a.heure,a.qui?'pour '+a.qui:null].filter(Boolean).join(' · ')};
-    case 'tache':return {ico:'✅',type:'Tâche',titre:a.texte,det:[a.ech?'avant le '+dfr(a.ech):null,a.qui?'pour '+a.qui:null].filter(Boolean).join(' · ')||'sans échéance'};
+    case 'tache':return {ico:'✅',type:'Tâche',titre:a.texte,det:[(GROUPES[a.cat]||GROUPES.other),a.ech?'avant le '+dfr(a.ech):null,a.qui?'👤 '+a.qui:'👤 non assignée'].filter(Boolean).join(' · ')};
     case 'course':return {ico:'🛒',type:'Courses',titre:a.texte,det:'ajouté à la liste partagée'};
     case 'cadeau':return {ico:'🎁',type:'Idée cadeau',titre:a.idee,det:'pour '+(a.personne||'?')+' · '+badge(a.partagee)};
     case 'note':return {ico:'🧠',type:'Note',titre:a.texte,det:'sur '+(a.personne||'?')+' · '+badge(a.partagee)};
     case 'envie':return {ico:'✨',type:'Envie',titre:a.titre,det:(ENV_CATS.find(c=>c[0]===a.categorie)||[,'','Autre'])[2]+' · '+badge(a.partagee)};
     default:return {ico:'❓',type:String(a.type||'?'),titre:'(non reconnu)',det:''};
   }
-}
-function magiAfficher(data){
-  const zone=document.getElementById('mg-resultat');
-  MAGIE_PROPS=data.actions;
-  let h=`<div class="todo-section-title">J'ai compris ça — décoche ce qui est faux :</div>`;
-  if(data.remarque)h+=`<p class="discret2" style="margin:4px 0 8px">💭 ${echap(data.remarque)}</p>`;
-  h+=data.actions.map((a,i)=>{
-    const r=magiResume(a);
-    return `<div class="mg-prop">
-      <input type="checkbox" checked id="mg-c${i}">
-      <div style="flex:1">
-        <div class="mg-type">${r.ico} ${echap(r.type.toUpperCase())}</div>
-        <div class="mg-titre">${echap(r.titre||'')}</div>
-        ${r.det?`<div class="todo-date">${r.det}</div>`:''}
-      </div>
-      ${a.type!=='course'?`<button class="todo-act" data-corr="${i}" title="Corriger dans le formulaire">✏️</button>`:''}
-    </div>`;
-  }).join('');
-  h+=`<div style="margin-top:10px">
-    <label style="font-size:.74rem;font-weight:700;color:var(--ink-2)">🗣️ Pas tout à fait ? Dis-lui quoi corriger (écris ou dicte) :</label>
-    <div style="display:flex;gap:8px;margin-top:4px">
-      <input type="text" id="mg-correction" placeholder="« non c'est jeudi, et c'est pour Darya »" style="flex:1">
-      <button class="btn" id="mg-corriger" title="Envoyer la correction à Lya">↩︎</button>
-    </div>
-  </div>
-  <div style="display:flex;gap:8px;margin-top:12px">
-    <button class="btn" id="mg-annuler" style="flex:1">Annuler</button>
-    <button class="btn primaire" id="mg-save" style="flex:2">✓ Enregistrer</button></div>`;
-  zone.innerHTML=h;
-  const majBtn=()=>{
-    const n=MAGIE_PROPS.filter((_,i)=>document.getElementById('mg-c'+i).checked).length;
-    const b=document.getElementById('mg-save');
-    b.textContent='✓ Enregistrer ('+n+')';b.disabled=!n;
-  };
-  MAGIE_PROPS.forEach((_,i)=>{document.getElementById('mg-c'+i).addEventListener('change',majBtn)});
-  majBtn();
-  document.getElementById('mg-annuler').onclick=fermerTiroir;
-  document.getElementById('mg-save').onclick=()=>{
-    const retenues=MAGIE_PROPS.filter((_,i)=>document.getElementById('mg-c'+i).checked);
-    const n=magiEnregistrer(retenues);
-    toast(n+' élément'+(n>1?'s':'')+' enregistré'+(n>1?'s':'')+' ✔');
-    render();fermerTiroir();
-  };
-  zone.querySelectorAll('[data-corr]').forEach(b=>{
-    b.onclick=()=>magiCorriger(MAGIE_PROPS[Number(b.dataset.corr)]);
-  });
-  const corrigerIA=async()=>{
-    const corr=document.getElementById('mg-correction').value.trim();
-    if(!corr){toast('Dis-moi ce qui cloche 🙂');return}
-    const bc=document.getElementById('mg-corriger');
-    bc.disabled=true;bc.textContent='🪄';
-    let d2=null,err=null;
-    try{
-      const r=await sb.functions.invoke('saisie-magique',{body:{texte:MAGIE_TEXTE,correction:corr,precedent:MAGIE_PROPS,
-        contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)},
-        donnees:donneesPourIA()}});
-      d2=r.data;err=r.error;
-    }catch(e){err=e}
-    if(err||!d2||d2.erreur||!Array.isArray(d2.actions)){
-      bc.disabled=false;bc.textContent='↩︎';
-      toast('⚠️ La magie a raté : '+((d2&&d2.erreur)||(err&&err.message)||'réessaie'));
-      return;
-    }
-    toast('Proposition corrigée ✨');
-    magiAfficher(d2);
-  };
-  document.getElementById('mg-corriger').onclick=corrigerIA;
-  document.getElementById('mg-correction').addEventListener('keydown',e=>{if(e.key==='Enter')corrigerIA()});
 }
 function magiEnregistrer(actions){
   let n=0;
@@ -1612,7 +1670,7 @@ function magiEnregistrer(actions){
     }else if(a.type==='tache'&&a.texte){
       const ech=a.ech||null;
       const base=ech?deIso(ech):new Date();
-      enregistrerObjet(null,'taches',{texte:a.texte,cat:'other',qui:a.qui||'',ech,
+      enregistrerObjet(null,'taches',{texte:a.texte,cat:GROUPES[a.cat]?a.cat:'other',qui:a.qui||'',ech,
         dateTexte:ech?'Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase():'',
         persistante:false,lien:'',y:base.getFullYear(),m:base.getMonth()+1,debY:null,debM:null,finY:null,finM:null});n++;
     }else if(a.type==='course'&&a.texte){
@@ -1642,7 +1700,7 @@ function magiCorriger(a){
       set('f-debut',a.debut);set('f-fin',a.fin||a.debut);set('f-heure',a.heure||'');set('f-qui',a.qui||'');set('f-detail',a.detail||'')},60);
   }else if(a.type==='tache'){
     formTache(null);
-    setTimeout(()=>{set('f-texte',a.texte);set('f-ech',a.ech||'');set('f-qui',a.qui||'')},60);
+    setTimeout(()=>{set('f-texte',a.texte);set('f-ech',a.ech||'');set('f-qui',a.qui||'');set('f-cat',GROUPES[a.cat]?a.cat:'other')},60);
   }else if(a.type==='cadeau'){
     formCadeau();
     setTimeout(()=>{set('fk-personne',a.personne||'');set('fk-idee',a.idee||'');set('fk-detail',a.detail||'');coche('fk-partagee',a.partagee)},60);
@@ -1972,7 +2030,7 @@ async function etatPush(){
 async function activerPush(){
   try{
     const perm=await Notification.requestPermission();
-    if(perm!=='granted'){majBoutonNotifs();return}
+    if(perm!=='granted'){majCloche();return}
     const reg=await navigator.serviceWorker.getRegistration();
     if(!reg){toast('⚠️ Service worker absent — réessaie après avoir rechargé');return}
     const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64VersUint8(VAPID_PUBLIC)});
@@ -1981,7 +2039,7 @@ async function activerPush(){
     if(error){toast('⚠️ Non enregistré : '+error.message);return}
     toast('Notifications activées sur cet appareil 🎉');
   }catch(e){toast('⚠️ Impossible d’activer : '+(e.message||e))}
-  majBoutonNotifs();
+  majCloche();
 }
 async function desactiverPush(){
   try{
@@ -1993,24 +2051,25 @@ async function desactiverPush(){
     }
     toast('Notifications désactivées sur cet appareil');
   }catch(e){toast('⚠️ '+(e.message||e))}
-  majBoutonNotifs();
+  majCloche();
 }
-async function majBoutonNotifs(){
-  const btn=document.getElementById('btnNotifs'),info=document.getElementById('notifEtat');
-  if(!btn)return;
+async function majCloche(){
+  const c=document.getElementById('cloche');
+  if(!c)return;
+  if(section!=='accueil'){c.style.display='none';return}
   const etat=await etatPush();
-  if(etat==='indispo'){
-    btn.style.display='none';
-    info.textContent='Pour les notifications : installe d’abord l’app sur l’écran d’accueil.';
+  if(section!=='accueil')return;
+  if(etat==='indispo'){c.style.display='none';return}
+  c.style.display='flex';
+  if(etat==='active'){
+    c.innerHTML='🔔<span>Notifs actives</span>';
+    c.onclick=()=>{if(confirm('Couper les notifications sur cet appareil ?'))desactiverPush()};
   }else if(etat==='refuse'){
-    btn.style.display='none';
-    info.textContent='Notifications bloquées — autorise-les dans les réglages du téléphone (Notifications > Famille).';
-  }else if(etat==='active'){
-    btn.style.display='';btn.textContent='🔕 Désactiver sur cet appareil';btn.onclick=desactiverPush;
-    info.textContent='Notifications activées sur cet appareil ✓';
+    c.innerHTML='🔕<span>Bloquées</span>';
+    c.onclick=()=>toast('Autorise les notifications dans les réglages du téléphone (Notifications > Famille)');
   }else{
-    btn.style.display='';btn.textContent='🔔 Activer les notifications';btn.onclick=activerPush;
-    info.textContent='Sois prévenu·e quand quelqu’un ajoute un événement.';
+    c.innerHTML='🔕<span>Silencieux</span>';
+    c.onclick=activerPush;
   }
 }
 
@@ -2046,19 +2105,47 @@ function renderAccueil(){
     <div class="acc-info">${nbCourses?nbCourses+' article'+(nbCourses>1?'s':'')+' à acheter':'Liste vide'}${nbCaddie?' · '+nbCaddie+' au caddie':''}</div></button>
   <button class="acc-carte" data-sec="memoire"><div class="acc-ico">🧠</div><div class="acc-titre">Mémoire</div>
     <div class="acc-info">${CACHE.personnes.length||enviesVisibles().length||nbIdees?[CACHE.personnes.length+' fiche'+(CACHE.personnes.length>1?'s':''),enviesVisibles().filter(e=>!e.faite).length+' envie'+(enviesVisibles().filter(e=>!e.faite).length>1?'s':''),nbIdees+' idée'+(nbIdees>1?'s':'')+' cadeau'+(nbIdees>1?'x':'')].join(' · '):'Ton second cerveau : gens, envies, idées cadeaux'}</div></button>
-  <div style="grid-column:1/-1;text-align:center;margin-top:14px">
-    <button class="btn" id="btnNotifs" style="display:none">🔔 Activer les notifications</button>
-    <div class="discret2" id="notifEtat" style="margin:8px 0 0"></div>
+  <button class="acc-carte bientot" id="carteSante"><div class="acc-ico">🩺</div><div class="acc-titre">Santé<span class="badge-bientot">bientôt</span></div>
+    <div class="acc-info">Fiches famille, traitements à cocher, vaccins &amp; bilans</div></button>
+  <button class="acc-carte bientot" id="carteMaison"><div class="acc-ico">🏠</div><div class="acc-titre">Maison<span class="badge-bientot">bientôt</span></div>
+    <div class="acc-info">Entretien (chaudière, voiture…), checklists, abonnements</div></button>
+  <div style="grid-column:1/-1;display:flex;justify-content:center;margin-top:16px">
+    <button class="btn primaire" id="btnAjouterAccueil" style="padding:15px 46px;font-size:1.05rem;border-radius:18px">＋ Ajouter</button>
   </div>
-  <div style="grid-column:1/-1;text-align:center;margin-top:6px">
-    <button class="btn" id="btnDeconnexion" style="border-color:transparent;color:var(--ink-3);font-size:.8rem">Se déconnecter</button>
-  </div>`;
+`;
   zone.querySelectorAll('.acc-carte').forEach(c=>{c.onclick=()=>setSection(c.dataset.sec)});
-  const lancerMagie=()=>formMagie(document.getElementById('magie-accueil').value.trim());
+  const lancerMagie=()=>{const ch=document.getElementById('magie-accueil');const v=ch.value.trim();ch.value='';formMagie(v)};
   document.getElementById('magie-btn').onclick=lancerMagie;
   document.getElementById('magie-accueil').addEventListener('keydown',e=>{if(e.key==='Enter')lancerMagie()});
-  majBoutonNotifs();
-  document.getElementById('btnDeconnexion').onclick=async()=>{
+  document.getElementById('btnAjouterAccueil').onclick=()=>ouvrirAjout(null);
+  const bientotToast=()=>toast('Bientôt 🙂 — c\'est dans la roadmap !');
+  document.getElementById('carteSante').onclick=bientotToast;
+  document.getElementById('carteMaison').onclick=bientotToast;
+  majCloche();
+}
+function formParams(){
+  ouvrirTiroirBrut('⚙️ Réglages');
+  const corps=document.getElementById('dbd');
+  corps.innerHTML=`
+    <p class="discret2">Connecté·e en tant que <strong>${echap(UTILISATEUR||'')}</strong> (${echap(EMAIL_CONNECTE)})</p>
+    <div class="carte-solo">
+      <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🔔 Notifications</div>
+      <p class="discret2" id="p-notif-etat" style="margin:0">…</p>
+    </div>
+    <div class="carte-solo">
+      <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🔧 Bientôt ici</div>
+      <p class="discret2" style="margin:0">L'heure du briefing du matin · les préférences de rappels · le partage de l'app à d'autres familles…</p>
+    </div>
+    <button class="btn" id="p-deco" style="width:100%;margin-top:8px;color:var(--alert)">Se déconnecter</button>`;
+  etatPush().then(e=>{
+    const el=document.getElementById('p-notif-etat');
+    if(el)el.textContent=e==='active'?'Activées sur cet appareil ✓ (la petite cloche en bas de l\'accueil permet de les couper)':
+      e==='refuse'?'Bloquées dans les réglages du téléphone (Notifications > Famille)':
+      e==='inactive'?'Coupées sur cet appareil — tape la cloche 🔕 de l\'accueil pour les activer':
+      'Indisponibles ici — installe l\'app sur l\'écran d\'accueil';
+  });
+  document.getElementById('p-deco').onclick=async()=>{
+    if(!confirm('Se déconnecter ?'))return;
     await sb.auth.signOut();
     window.location.replace('index.html');
   };
@@ -2083,8 +2170,11 @@ function setSection(s){
   document.getElementById('vueAccueil').style.display=s==='accueil'?'grid':'none';
   document.getElementById('navBar').style.visibility=s==='cal'?'visible':'hidden';
   document.getElementById('navOutils').style.visibility=(s==='cal'&&vue!=='annee')?'visible':'hidden';
-  document.querySelector('.fab').style.display=(s==='cal'||s==='todo'||s==='accueil')?'':'none';
+  document.querySelector('.fab').style.display=(s==='cal'||s==='todo')?'':'none';
+  document.getElementById('mainNav').style.visibility=s==='accueil'?'hidden':'visible';
   document.getElementById('btnAccueil').style.visibility=s==='accueil'?'hidden':'visible';
+  document.getElementById('btnParams').style.visibility=s==='accueil'?'visible':'hidden';
+  majCloche();
   render();
 }
 function navMois(dir){
@@ -2148,6 +2238,7 @@ document.querySelectorAll('#viewBar .view-btn').forEach(b=>{b.onclick=()=>setVue
 document.querySelectorAll('#mainNav .view-btn').forEach(b=>{b.onclick=()=>setSection(b.dataset.sec)});
 document.getElementById('titreAccueil').onclick=()=>setSection('accueil');
 document.getElementById('btnAccueil').onclick=()=>setSection('accueil');
+document.getElementById('btnParams').onclick=formParams;
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){fermerTiroir();fermerPopovers()}});
 let _rT=null;
 window.addEventListener('resize',()=>{clearTimeout(_rT);_rT=setTimeout(render,200)});
