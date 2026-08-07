@@ -33,13 +33,16 @@
 .mem-note-texte{font-size:.92rem;line-height:1.45;white-space:normal}
 .mem-partage{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.86rem;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
 .mem-partage input{width:auto}
-.journee{grid-column:1/-1;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-radius:18px;padding:14px 16px;box-shadow:0 3px 10px rgba(120,80,180,.08)}
+.journee{grid-column:1/-1;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-radius:18px;padding:12px 15px;box-shadow:0 3px 10px rgba(120,80,180,.08)}
+.jr-haut{cursor:pointer}
+.jr-chev{font-size:.7rem;color:var(--ink-3);margin-left:2px}
+.jr-plus{font-size:.73rem;font-weight:600;color:var(--ink-2);padding:7px 0 2px;cursor:pointer}
 .jr-tete{display:flex;align-items:baseline;gap:8px}
 .jr-t{font-weight:800;font-size:1.02rem;letter-spacing:-.02em}
 .jr-d{font-size:.72rem;color:var(--ink-2);margin-left:auto}
 .jr-sous{font-size:.76rem;color:var(--ink-2);margin-top:2px}
-.jr-sect{font-size:.62rem;font-weight:800;letter-spacing:.06em;color:var(--ink-3);text-transform:uppercase;margin:12px 0 2px}
-.jr-li{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid rgba(28,27,24,.07);cursor:pointer}
+.jr-sect{font-size:.62rem;font-weight:800;letter-spacing:.06em;color:var(--ink-3);text-transform:uppercase;margin:9px 0 0}
+.jr-li{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-top:1px solid rgba(28,27,24,.07);cursor:pointer}
 .jr-li:hover{opacity:.75}
 .jr-ic{flex-shrink:0;font-size:.95rem;width:20px;text-align:center}
 .jr-co{flex:1;min-width:0}
@@ -50,9 +53,19 @@
 .jr-cb.on{background:var(--vert,#2f9e44);border-color:var(--vert,#2f9e44);position:relative}
 .jr-cb.on::after{content:'✓';color:#fff;font-size:.68rem;position:absolute;top:-2px;left:2.5px;font-weight:800}
 .jr-faite .jr-ti{text-decoration:line-through;opacity:.45}
-.jr-aussi{font-size:.73rem;color:var(--ink-2);margin-top:10px;padding-top:8px;border-top:1px solid rgba(28,27,24,.07);cursor:pointer}
-.jr-retard{background:#fdecea;border:1px solid #f5b8ae;border-radius:12px;padding:8px 11px;font-size:.76rem;color:#8e2f22;margin-top:10px;cursor:pointer}
-.jr-plier{text-align:center;font-size:.72rem;font-weight:700;color:var(--ink-2);padding:8px 0 0;margin-top:6px;border-top:1px solid rgba(28,27,24,.07);cursor:pointer}
+.jr-aussi{font-size:.72rem;color:var(--ink-2);margin-top:8px;padding-top:7px;border-top:1px solid rgba(28,27,24,.07);cursor:pointer}
+.jr-retard{background:#fdecea;border:1px solid #f5b8ae;border-radius:11px;padding:6px 10px;font-size:.74rem;color:#8e2f22;margin-top:8px;cursor:pointer}
+.jr-plier{text-align:center;font-size:.7rem;font-weight:700;color:var(--ink-3);padding:7px 0 0;margin-top:4px;border-top:1px solid rgba(28,27,24,.07);cursor:pointer}
+.journee.compacte{cursor:pointer;padding:11px 14px}
+.jc-h{display:flex;align-items:baseline;gap:7px;font-size:.72rem;color:var(--ink-2)}
+.jc-h b{font-size:.95rem;color:var(--ink);font-weight:800;letter-spacing:-.02em}
+.jc-d{margin-left:auto}
+.jc-next{display:flex;gap:9px;align-items:baseline;margin-top:7px}
+.jc-heure{font-weight:800;font-size:.82rem;color:var(--event);white-space:nowrap}
+.jc-ti{font-size:.88rem;font-weight:600;line-height:1.3;flex:1;min-width:0}
+.jc-bas{display:flex;gap:8px;align-items:center;margin-top:9px;padding-top:8px;border-top:1px solid rgba(28,27,24,.08);font-size:.73rem;color:var(--ink-2)}
+.jc-lien{margin-left:auto;font-weight:700;color:var(--ink-2);white-space:nowrap}
+.jc-retard{background:#fdecea;color:#8e2f22;border:1px solid #f5b8ae;border-radius:999px;padding:1px 8px;font-size:.68rem;font-weight:700;white-space:nowrap}
 .magie{grid-column:1/-1;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-radius:18px;padding:12px 14px;box-shadow:0 3px 10px rgba(120,80,180,.08)}
 .magie-titre{font-size:.7rem;font-weight:800;letter-spacing:.06em;color:#8a5fc0;margin-bottom:8px;text-transform:uppercase}
 .magie-aide{font-size:.72rem;color:var(--ink-3);margin-top:7px}
@@ -119,13 +132,67 @@
   .year-grid{gap:8px}
 }
 /* Page d'accueil */
-.page-accueil{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;align-content:start;max-width:820px;margin:14px auto 0;padding-bottom:64px}
-.acc-carte{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px 24px;cursor:pointer;transition:.15s;text-align:left;font-family:inherit}
-.acc-carte:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px);border-color:var(--border-strong)}
-.acc-ico{font-size:2.1rem}
-.acc-titre{font-weight:700;font-size:1.08rem;margin-top:10px;letter-spacing:-.01em;color:var(--ink)}
-.acc-info{color:var(--ink-2);font-size:.84rem;margin-top:5px;line-height:1.45}
-@media(max-width:560px){.page-accueil{grid-template-columns:1fr 1fr;gap:10px}.acc-carte{padding:20px 16px}}
+/* ---------- ☀️ Ta journée : la timeline ---------- */
+.tj-ctx{font-size:.78rem;color:var(--ink-3);margin:-4px 0 4px}
+.tj-sect{display:flex;align-items:baseline;gap:7px;font-size:.62rem;font-weight:800;letter-spacing:.09em;
+  color:var(--ink-3);text-transform:uppercase;margin:16px 0 1px}
+.tj-sect .tj-n{margin-left:auto;letter-spacing:.02em;font-weight:700;text-transform:none;font-size:.7rem}
+.tj-li{display:flex;gap:12px;align-items:flex-start;padding:9px 0;cursor:pointer}
+.tj-li:hover{opacity:.72}
+.tj-rail{width:11px;flex-shrink:0;align-self:stretch;position:relative}
+.tj-rail::before{content:'';position:absolute;left:5px;top:0;bottom:0;width:1.5px;background:#e2ded7}
+.tj-li.tj-premier .tj-rail::before{top:11px}
+.tj-li.tj-dernier .tj-rail::before{bottom:calc(100% - 11px)}
+.tj-li.tj-plein .tj-rail::before{background:#b8b2a8}
+.tj-pa{position:absolute;left:0;top:5px;width:11px;height:11px;border-radius:999px;background:var(--surface);
+  border:1.6px solid #cfcac2;box-sizing:border-box;z-index:1}
+.tj-pa.tj-passe{background:#a8a29a;border-color:#a8a29a}
+.tj-pa.tj-rec{border-style:dashed;border-color:#d5d0c8}
+.tj-pa.tj-rec.tj-passe{background:#dcd8d1;border-color:#dcd8d1;border-style:solid}
+.tj-co{flex:1;min-width:0}
+.tj-ti{font-size:.89rem;font-weight:650;line-height:1.3}
+.tj-li.tj-rec .tj-ti{font-weight:450;color:var(--ink-2);font-size:.85rem}
+.tj-li.tj-annulee .tj-ti{text-decoration:line-through;opacity:.5}
+.tj-su{font-size:.73rem;color:var(--ink-3)}
+.tj-eti{font-size:.69rem;font-weight:700;border-radius:999px;padding:1px 8px;flex-shrink:0;margin-top:3px;
+  max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tj-mnt{display:flex;gap:12px;align-items:center;padding:1px 0}
+.tj-mnt .tj-rail{align-self:stretch;min-height:17px}
+.tj-mnt .tj-pt{position:absolute;left:2.5px;top:5px;width:6px;height:6px;border-radius:999px;background:#e03131;z-index:1}
+.tj-mnt .tj-lb{font-size:.64rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#e03131}
+.tj-vide{font-size:.88rem;color:var(--ink-2);padding:10px 0 2px}
+.tj-t{display:flex;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #f2f0ec}
+.tj-sect + .tj-t{border-top:none}
+.tj-cb{width:19px;height:19px;border:1.8px solid var(--ink-3);border-radius:999px;flex-shrink:0;cursor:pointer}
+.tj-cb.on{background:#2f9e44;border-color:#2f9e44;position:relative}
+.tj-cb.on::after{content:'✓';color:#fff;font-size:.66rem;font-weight:800;position:absolute;left:4px;top:-3px}
+.tj-tt{font-size:.88rem;font-weight:600;line-height:1.3;flex:1;min-width:0;cursor:pointer}
+.tj-t.tj-autre .tj-tt{font-weight:500;color:var(--ink-2)}
+.tj-t.tj-faite .tj-tt{text-decoration:line-through;opacity:.36}
+.tj-retard{margin-top:12px;font-size:.79rem;font-weight:700;color:#c92a2a;padding:10px 0 0;
+  border-top:1px solid #f2f0ec;cursor:pointer}
+.tj-retour{font-size:.78rem;font-weight:700;color:var(--ink-2);cursor:pointer;margin-bottom:10px}
+.page-accueil{flex:1;display:block;align-content:start;max-width:560px;margin:14px auto 0;padding-bottom:64px}
+/* --- les tuiles : une icône, un mot --- */
+.tuiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-top:12px}
+.tuile{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:14px 6px 12px;text-align:center;cursor:pointer;transition:.15s;font-family:inherit;box-shadow:var(--shadow)}
+.tuile:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px);border-color:var(--border-strong)}
+.tu-ico{font-size:1.55rem;line-height:1}
+.tu-nom{font-size:.75rem;font-weight:700;margin-top:6px;letter-spacing:-.015em;color:var(--ink)}
+.tu-nb{position:absolute;top:7px;right:7px;background:#e03131;color:#fff;border-radius:999px;min-width:18px;
+  height:18px;font-size:.63rem;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.tu-pt{position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:999px;background:var(--ink)}
+.tuile.bientot{opacity:.42;cursor:default;box-shadow:none}
+.tuile.bientot:hover{transform:none;box-shadow:none;border-color:var(--border)}
+/* --- la barre « dis-moi tout », une seule ligne --- */
+.chatline{display:flex;align-items:center;gap:9px;background:var(--surface);border:1.5px solid #e6dcf5;
+  border-radius:999px;padding:8px 8px 8px 14px;margin-top:12px;box-shadow:var(--shadow);cursor:text}
+.chatline input{flex:1;border:none;background:transparent;font-size:.88rem;padding:0;outline:none;font-family:inherit}
+.chatline input::placeholder{color:var(--ink-3)}
+.chatline .cl-go{width:33px;height:33px;flex-shrink:0;background:var(--ink);border:none;border-radius:999px;
+  color:#fff;font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+@media(min-width:620px){.tuiles{gap:11px}.tu-ico{font-size:1.75rem}.tu-nom{font-size:.82rem}}
 </style>
 </head>
 <body>
@@ -180,7 +247,6 @@
 </div>
 
 <button class="fab" onclick="fabAction()">＋ Ajouter</button>
-<button class="cloche" id="cloche"></button>
 <div class="toast" id="toast"></div>
 
 <div class="overlay" id="ov" onclick="fermerTiroir()"></div>
@@ -853,121 +919,221 @@ function renderTodo(){
 }
 
 /* ================== TIROIR : DÉTAIL D'UN JOUR ================== */
+/* ============ ☀️ TA JOURNÉE — l'écran d'un jour ============
+   Une chronologie : un fil relie les rendez-vous, la pastille se remplit
+   quand c'est passé, le fil se colore derrière toi. Les tâches, elles,
+   ne sont pas une chronologie mais une répartition : rangées par personne. */
+const TEINTES=[['#c2255c','#fce7ef'],['#1864ab','#e4effa'],['#9c36b5','#f6e6fb'],
+               ['#e8590c','#fdece0'],['#2b8a3e','#e5f5e9'],['#5f3dc4','#eceafb']];
+function teintePersonne(nom){
+  const n=String(nom||'').trim();
+  if(!n)return null;
+  const bas=n.toLowerCase();
+  const i=(CACHE.membres||[]).findIndex(m=>String(m).trim().toLowerCase()===bas);
+  if(i>=0)return TEINTES[i%TEINTES.length];
+  if(/[,&+]|\bet\b|famille|tous|toute/.test(bas))return ['#9c36b5','#f6e6fb'];
+  return ['#6f6b62','#eeecea'];
+}
+function etiquettePersonne(nom){
+  const t=teintePersonne(nom);
+  if(!t)return '';
+  return `<span class="tj-eti" style="color:${t[0]};background:${t[1]}">${echap(String(nom).trim())}</span>`;
+}
+// Les éléments datés du jour, dans l'ordre de l'heure
+function elementsJour(d){
+  const out=[];
+  bdaysDuJour(d).forEach(b=>out.push({id:b.id,type:'bday',h:null,fin:null,
+    titre:b.titre.replace(/^🎂 /,''),sous:b.detail||'',qui:null}));
+  evtsDuJour(d).forEach(e=>{
+    const multi=e.fin&&e.fin!==e.debut;
+    out.push({id:e.id,type:'evt',h:e.heure||null,fin:null,titre:e.titre,
+      sous:[e.heure||'',multi?'du '+deIso(e.debut).getDate()+' au '+deIso(e.fin).getDate()+' '+MFR[deIso(e.fin).getMonth()].toLowerCase():''].filter(Boolean).join(' · '),
+      qui:e.qui||null});
+  });
+  actsDuJour(d).forEach(a=>out.push({id:a.id,type:'act',h:a.hd||null,fin:a.hf||null,recur:true,
+    annulee:!!a.annuleeCeJour,titre:a.titre.split('—')[0].trim(),
+    sous:(a.hd||'')+(a.hf?' → '+a.hf:'')+(a.annuleeCeJour?' · annulée ce jour':''),qui:a.qui||null}));
+  out.sort((x,y)=>{
+    if(!x.h&&!y.h)return 0;
+    if(!x.h)return -1;
+    if(!y.h)return 1;
+    return minutes(x.h)-minutes(y.h);
+  });
+  return out;
+}
 function ouvrirJour(d){
   jourOuvert=d;
   ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()]+' '+d.getFullYear());
   const corps=document.getElementById('dbd');
+  const sJ=iso(d),sAuj=iso(new Date());
   const v=enVacances(d),f=ferie(d);
+  const items=elementsJour(d);
+
+  // Ce qui est derrière nous : tout un jour passé, rien un jour futur,
+  // et l'heure qui tranche pour aujourd'hui.
+  const mnt=new Date().getHours()*60+new Date().getMinutes();
+  const estPasse=(it)=>{
+    if(sJ<sAuj)return true;
+    if(sJ>sAuj)return false;
+    if(!it.h)return false;
+    return minutes(it.fin||it.h)<mnt;
+  };
+  const etats=items.map(estPasse);
+  const dernierPasse=etats.lastIndexOf(true);
+  const montrerMaintenant=(sJ===sAuj)&&dernierPasse>=0&&dernierPasse<items.length-1;
+
   let h='';
-  if(f)h+=`<span class="badge" style="background:#fbe9df;color:#b34508">🇫🇷 Férié — ${echap(f)}</span> `;
-  if(v)h+=`<span class="badge" style="background:var(--vac-bg);color:#8a6d10">☀️ ${echap(v.nom)}
-    <button class="b-act" data-modif-vac="${v.id}" title="Modifier cette période">✏️</button></span>`;
-  if(f||v)h+='<div style="height:12px"></div>';
+  const ctx=[f?'🇫🇷 '+echap(f):'',v?'☀️ '+echap(v.nom):''].filter(Boolean).join(' · ');
+  if(ctx)h+=`<div class="tj-ctx">${ctx}${v?` <span data-modif-vac="${v.id}" style="cursor:pointer;opacity:.55" title="Modifier cette période">✏️</span>`:''}</div>`;
 
-  const bds=bdaysDuJour(d),evs=evtsDuJour(d),acs=actsDuJour(d);
-  if(!bds.length&&!evs.length&&!acs.length)h+='<p style="color:var(--ink-3);font-size:.88rem">Rien de prévu ce jour-là.</p>';
-
-  // Checklist d'actions liées à une info (le pont info → action)
-  const idsAffiches=new Set();
-  function checklist(idInfo,filtreAn){
-    const liees=tachesLiees(idInfo).filter(t=>!filtreAn||t.persistante||t.y===filtreAn);
-    if(!liees.length)return '';
-    let c='<div style="margin-top:7px;border-top:1px dashed var(--border);padding-top:5px">';
-    liees.forEach(t=>{
-      idsAffiches.add(t.id);
-      const faite=estFaite(t.id);
-      c+=`<label class="check-ligne" style="margin-top:3px;font-size:.8rem">
-        <input type="checkbox" data-coche="${t.id}" ${faite?'checked':''}>
-        <span style="${faite?'text-decoration:line-through;opacity:.5':''}">${echap(t.texte)}</span>
-        <span style="color:var(--ink-3);font-size:.72rem">${echap(t.dateTexte||'')}</span></label>`;
+  // ---- La chronologie ----
+  if(items.length){
+    h+=`<div class="tj-sect">Au programme<span class="tj-n">${items.length}</span></div>`;
+    items.forEach((it,i)=>{
+      const cls=[ 'tj-li',
+        i===0?'tj-premier':'', i===items.length-1?'tj-dernier':'',
+        it.recur?'tj-rec':'', it.annulee?'tj-annulee':'',
+        (i<=dernierPasse)?'tj-plein':'' ].filter(Boolean).join(' ');
+      const pa=['tj-pa',it.recur?'tj-rec':'',etats[i]?'tj-passe':''].filter(Boolean).join(' ');
+      h+=`<div class="${cls}" data-detail="${it.id}">
+        <div class="tj-rail"><span class="${pa}"></span></div>
+        <div class="tj-co"><div class="tj-ti">${echap(it.titre)}</div>
+          ${it.sous?`<div class="tj-su">${echap(it.sous)}</div>`:''}</div>
+        ${etiquettePersonne(it.qui)}</div>`;
+      if(montrerMaintenant&&i===dernierPasse){
+        h+=`<div class="tj-mnt"><div class="tj-rail"><span class="tj-pt"></span></div>
+          <span class="tj-lb">${p2(new Date().getHours())}:${p2(new Date().getMinutes())} · maintenant</span></div>`;
+      }
     });
-    c+=`<button class="btn mini" style="margin-top:6px" data-action-liee="${idInfo}">＋ action liée</button></div>`;
-    return c;
+  }else{
+    h+=`<div class="tj-vide">Rien de prévu ce jour-là 🌿</div>`;
   }
 
-  bds.forEach(b=>{
-    const idees=cadeauxVisibles().filter(c=>!c.offert&&c.personne&&c.personne.trim().toLowerCase()===b.nom.trim().toLowerCase());
-    h+=`<div class="de" style="border-left-color:${coul('bday')}">
-      <div class="evtit">${echap(b.titre)}</div>
-      ${b.detail?`<div class="evdetail">${echap(b.detail)}</div>`:''}
-      ${idees.length?`<div class="evdetail">🎁 Idées notées : ${idees.map(i=>echap(i.idee)).join(' · ')}</div>`:''}
-      ${checklist(b.id,d.getFullYear())}
-      <div class="de-actions">
-        <button class="btn mini" data-modif-bday="${b.id}">✏️ Modifier</button>
-        <button class="btn mini danger" data-suppr="${b.id}">Supprimer</button>
-      </div></div>`;
-  });
-  evs.forEach(e=>{
-    const multi=e.fin&&e.fin!==e.debut;
-    h+=`<div class="de" style="border-left-color:${coulEvt(e)}">
-      ${e.heure?`<div class="evt">${echap(e.heure)}</div>`:''}
-      <div class="evtit">${echap(e.titre)}</div>
-      <div class="evwho">${e.qui?echap(e.qui):''}${multi?(e.qui?' · ':'')+'du '+deIso(e.debut).getDate()+' au '+deIso(e.fin).getDate()+' '+MFR[deIso(e.fin).getMonth()].toLowerCase():''}</div>
-      ${e.detail?`<div class="evdetail">${e.detail}</div>`:''}
-      ${checklist(e.id,null)}
-      <div class="de-actions">
-        <button class="btn mini" data-modif-evt="${e.id}">✏️ Modifier</button>
-        <button class="btn mini danger" data-suppr="${e.id}">Supprimer</button>
-      </div></div>`;
-  });
-
-  // Actions à faire ce jour-là (échéance = ce jour), hors celles déjà affichées ci-dessus
-  const dues=toutesTaches().filter(t=>t.ech===iso(d)&&!idsAffiches.has(t.id));
-  if(dues.length){
-    h+='<div class="dsec"><h3>✅ À faire ce jour-là</h3>';
-    dues.forEach(t=>{
-      const faite=estFaite(t.id);
-      h+=`<label class="check-ligne" style="margin-top:3px;font-size:.84rem">
-        <input type="checkbox" data-coche="${t.id}" ${faite?'checked':''}>
-        <span style="${faite?'text-decoration:line-through;opacity:.5':''}">${echap(t.texte)}</span></label>`;
+  // ---- Les tâches, rangées par personne ----
+  const vus=new Set();
+  const taches=[];
+  toutesTaches().forEach(t=>{if(t.ech===sJ&&!vus.has(t.id)){vus.add(t.id);taches.push(t)}});
+  items.forEach(it=>tachesLiees(it.id).forEach(t=>{if(!vus.has(t.id)){vus.add(t.id);taches.push(t)}}));
+  if(taches.length){
+    const moi=String(UTILISATEUR||'').trim().toLowerCase();
+    const membres=(CACHE.membres||[]).slice()
+      .sort((a,b)=>(String(a).trim().toLowerCase()===moi?-1:0)-(String(b).trim().toLowerCase()===moi?-1:0));
+    const groupes=[];
+    const pris=new Set();
+    membres.forEach(m=>{
+      const bas=String(m).trim().toLowerCase();
+      const lot=taches.filter(t=>{const q=String(t.qui||'').trim().toLowerCase();
+        return q&&(q===bas||q.includes(bas))&&!pris.has(t.id)});
+      lot.forEach(t=>pris.add(t.id));
+      if(lot.length)groupes.push({nom:bas===moi?'Toi':String(m).trim(),lot,aMoi:bas===moi});
     });
-    h+='</div>';
+    const reste=taches.filter(t=>!pris.has(t.id)&&String(t.qui||'').trim());
+    if(reste.length)groupes.push({nom:'Autres',lot:reste,aMoi:false});
+    const libres=taches.filter(t=>!String(t.qui||'').trim());
+    if(libres.length)groupes.push({nom:'À prendre',lot:libres,aMoi:false,libre:true});
+    groupes.forEach(g=>{
+      const faites=g.lot.filter(t=>estFaite(t.id)).length;
+      h+=`<div class="tj-sect">${echap(g.nom)}<span class="tj-n">${g.libre?g.lot.length:faites+' sur '+g.lot.length}</span></div>`;
+      g.lot.forEach(t=>{
+        const fa=estFaite(t.id);
+        h+=`<div class="tj-t ${fa?'tj-faite':''} ${g.aMoi?'':'tj-autre'}">
+          <span class="tj-cb ${fa?'on':''}" data-coche="${t.id}"></span>
+          <span class="tj-tt" data-ouvrir-tache="${t.id}">${echap(t.texte)}</span></div>`;
+      });
+    });
   }
-  if(acs.length){
-    h+='<div class="dsec"><h3>Activités du jour</h3>';
-    acs.sort((a,b)=>minutes(a.hd)-minutes(b.hd)).forEach(a=>{
-      const ann=a.annuleeCeJour;
-      h+=`<div class="de" style="border-left-color:${coul(a.cat)};padding:8px 12px;${ann?'opacity:.65':''}">
-        <div class="evt">${echap(a.hd)}${a.hf?'–'+echap(a.hf):''}
-          ${ann?'<span style="color:var(--alert);font-weight:800"> · ANNULÉE CE JOUR</span>':''}</div>
-        <div class="evtit" style="font-size:.85rem;${ann?'text-decoration:line-through':''}">${echap(a.titre)}</div>
-        <div class="evloc">${a.qui?echap(a.qui):''}${a.lieu?' · 📍 '+echap(a.lieu):''}</div>
-        <div class="de-actions">
-          <button class="btn mini" data-annule-act="${a.id}">${ann?'↩️ Rétablir':'🚫 Annuler ce jour'}</button>
-          <button class="btn mini" data-pause-act="${a.id}" title="Suspendre sur une période">⏸ Suspendre</button>
-          <button class="btn mini" data-modif-act="${a.id}">✏️</button>
-          <button class="btn mini danger" data-suppr="${a.id}">🗑️</button>
-        </div></div>`;
-    });
-    h+='</div>';
+
+  if(sJ===sAuj){
+    const rtd=tachesEnRetard();
+    if(rtd.length)h+=`<div class="tj-retard" data-voir-todo="1">🚨 ${rtd.length} tâche${rtd.length>1?'s':''} en retard — voir la to-do ›</div>`;
   }
   h+=`<button class="btn primaire" style="width:100%;margin-top:18px" data-ajout-ici="1">＋ Ajouter ce jour-là</button>`;
   corps.innerHTML=h;
-  // Câblage
-  corps.querySelectorAll('[data-suppr]').forEach(b=>{b.onclick=()=>{
-    if(!confirm('Supprimer ?'))return;
-    supprimerObjet(b.dataset.suppr);toast('Supprimé');render();ouvrirJour(d);
-  }});
-  corps.querySelectorAll('[data-modif-evt]').forEach(b=>{b.onclick=()=>formEvt(b.dataset.modifEvt,null)});
-  corps.querySelectorAll('[data-modif-bday]').forEach(b=>{b.onclick=()=>formBday(b.dataset.modifBday)});
-  corps.querySelectorAll('[data-modif-act]').forEach(b=>{b.onclick=()=>formAct(b.dataset.modifAct)});
-  corps.querySelectorAll('[data-annule-act]').forEach(b=>{b.onclick=()=>{
-    const a=trouverParId(b.dataset.annuleAct);
-    const list=[...(a.annulations||[])];
-    const i=list.indexOf(iso(d));
-    if(i>=0){list.splice(i,1);toast('Séance rétablie')}
-    else{list.push(iso(d));toast('Séance annulée ce jour')}
-    enregistrerObjet(a.id,'acts',{annulations:list});
-    render();ouvrirJour(d);
-  }});
-  corps.querySelectorAll('[data-pause-act]').forEach(b=>{b.onclick=()=>formPause(b.dataset.pauseAct,d)});
-  corps.querySelectorAll('[data-modif-vac]').forEach(b=>{b.onclick=()=>formVac(b.dataset.modifVac)});
-  corps.querySelectorAll('[data-coche]').forEach(c=>{c.onchange=()=>{
-    basculerFaite(c.dataset.coche);render();ouvrirJour(d);
-  }});
-  corps.querySelectorAll('[data-action-liee]').forEach(b=>{b.onclick=()=>formTache(null,b.dataset.actionLiee)});
+
+  // ---- Câblage ----
+  corps.querySelectorAll('[data-detail]').forEach(el=>{
+    el.onclick=()=>detailJour(el.dataset.detail,d);
+  });
+  corps.querySelectorAll('[data-coche]').forEach(el=>{
+    el.onclick=(ev)=>{ev.stopPropagation();basculerFaite(el.dataset.coche);render();ouvrirJour(d)};
+  });
+  corps.querySelectorAll('[data-ouvrir-tache]').forEach(el=>{
+    el.onclick=()=>{const id=el.dataset.ouvrirTache;
+      if(id.startsWith('auto-'))toast('Cette action est générée automatiquement 🙂');else formTache(id)};
+  });
+  corps.querySelectorAll('[data-modif-vac]').forEach(b=>{b.onclick=(ev)=>{ev.stopPropagation();formVac(b.dataset.modifVac)}});
+  const rt=corps.querySelector('[data-voir-todo]');
+  if(rt)rt.onclick=()=>{fermerTiroir();setSection('todo')};
   const aj=corps.querySelector('[data-ajout-ici]');
   if(aj)aj.onclick=()=>ouvrirAjout(iso(d));
+}
+
+/* Le détail d'un élément : tout ce qu'on peut en faire, au même endroit */
+function detailJour(id,d){
+  const o=trouverParId(id);
+  if(!o){ouvrirJour(d);return}
+  const est=(t)=>lesEvts().some(x=>x.id===id)?t==='evt':lesBdays().some(x=>x.id===id)?t==='bday':t==='act';
+  const type=lesEvts().some(x=>x.id===id)?'evt':lesBdays().some(x=>x.id===id)?'bday':'act';
+  ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()]);
+  const corps=document.getElementById('dbd');
+  const annulee=(o.annulations||[]).includes(iso(d));
+  let det='',qui=o.qui||'';
+  if(type==='evt'){
+    const multi=o.fin&&o.fin!==o.debut;
+    det=[o.heure||'',multi?'du '+deIso(o.debut).getDate()+' au '+deIso(o.fin).getDate()+' '+MFR[deIso(o.fin).getMonth()].toLowerCase():''].filter(Boolean).join(' · ');
+  }else if(type==='act'){
+    det=(o.hd||'')+(o.hf?' → '+o.hf:'')+(o.lieu?' · 📍 '+o.lieu:'');
+  }
+  const liees=tachesLiees(id);
+  let h=`<div class="tj-retour" data-retour="1">← ${DFR[jSem(d)-1].toLowerCase()} ${d.getDate()} ${MFR[d.getMonth()].toLowerCase()}</div>
+    <div class="de" style="border-left-color:${type==='bday'?coul('bday'):type==='act'?coul(o.cat):coulEvt(o)}">
+      <div class="evtit">${echap(type==='bday'?o.titre:o.titre)}</div>
+      ${det?`<div class="evt">${echap(det)}</div>`:''}
+      ${qui?`<div class="evwho">${echap(qui)}</div>`:''}
+      ${o.detail?`<div class="evdetail">${o.detail}</div>`:''}
+    </div>`;
+  if(type==='bday'){
+    const idees=cadeauxVisibles().filter(c=>!c.offert&&c.personne&&c.personne.trim().toLowerCase()===String(o.nom||'').trim().toLowerCase());
+    if(idees.length)h+=`<p class="discret2">🎁 Idées notées : ${idees.map(i=>echap(i.idee)).join(' · ')}</p>`;
+  }
+  if(liees.length){
+    h+='<div class="tj-sect">Actions liées</div>';
+    liees.forEach(t=>{
+      const fa=estFaite(t.id);
+      h+=`<div class="tj-t ${fa?'tj-faite':''}">
+        <span class="tj-cb ${fa?'on':''}" data-coche="${t.id}"></span>
+        <span class="tj-tt">${echap(t.texte)}${t.dateTexte?` <span class="tj-su">${echap(t.dateTexte)}</span>`:''}</span></div>`;
+    });
+  }
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px">
+    <button class="btn" data-modif="1">✏️ Modifier</button>
+    <button class="btn" data-lier="1">＋ Action liée</button>
+    ${type==='act'?`<button class="btn" data-annule="1">${annulee?'↩️ Rétablir ce jour':'🚫 Annuler ce jour'}</button>
+      <button class="btn" data-pause="1">⏸ Suspendre</button>`:''}
+    <button class="btn danger" data-suppr="1">🗑️ Supprimer</button>
+  </div>`;
+  corps.innerHTML=h;
+  corps.querySelector('[data-retour]').onclick=()=>ouvrirJour(d);
+  corps.querySelector('[data-modif]').onclick=()=>{
+    if(type==='evt')formEvt(id,null);else if(type==='bday')formBday(id);else formAct(id);
+  };
+  corps.querySelector('[data-lier]').onclick=()=>formTache(null,id);
+  corps.querySelectorAll('[data-coche]').forEach(el=>{
+    el.onclick=()=>{basculerFaite(el.dataset.coche);render();detailJour(id,d)};
+  });
+  const an=corps.querySelector('[data-annule]');
+  if(an)an.onclick=()=>{
+    const list=[...(o.annulations||[])];
+    const i=list.indexOf(iso(d));
+    if(i>=0){list.splice(i,1);toast('Séance rétablie')}else{list.push(iso(d));toast('Séance annulée ce jour')}
+    enregistrerObjet(id,'acts',{annulations:list});render();ouvrirJour(d);
+  };
+  const pz=corps.querySelector('[data-pause]');
+  if(pz)pz.onclick=()=>formPause(id,d);
+  corps.querySelector('[data-suppr]').onclick=()=>{
+    if(!confirm('Supprimer ?'))return;
+    supprimerObjet(id);toast('Supprimé');render();ouvrirJour(d);
+  };
 }
 
 /* ================== AJOUT UNIVERSEL ================== */
@@ -1537,7 +1703,10 @@ async function mgEnvoyer(){
   if(!texte)return;
   input.value='';
   mgBulle('moi',echap(texte));
-  if(MAGIE_ATTENTE){MAGIE_HISTO.push({role:'user',content:texte});mgRepondreQui(texte);return}
+  if(MAGIE_ATTENTE){
+    // Réponse libre (« vendredi prochain », « plutôt Didier ») : on laisse l'IA interpréter
+    MAGIE_PROPS=MAGIE_ATTENTE.actions;MAGIE_ATTENTE=null;
+  }
   const enCorrection=!!MAGIE_PROPS;
   if(!enCorrection)MAGIE_HISTO.push({role:'user',content:texte});
   mgPense();
@@ -1552,7 +1721,8 @@ async function mgEnvoyer(){
   }catch(e){error=e}
   mgFiniPense();
   if(error||!data||data.erreur||(data.mode!=='reponse'&&!Array.isArray(data.actions))){
-    mgBulle('ia','⚠️ Oups, la magie a raté — redis-le moi ? <span class="todo-date">('+echap(String((data&&data.erreur)||(error&&error.message)||'petit souci réseau'))+')</span>');
+    const det=String((data&&data.erreur)||(error&&error.message)||'');
+    mgBulle('ia','Je n\'ai pas réussi à répondre là 😕 Redis-le moi ?'+(det?'<div class="todo-date" style="margin-top:3px">'+echap(det.slice(0,120))+'</div>':''));
     return;
   }
   if(data.mode==='reponse'&&data.texte){
@@ -1573,10 +1743,30 @@ async function mgEnvoyer(){
 function mgProposer(data){
   MAGIE_PROPS=data.actions;
   if(data.remarque)mgBulle('ia','💭 '+echap(data.remarque));
-  const manquantes=data.actions.map((a,i)=>a.type==='tache'&&!a.qui?i:-1).filter(i=>i>=0);
-  if(manquantes.length){
-    MAGIE_ATTENTE={actions:data.actions,manquantes};
-    mgBulle('ia','Super, je te prépare ça 👍 Juste une précision — <b>qui s\'en occupe ?</b>');
+  mgSuite(data.actions,true);
+}
+// Pose UNE question à la fois pour ce que l'IA ne peut pas deviner :
+// d'abord la date, puis qui s'en occupe. Le reste, elle le déduit.
+function mgSuite(actions,premier){
+  const sansDate=actions.map((a,i)=>(a.type==='tache'&&!a.ech&&!a._dateOk)?i:-1).filter(i=>i>=0);
+  if(sansDate.length){
+    MAGIE_ATTENTE={actions,indices:sansDate,quoi:'date'};
+    mgBulle('ia',(premier?'Super, je te prépare ça 👍 ':'')+'C\'est pour <b>quand</b> ?');
+    const d=new Date();
+    const plus=(n)=>{const x=new Date();x.setDate(x.getDate()+n);return iso(x)};
+    const finSemaine=()=>{const x=new Date();x.setDate(x.getDate()+((7-x.getDay())%7||7));return iso(x)};
+    mgChips([
+      ["Aujourd'hui",()=>mgRepondreDate(iso(d),"aujourd'hui")],
+      ['Demain',()=>mgRepondreDate(plus(1),'demain')],
+      ['Cette semaine',()=>mgRepondreDate(finSemaine(),'cette semaine')],
+      ['Sans date',()=>mgRepondreDate(null,'sans date')],
+    ]);
+    return;
+  }
+  const sansQui=actions.map((a,i)=>(a.type==='tache'&&!a.qui&&!a._quiOk)?i:-1).filter(i=>i>=0);
+  if(sansQui.length){
+    MAGIE_ATTENTE={actions,indices:sansQui,quoi:'qui'};
+    mgBulle('ia',(premier?'Super, je te prépare ça 👍 ':'')+'Et <b>qui s\'en occupe</b> ?');
     const membres=CACHE.membres.length?CACHE.membres:['Mandana','Didier'];
     mgChips([
       ...membres.map(m=>[m,()=>mgRepondreQui(m)]),
@@ -1585,14 +1775,21 @@ function mgProposer(data){
     ]);
     return;
   }
-  mgCartes(data.actions);
+  mgCartes(actions);
+}
+function mgRepondreDate(ech,libelle){
+  const att=MAGIE_ATTENTE;MAGIE_ATTENTE=null;
+  if(!att)return;
+  att.indices.forEach(i=>{att.actions[i].ech=ech;att.actions[i]._dateOk=true});
+  MAGIE_HISTO.push({role:'assistant',content:'(question : pour quand ? → réponse : '+libelle+')'});
+  mgSuite(att.actions,false);
 }
 function mgRepondreQui(rep){
   const att=MAGIE_ATTENTE;MAGIE_ATTENTE=null;
   if(!att)return;
   MAGIE_HISTO.push({role:'assistant',content:'(question : qui s\'en occupe ? → réponse : '+(rep||'peu importe')+')'});
-  att.manquantes.forEach(i=>{att.actions[i].qui=(rep||'').trim()||null});
-  mgCartes(att.actions);
+  att.indices.forEach(i=>{att.actions[i].qui=(rep||'').trim()||null;att.actions[i]._quiOk=true});
+  mgSuite(att.actions,false);
 }
 function mgCartes(actions){
   MAGIE_PROPS=actions;
@@ -1662,6 +1859,7 @@ function magiEnregistrer(actions){
       enregistrerObjet(null,'evts',{titre:a.titre,cat:['event','voyage','pro','rentree'].includes(a.cat)?a.cat:'event',
         debut:a.debut||iso(new Date()),fin:a.fin||null,heure:a.heure||null,qui:a.qui||null,detail:a.detail||null});n++;
     }else if(a.type==='tache'&&a.texte){
+      delete a._dateOk;delete a._quiOk;
       const ech=a.ech||null;
       const base=ech?deIso(ech):new Date();
       enregistrerObjet(null,'taches',{texte:a.texte,cat:GROUPES[a.cat]?a.cat:'other',qui:a.qui||'',ech,
@@ -2047,100 +2245,65 @@ async function desactiverPush(){
   }catch(e){toast('⚠️ '+(e.message||e))}
   majCloche();
 }
-async function majCloche(){
-  const c=document.getElementById('cloche');
-  if(!c)return;
-  if(section!=='accueil'){c.style.display='none';return}
-  const etat=await etatPush();
-  if(section!=='accueil')return;
-  if(etat==='indispo'){c.style.display='none';return}
-  c.style.display='flex';
-  if(etat==='active'){
-    c.innerHTML='🔔<span>Notifs actives</span>';
-    c.onclick=()=>{if(confirm('Couper les notifications sur cet appareil ?'))desactiverPush()};
-  }else if(etat==='refuse'){
-    c.innerHTML='🔕<span>Bloquées</span>';
-    c.onclick=()=>toast('Autorise les notifications dans les réglages du téléphone (Notifications > Famille)');
-  }else{
-    c.innerHTML='🔕<span>Silencieux</span>';
-    c.onclick=activerPush;
-  }
-}
+async function majCloche(){/* la cloche a déménagé dans ⚙️ Réglages */}
 
-let journeePliee=null;  // null = automatique, true/false = choix de l'utilisateur
-function blocJournee(){
+/* ---------- ☀️ Ta journée : la carte compacte de l'accueil ----------
+   Une seule info utile : la PROCHAINE chose de la journée. Le reste en
+   chiffres. Hauteur fixe, même un jour à 12 événements. Tout le détail
+   vit dans l'écran du jour (clic n'importe où sur la carte). */
+function prochaineChose(){
   const auj=new Date(),sAuj=iso(auj);
-  const v=enVacances(auj),f=ferie(auj);
-  const bds=bdaysDuJour(auj);
-  const evs=evtsDuJour(auj).sort((a,b)=>minutes(a.heure)-minutes(b.heure));
-  const tj=toutesTaches().filter(t=>t.ech===sAuj);
-  const aFaire=tj.filter(t=>!estFaite(t.id));
-  const acts=actsDuJour(auj).sort((a,b)=>minutes(a.hd)-minutes(b.hd));
-  const retard=tachesEnRetard();
-  const actsVives=acts.filter(a=>!a.annuleeCeJour);
-  const n=bds.length+evs.length+tj.length+actsVives.length;
-  if(journeePliee===null)journeePliee=(n===0);
-  const plie=journeePliee;
-
-  let h=`<div class="jr-tete"><span class="jr-t">☀️ Ta journée</span>
-    <span class="jr-d">${DFR[jSem(auj)-1].toLowerCase()} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}</span></div>
-    <div class="jr-sous">${[f?'🇫🇷 '+echap(f):'',v?'☀️ '+echap(v.nom):'',
-      n?n+' chose'+(n>1?'s':'')+' au programme':'rien de prévu 🌿'].filter(Boolean).join(' · ')}</div>`;
-  if(!plie){
-    if(bds.length||evs.length){
-      h+='<div class="jr-sect">Au programme</div>';
-      bds.forEach(b=>{h+=`<div class="jr-li" data-jr="jour"><div class="jr-ic">🎂</div>
-        <div class="jr-co"><div class="jr-ti">${echap(b.titre.replace(/^🎂 /,''))}</div>
-        ${b.detail?`<div class="jr-de">${echap(b.detail)}</div>`:''}</div><div class="jr-fl">›</div></div>`});
-      evs.forEach(e=>{
-        const multi=e.fin&&e.fin!==e.debut;
-        const det=[e.heure,e.qui,multi?'du '+deIso(e.debut).getDate()+' au '+deIso(e.fin).getDate()+' '+MFR[deIso(e.fin).getMonth()].toLowerCase():''].filter(Boolean).join(' · ');
-        h+=`<div class="jr-li" data-jr="jour"><div class="jr-ic" style="color:${coulEvt(e)}">●</div>
-          <div class="jr-co"><div class="jr-ti">${echap(e.titre)}</div>${det?`<div class="jr-de">${echap(det)}</div>`:''}</div>
-          <div class="jr-fl">›</div></div>`;
-      });
-    }
-    if(tj.length){
-      h+='<div class="jr-sect">À faire</div>';
-      tj.forEach(t=>{
-        const faite=estFaite(t.id);
-        const det=[GROUPES[t.cat]||GROUPES.other,t.qui?'👤 '+t.qui:null].filter(Boolean).join(' · ');
-        h+=`<div class="jr-li ${faite?'jr-faite':''}" data-jrt="${t.id}">
-          <div class="jr-cb ${faite?'on':''}" data-jrcoche="${t.id}"></div>
-          <div class="jr-co"><div class="jr-ti">${echap(t.texte)}</div><div class="jr-de">${echap(det)}</div></div>
-          <div class="jr-fl">›</div></div>`;
-      });
-    }
-    if(tj.length&&!aFaire.length){
-      h+=`<div class="jr-de" style="text-align:center;padding:8px 0 2px">Tout est coché 🎉</div>`;
-    }
-    if(acts.length){
-      h+=`<div class="jr-aussi" data-jr="cal">🔁 Aussi aujourd'hui : ${acts.slice(0,4).map(a=>
-        echap(a.titre.split('—')[0].trim())+(a.hd?' '+a.hd:'')+(a.annuleeCeJour?' (annulée)':'')).join(' · ')}${acts.length>4?' · +'+(acts.length-4):''}</div>`;
-    }
-    if(retard.length){
-      h+=`<div class="jr-retard" data-jr="todo">🚨 <strong>${retard.length} tâche${retard.length>1?'s':''} en retard</strong>${retard.length===1?' — '+echap(retard[0].texte):''}</div>`;
-    }
+  const mnt=auj.getHours()*60+auj.getMinutes();
+  const items=[];
+  bdaysDuJour(auj).forEach(b=>items.push({h:null,ico:'🎂',txt:b.titre.replace(/^🎂 /,''),det:b.detail||''}));
+  evtsDuJour(auj).forEach(e=>items.push({h:e.heure||null,ico:'●',coul:coulEvt(e),txt:e.titre,det:e.qui||''}));
+  actsDuJour(auj).filter(a=>!a.annuleeCeJour).forEach(a=>items.push({h:a.hd||null,ico:'🔁',txt:a.titre.split('—')[0].trim(),det:a.qui||''}));
+  const taches=toutesTaches().filter(t=>t.ech===sAuj&&!estFaite(t.id));
+  const avecH=items.filter(i=>i.h).sort((a,b)=>minutes(a.h)-minutes(b.h));
+  const aVenir=avecH.filter(i=>minutes(i.h)>=mnt);
+  let vedette=aVenir[0]||null,dansProg=!!vedette;
+  if(!vedette){
+    const sansH=items.filter(i=>!i.h);
+    if(sansH.length){vedette=sansH[0];dansProg=true}
+    else if(taches.length){vedette={h:null,ico:'☑️',txt:taches[0].texte,det:taches[0].qui?'👤 '+taches[0].qui:''};dansProg=false}
+    else if(avecH.length){vedette={h:null,ico:'🌙',txt:"C'est fini pour aujourd'hui",det:'',fini:true};dansProg=true}
   }
-  h+=`<div class="jr-plier" data-jr="plier">${plie?'▼ Voir ma journée':'▲ Replier'}</div>`;
-  return `<div class="journee" id="blocJournee">${h}</div>`;
+  return {vedette,dansProg,nProg:items.length,nTaches:taches.length};
+}
+function blocJournee(){
+  const auj=new Date();
+  const v=enVacances(auj),f=ferie(auj);
+  const {vedette,dansProg,nProg,nTaches}=prochaineChose();
+  const retard=tachesEnRetard().length;
+  const dateTxt=`${DFR[jSem(auj)-1].toLowerCase()} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}`;
+  let h=`<div class="jc-h"><b>☀️ Ta journée</b>
+    ${f?'<span>🇫🇷 '+echap(f)+'</span>':''}${v&&!f?'<span>'+echap(v.nom)+'</span>':''}
+    <span class="jc-d">${dateTxt}</span></div>`;
+  if(vedette){
+    h+=`<div class="jc-next">${vedette.h?`<span class="jc-heure">${echap(vedette.h)}</span>`:
+        `<span class="jc-heure" style="color:var(--ink-3)">${vedette.ico}</span>`}
+      <span class="jc-ti">${echap(vedette.txt)}${vedette.det?` <span class="jr-de" style="font-weight:500">· ${echap(vedette.det)}</span>`:''}</span></div>`;
+  }else{
+    h+=`<div class="jc-next"><span class="jc-ti" style="font-weight:500;color:var(--ink-2)">Rien de prévu aujourd'hui 🌿</span></div>`;
+  }
+  const autres=Math.max(0,nProg-(dansProg&&vedette&&!vedette.fini?1:0));
+  const bouts=[];
+  if(autres)bouts.push((vedette&&dansProg?'puis ':'')+autres+' autre'+(autres>1?'s':''));
+  if(nTaches)bouts.push(nTaches+' à faire');
+  h+=`<div class="jc-bas">${bouts.length?echap(bouts.join(' · ')):'<span style="color:var(--ink-3)">journée libre</span>'}
+    ${retard?`<span class="jc-retard">🚨 ${retard} en retard</span>`:''}
+    <span class="jc-lien">tout voir ›</span></div>`;
+  return `<div class="journee compacte" id="blocJournee" data-jr="jour">${h}</div>`;
 }
 function brancherJournee(zone){
   zone.querySelectorAll('[data-jr]').forEach(el=>{
     el.onclick=(ev)=>{
       ev.stopPropagation();
       const q=el.dataset.jr;
-      if(q==='plier'){journeePliee=!journeePliee;renderAccueil();return}
       if(q==='jour'){ouvrirJour(new Date());return}
       if(q==='cal'){setSection('cal');return}
       if(q==='todo'){setSection('todo');return}
     };
-  });
-  zone.querySelectorAll('[data-jrcoche]').forEach(el=>{
-    el.onclick=(ev)=>{ev.stopPropagation();basculerFaite(el.dataset.jrcoche);renderAccueil()};
-  });
-  zone.querySelectorAll('[data-jrt]').forEach(el=>{
-    el.onclick=()=>{const id=el.dataset.jrt;if(id.startsWith('auto-'))ouvrirJour(new Date());else formTache(id)};
   });
 }
 function renderAccueil(){
@@ -2154,44 +2317,57 @@ function renderAccueil(){
   const nbCaddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche).length;
   const nbIdees=cadeauxVisibles().filter(c=>!c.offert).length;
   zone.innerHTML=`
-  <div style="grid-column:1/-1;margin-bottom:2px">
-    <h2 class="ps-titre">Bonjour ${echap(UTILISATEUR||'')} 👋</h2>
-  </div>
+  <h2 class="ps-titre" style="margin-bottom:2px">Bonjour ${echap(UTILISATEUR||'')} 👋</h2>
   ${blocJournee()}
-  <div class="magie">
-    <div class="magie-titre">🪄 Dis-moi tout</div>
-    <div style="display:flex;gap:8px">
-      <input type="text" id="magie-accueil" placeholder="« foot Maxime mercredi 17h »…" style="flex:1">
-      <button class="btn primaire" id="magie-btn">🪄</button>
-    </div>
-    <div class="magie-aide">Écris ou dicte 🎤 : quelque chose à ranger… ou une question — « qu'est-ce qu'on fait samedi ? », « rappelle-moi qui est Aude »</div>
+  <div class="chatline" id="clZone">
+    <span>🪄</span>
+    <input type="text" id="magie-accueil" placeholder="Dis-moi tout…">
+    <button class="cl-go" id="magie-btn" title="Envoyer">↑</button>
   </div>
-  <button class="acc-carte" data-sec="cal"><div class="acc-ico">📅</div><div class="acc-titre">Calendrier</div>
-    <div class="acc-info">${prochain?'Prochain : '+echap(prochain.titre.substring(0,32))+' · '+deIso(prochain.debut).getDate()+' '+MFR[deIso(prochain.debut).getMonth()].toLowerCase():"Toute l'année de la famille"}</div></button>
-  <button class="acc-carte" data-sec="todo"><div class="acc-ico">✅</div><div class="acc-titre">To-do</div>
-    <div class="acc-info">${enRetard?'🚨 '+enRetard+' en retard · ':''}${aFaire} à faire ce mois-ci</div></button>
-  <button class="acc-carte" data-sec="courses"><div class="acc-ico">🛒</div><div class="acc-titre">Liste de courses</div>
-    <div class="acc-info">${nbCourses?nbCourses+' article'+(nbCourses>1?'s':'')+' à acheter':'Liste vide'}${nbCaddie?' · '+nbCaddie+' au caddie':''}</div></button>
-  <button class="acc-carte" data-sec="memoire"><div class="acc-ico">🧠</div><div class="acc-titre">Mémoire</div>
-    <div class="acc-info">${CACHE.personnes.length||enviesVisibles().length||nbIdees?[CACHE.personnes.length+' fiche'+(CACHE.personnes.length>1?'s':''),enviesVisibles().filter(e=>!e.faite).length+' envie'+(enviesVisibles().filter(e=>!e.faite).length>1?'s':''),nbIdees+' idée'+(nbIdees>1?'s':'')+' cadeau'+(nbIdees>1?'x':'')].join(' · '):'Ton second cerveau : gens, envies, idées cadeaux'}</div></button>
-  <button class="acc-carte bientot" id="carteSante"><div class="acc-ico">🩺</div><div class="acc-titre">Santé<span class="badge-bientot">bientôt</span></div>
-    <div class="acc-info">Fiches famille, traitements à cocher, vaccins &amp; bilans</div></button>
-  <button class="acc-carte bientot" id="carteMaison"><div class="acc-ico">🏠</div><div class="acc-titre">Maison<span class="badge-bientot">bientôt</span></div>
-    <div class="acc-info">Entretien (chaudière, voiture…), checklists, abonnements</div></button>
-  <div style="grid-column:1/-1;display:flex;justify-content:center;margin-top:16px">
+  <div class="tuiles">
+    <button class="tuile" data-sec="cal"><div class="tu-ico">📅</div><div class="tu-nom">Calendrier</div></button>
+    <button class="tuile" data-sec="todo">${enRetard?`<span class="tu-nb">${enRetard}</span>`:''}
+      <div class="tu-ico">✅</div><div class="tu-nom">To-do</div></button>
+    <button class="tuile" data-sec="courses">${nbCourses?'<span class="tu-pt"></span>':''}
+      <div class="tu-ico">🛒</div><div class="tu-nom">Courses</div></button>
+    <button class="tuile" data-sec="memoire"><div class="tu-ico">🧠</div><div class="tu-nom">Mémoire</div></button>
+    <button class="tuile bientot" id="carteSante"><div class="tu-ico">🩺</div><div class="tu-nom">Santé</div></button>
+    <button class="tuile bientot" id="carteMaison"><div class="tu-ico">🏠</div><div class="tu-nom">Maison</div></button>
+  </div>
+  <div style="display:flex;justify-content:center;margin-top:20px">
     <button class="btn primaire" id="btnAjouterAccueil" style="padding:15px 46px;font-size:1.05rem;border-radius:18px">＋ Ajouter</button>
   </div>
 `;
   brancherJournee(zone);
-  zone.querySelectorAll('.acc-carte').forEach(c=>{c.onclick=()=>setSection(c.dataset.sec)});
+  zone.querySelectorAll('.tuile[data-sec]').forEach(c=>{c.onclick=()=>setSection(c.dataset.sec)});
   const lancerMagie=()=>{const ch=document.getElementById('magie-accueil');const v=ch.value.trim();ch.value='';formMagie(v)};
   document.getElementById('magie-btn').onclick=lancerMagie;
   document.getElementById('magie-accueil').addEventListener('keydown',e=>{if(e.key==='Enter')lancerMagie()});
+  document.getElementById('clZone').onclick=(e)=>{if(e.target.id!=='magie-btn')document.getElementById('magie-accueil').focus()};
   document.getElementById('btnAjouterAccueil').onclick=()=>ouvrirAjout(null);
   const bientotToast=()=>toast('Bientôt 🙂 — c\'est dans la roadmap !');
   document.getElementById('carteSante').onclick=bientotToast;
   document.getElementById('carteMaison').onclick=bientotToast;
   majCloche();
+}
+async function majReglagesNotifs(){
+  const el=document.getElementById('p-notif-etat'),btn=document.getElementById('p-notif-btn');
+  if(!el||!btn)return;
+  const e=await etatPush();
+  btn.style.display='none';
+  if(e==='active'){
+    el.textContent='Activées sur cet appareil ✓ — tu es prévenu·e le matin et quand quelqu\'un ajoute un événement.';
+    btn.style.display='';btn.textContent='🔕 Couper sur cet appareil';
+    btn.onclick=async()=>{await desactiverPush();majReglagesNotifs()};
+  }else if(e==='refuse'){
+    el.textContent='Bloquées dans les réglages du téléphone (Notifications > Famille). Autorise-les là-bas, puis reviens ici.';
+  }else if(e==='inactive'){
+    el.textContent='Coupées sur cet appareil.';
+    btn.style.display='';btn.textContent='🔔 Activer les notifications';
+    btn.onclick=async()=>{await activerPush();majReglagesNotifs()};
+  }else{
+    el.textContent='Indisponibles ici — installe d\'abord l\'app sur l\'écran d\'accueil.';
+  }
 }
 function formParams(){
   ouvrirTiroirBrut('⚙️ Réglages');
@@ -2200,20 +2376,15 @@ function formParams(){
     <p class="discret2">Connecté·e en tant que <strong>${echap(UTILISATEUR||'')}</strong> (${echap(EMAIL_CONNECTE)})</p>
     <div class="carte-solo">
       <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🔔 Notifications</div>
-      <p class="discret2" id="p-notif-etat" style="margin:0">…</p>
+      <p class="discret2" id="p-notif-etat" style="margin:0 0 8px">…</p>
+      <button class="btn" id="p-notif-btn" style="width:100%;display:none"></button>
     </div>
     <div class="carte-solo">
       <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🔧 Bientôt ici</div>
       <p class="discret2" style="margin:0">L'heure du briefing du matin · les préférences de rappels · le partage de l'app à d'autres familles…</p>
     </div>
     <button class="btn" id="p-deco" style="width:100%;margin-top:8px;color:var(--alert)">Se déconnecter</button>`;
-  etatPush().then(e=>{
-    const el=document.getElementById('p-notif-etat');
-    if(el)el.textContent=e==='active'?'Activées sur cet appareil ✓ (la petite cloche en bas de l\'accueil permet de les couper)':
-      e==='refuse'?'Bloquées dans les réglages du téléphone (Notifications > Famille)':
-      e==='inactive'?'Coupées sur cet appareil — tape la cloche 🔕 de l\'accueil pour les activer':
-      'Indisponibles ici — installe l\'app sur l\'écran d\'accueil';
-  });
+  majReglagesNotifs();
   document.getElementById('p-deco').onclick=async()=>{
     if(!confirm('Se déconnecter ?'))return;
     await sb.auth.signOut();
