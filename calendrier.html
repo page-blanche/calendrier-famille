@@ -114,6 +114,14 @@
   color:var(--ink-3);margin:16px 0 6px}
 .mem-groupe:first-of-type{margin-top:6px}
 .mg-n{margin-left:6px;font-weight:700;color:var(--ink-3);opacity:.75}
+.fp-echo{font-size:.78rem;color:var(--ink-2);margin:7px 0 2px;padding-left:2px}
+.fp-echo b{color:var(--ink)}
+.fp-changer{background:none;border:none;padding:0;font:inherit;font-size:.76rem;
+  color:var(--ink-3);text-decoration:underline;cursor:pointer}
+.pf-ligne{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--border)}
+.pf-ligne:first-child{border-top:none}
+.pf-ligne .n{font-weight:650;font-size:.9rem}
+.pf-ligne .r{margin-left:auto;font-size:.71rem;color:var(--ink-3)}
 .mem-plier{font-size:.63rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
   color:var(--ink-3);margin:16px 0 6px;cursor:pointer;user-select:none}
 .mem-plier:active{color:var(--ink)}
@@ -450,10 +458,8 @@ async function chargerTout(){
   const comptes=us.error?[]:us.data.map(x=>x.nom).filter(Boolean);
   // Le foyer, c'est le registre. Tant qu'il est vide (avant migration), on
   // retombe sur les comptes pour ne rien casser.
-  const foyer=CACHE.personnes.filter(p=>p.foyer).map(p=>p.nom);
-  const rang=(n)=>comptes.some(c=>String(c).trim().toLowerCase()===String(n).trim().toLowerCase())?0:1;
-  CACHE.membres=(foyer.length?foyer:comptes).slice().sort((a,b)=>rang(a)-rang(b));
   CACHE.comptes=comptes;
+  recalculerMembres();
   // La Santé : si la migration n'a pas encore été passée, on continue sans planter
   CACHE.medecins=pr.error?[]:pr.data;
   CACHE.traitements=tr.error?[]:tr.data;
@@ -1560,22 +1566,21 @@ function formPersonne(id,datePre){
   ouvrirTiroirBrut(p?echap(p.nom):'Ajouter quelqu\'un');
   const dPre=datePre?deIso(datePre):null;
   let emoji=p&&p.emoji?p.emoji:'';
-  let foyer=p?!!p.foyer:false;
   let categorie=p&&p.categorie?String(p.categorie):'';
-  const cats=categoriesUtilisees().slice(0,8);
+  let catManuel=!!(p&&p.categorie);   // un choix existant ne se fait pas écraser par une devinette
+  let chipsOuverts=false;
+  const roleAvant=p?String(p.role||''):'';
+  const cats=catsProposees();
   document.getElementById('dbd').innerHTML=`
     <label class="lbl">Prénom</label>
     <input type="text" id="fp-nom" value="${p?echap(p.nom):''}" placeholder="Caro">
-    <label class="lbl">Où la retrouver ?</label>
-    <div class="mg-chips" id="fp-foyer">
-      <button class="mg-chip ${foyer?'actif':''}" data-f="1">🏠 À la maison</button>
-      <button class="mg-chip ${foyer?'':'actif'}" data-f="0">👥 Quelqu'un d'autre</button>
-    </div>
     <label class="lbl">Qui c'est pour toi ? <span class="discret2">(facultatif — « nounou », « pédiatre », « ma sœur »…)</span></label>
     <input type="text" id="fp-role" value="${p?echap(p.role||''):''}" placeholder="ma sœur">
-    <label class="lbl">Dans quel coin ? <span class="discret2">(facultatif — ça sert juste à s'y retrouver dans la liste)</span></label>
-    ${cats.length?`<div class="mg-chips" id="fp-cats">${cats.map(c=>`<button class="mg-chip ${categorie.toLowerCase()===c.nom.toLowerCase()?'actif':''}" data-cat="${attr(c.nom)}">${emojiCat(c.nom)} ${echap(c.nom)}</button>`).join('')}</div>`:''}
-    <input type="text" id="fp-cat" value="${p?echap(p.categorie||''):''}" placeholder="amis, école, santé, voisins…">
+    <div class="fp-echo" id="fp-echo"></div>
+    <div id="fp-chips" style="display:none">
+      <div class="mg-chips" id="fp-cats" style="margin-top:6px">${cats.map(c=>`<button class="mg-chip" data-cat="${attr(c)}">${emojiCat(c)} ${echap(c)}</button>`).join('')}</div>
+      <input type="text" id="fp-cat-libre" placeholder="ou un autre mot…" style="margin-top:7px">
+    </div>
     <label class="lbl">Son icône <span class="discret2">(facultatif)</span></label>
     <div class="mg-chips" id="fp-emos">${EMOJIS_GENS.map(e=>`<button class="mg-chip ${emoji===e?'actif':''}" data-emo="${e}" style="font-size:1.1rem">${e}</button>`).join('')}</div>
     <label class="lbl">Anniversaire <span class="discret2">(facultatif — laisse vide si tu ne le connais pas)</span></label>
@@ -1586,25 +1591,46 @@ function formPersonne(id,datePre){
     <label class="lbl">Année de naissance <span class="discret2">(pour afficher l'âge)</span></label>
     <input type="number" id="fp-annee" value="${p&&p.naiss_annee?p.naiss_annee:''}" placeholder="1987">
     <label class="check-ligne"><input type="checkbox" id="fp-cadeau" ${p&&p.cadeau?'checked':''}> 🎁 Prévoir un cadeau — une action « Acheter le cadeau » une semaine avant</label>
-    <button class="btn primaire" id="fp-ok" style="width:100%;margin-top:14px">${p?'Enregistrer':'Créer'}</button>
+    <button class="btn primaire" id="fp-ok" style="width:100%;margin-top:14px">${p?'Enregistrer':'Ajouter'}</button>
     ${p?`<button class="btn danger" id="fp-suppr" style="width:100%;margin-top:8px">Tout effacer</button>`:''}`;
-  document.querySelectorAll('#fp-foyer [data-f]').forEach(b=>{b.onclick=()=>{
-    foyer=b.dataset.f==='1';
-    document.querySelectorAll('#fp-foyer .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
-  }});
+
+  // ↳ la petite ligne qui dit ce que j'ai compris — et permet de me corriger
+  const majChips=()=>{
+    document.getElementById('fp-chips').style.display=chipsOuverts?'':'none';
+    document.querySelectorAll('#fp-cats .mg-chip').forEach(x=>
+      x.classList.toggle('actif',x.dataset.cat.toLowerCase()===String(categorie||'').trim().toLowerCase()&&!!String(categorie||'').trim()));
+  };
+  const majEcho=()=>{
+    const e=document.getElementById('fp-echo');
+    const v=String(categorie||'').trim();
+    if(v)e.innerHTML=`↳ je la range avec <b>${emojiCat(v)} ${echap(v)}</b> · <button type="button" class="fp-changer" id="fp-changer">changer</button>`;
+    else if(String(document.getElementById('fp-role').value||'').trim())
+      e.innerHTML=`↳ je ne devine pas où la ranger · <button type="button" class="fp-changer" id="fp-changer">choisir</button>`;
+    else e.innerHTML=`<button type="button" class="fp-changer" id="fp-changer" style="opacity:.7">la ranger quelque part ?</button>`;
+    document.getElementById('fp-changer').onclick=()=>{chipsOuverts=!chipsOuverts;majChips()};
+    majChips();
+  };
+  const chRole=document.getElementById('fp-role');
+  chRole.addEventListener('input',()=>{
+    if(!catManuel){
+      const dev=devineCategorie({nom:document.getElementById('fp-nom').value,role:chRole.value});
+      categorie=dev||(p&&p.categorie?p.categorie:'');
+    }
+    majEcho();
+  });
   document.querySelectorAll('#fp-cats [data-cat]').forEach(b=>{b.onclick=()=>{
     const v=b.dataset.cat;
-    categorie=(categorie.toLowerCase()===v.toLowerCase())?'':v;
-    document.getElementById('fp-cat').value=categorie;
-    document.querySelectorAll('#fp-cats .mg-chip').forEach(x=>
-      x.classList.toggle('actif',x.dataset.cat.toLowerCase()===categorie.toLowerCase()&&!!categorie));
+    categorie=(String(categorie||'').toLowerCase()===v.toLowerCase())?'':v;
+    catManuel=!!categorie;
+    document.getElementById('fp-cat-libre').value='';
+    chipsOuverts=false;
+    majEcho();
   }});
-  const chCat=document.getElementById('fp-cat');
-  if(chCat)chCat.addEventListener('input',()=>{
-    categorie=chCat.value;
-    document.querySelectorAll('#fp-cats .mg-chip').forEach(x=>
-      x.classList.toggle('actif',x.dataset.cat.toLowerCase()===categorie.trim().toLowerCase()&&!!categorie.trim()));
-  });
+  const chLibre=document.getElementById('fp-cat-libre');
+  chLibre.addEventListener('input',()=>{categorie=chLibre.value;catManuel=!!chLibre.value.trim();majChips()});
+  chLibre.addEventListener('keydown',e=>{if(e.key==='Enter'){chipsOuverts=false;majEcho()}});
+  majEcho();
+
   document.querySelectorAll('#fp-emos [data-emo]').forEach(b=>{b.onclick=()=>{
     emoji=(emoji===b.dataset.emo)?'':b.dataset.emo;
     document.querySelectorAll('#fp-emos .mg-chip').forEach(x=>x.classList.toggle('actif',x.dataset.emo===emoji));
@@ -1615,11 +1641,16 @@ function formPersonne(id,datePre){
     const j=parseInt(document.getElementById('fp-jour').value)||null;
     const m=parseInt(document.getElementById('fp-mois').value)||null;
     const an=parseInt(document.getElementById('fp-annee').value)||null;
-    enregistrerObjet(id,'personnes',{nom,foyer,emoji:emoji||null,
-      categorie:rangerCategorie(document.getElementById('fp-cat').value),
-      role:document.getElementById('fp-role').value.trim()||null,
+    const role=document.getElementById('fp-role').value.trim()||null;
+    const l={nom,emoji:emoji||null,
+      categorie:rangerCategorie(categorie),
+      role,
       naiss_jour:(j&&m)?j:null,naiss_mois:(j&&m)?m:null,naiss_annee:(j&&m)?an:null,
-      cadeau:document.getElementById('fp-cadeau').checked});
+      cadeau:document.getElementById('fp-cadeau').checked};
+    // le rôle est écrit de MON point de vue : on retient qui l'a écrit
+    if((role||'')!==(roleAvant||''))l.role_auteur=role?EMAIL_CONNECTE:null;
+    if(!p)l.foyer=false;   // qui vit à la maison se décide dans ⚙️ Réglages
+    enregistrerObjet(id,'personnes',l);
     apresEnregistrement(p?'C\'est noté ✔':'C\'est ajouté ✔');
   };
   const sup=document.getElementById('fp-suppr');
@@ -2088,7 +2119,7 @@ function renderSanteFiche(zone){
   let h=`<button class="btn mini" id="sa-retour" style="margin-bottom:12px">‹ La famille</button>
     <div class="sa-tete"><div class="sa-av" style="width:44px;height:44px;font-size:1.45rem">${p.emoji||'🙂'}</div>
       <div><h2 class="ps-titre" style="margin:0">${echap(p.nom)}</h2>
-        <div class="discret2">${[age!=null?age+' ans':'',p.role?echap(p.role):'',p.allergies?'⚠️ allergie : '+echap(p.allergies):''].filter(Boolean).join(' · ')||'—'}</div></div>
+        <div class="discret2">${[age!=null?age+' ans':'',roleAffiche(p)?echap(roleAffiche(p)):'',p.allergies?'⚠️ allergie : '+echap(p.allergies):''].filter(Boolean).join(' · ')||'—'}</div></div>
       <button class="todo-act" id="sa-edit" title="Allergies et infos médicales" style="margin-left:auto">✏️</button></div>`;
   tr.forEach(t=>{
     const jours=t.fin?Math.max(1,Math.round((deIso(t.fin)-deIso(t.debut))/864e5)+1):null;
@@ -2513,6 +2544,13 @@ function mgCartes(actions){
     magiCorriger(actions[i]);
   }});
 }
+/* Qui vit à la maison → qui peut se voir confier une tâche. Adultes d'abord. */
+function recalculerMembres(){
+  const comptes=CACHE.comptes||[];
+  const foyer=CACHE.personnes.filter(p=>p.foyer).map(p=>p.nom);
+  const rang=(n)=>comptes.some(c=>String(c).trim().toLowerCase()===String(n).trim().toLowerCase())?0:1;
+  CACHE.membres=(foyer.length?foyer:comptes).slice().sort((a,b)=>rang(a)-rang(b));
+}
 function nomDe(id){
   const o=trouverParId(String(id||''));
   return o?(o.texte||o.titre||o.idee||'') : '(introuvable)';
@@ -2557,7 +2595,9 @@ function magiEnregistrer(actions){
       const nom=(a.personne||'?').trim();
       let pers=CACHE.personnes.find(x=>x.nom.trim().toLowerCase()===nom.toLowerCase());
       if(!pers){pers={id:genId(),nom};enregistrerObjet(null,'personnes',{id:pers.id,nom,
-        role:String(a.role||'').trim()||null,categorie:rangerCategorie(a.categorie)})}
+        role:String(a.role||'').trim()||null,
+        role_auteur:String(a.role||'').trim()?EMAIL_CONNECTE:null,
+        categorie:rangerCategorie(a.categorie)})}
       enregistrerObjet(null,'notes',{personne_id:pers.id,texte:a.texte,partagee:!!a.partagee,
         email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});n++;
     }else if((a.type==='cocher'||a.type==='reporter'||a.type==='supprimer')&&a.id){
@@ -2788,6 +2828,31 @@ function devineCategorie(p){
   return '';
 }
 const CATS_BASE=['famille','amis','école','santé','services','travail','voisins'];
+/* Le rôle est écrit du point de vue de celui qui l'a noté. « Ma sœur » est
+   faux sur l'écran de Didier ; « collègue » aussi, plus sournoisement. Aux
+   autres, on précise par rapport à qui — sans jamais inventer de lien. */
+function prenomDe(email){
+  const e=String(email||'').toLowerCase();
+  if(!e)return '';
+  const x=CACHE.personnes.find(y=>(y.email||'').toLowerCase()===e);
+  return x?x.nom:e.split('@')[0];
+}
+const CATS_RELATIONNELLES=['famille','amis','voisins','travail'];
+function roleAffiche(p){
+  let r=String(p.role||'').trim();
+  if(!r)return '';
+  const auteurMail=(p.role_auteur||'').toLowerCase();
+  if(!auteurMail||auteurMail===EMAIL_CONNECTE)return r;   // c'est moi qui l'ai écrit
+  const auteur=prenomDe(auteurMail);
+  if(!auteur)return r;
+  const poss=r.match(/^(?:ma|mon|mes)\s+(.+)/i);
+  if(poss)r=poss[1];
+  if(/\bde\b|\bd'/i.test(r))return r;                    // déjà ancré : « la maman de Martin »
+  if(poss)return r+' de '+auteur;                          // le possessif est un signal explicite
+  for(const [re,cat] of INDICES)if(re.test(r))
+    return CATS_RELATIONNELLES.includes(cat)?r+' de '+auteur:r;
+  return r+' — noté par '+auteur;                          // inconnu : on attribue, on n'invente pas
+}
 function catsProposees(){
   const v=categoriesUtilisees().map(c=>c.nom);
   CATS_BASE.forEach(c=>{if(!v.some(x=>x.toLowerCase()===c))v.push(c)});
@@ -2814,7 +2879,7 @@ function renderRangement(zone){
       <div class="qq-nom">${p.emoji||'🧑'} ${echap(p.nom)}
         <span style="flex:1"></span>
         <span class="pp-fait ${c?'':'vide'}" data-ouvre="${p.id}">${c?emojiCat(c)+' '+echap(c):'à ranger'}</span></div>
-      ${p.role?`<div class="qq-ind">${echap(p.role)}</div>`:''}
+      ${roleAffiche(p)?`<div class="qq-ind">${echap(roleAffiche(p))}</div>`:''}
       ${ouvert?`<div class="mg-chips" data-chips="${p.id}">
         ${cats.map(x=>`<button class="mg-chip ${x.toLowerCase()===c.toLowerCase()?'actif':''}" data-c="${attr(x)}">${emojiCat(x)} ${echap(x)}</button>`).join('')}
         </div>
@@ -2878,7 +2943,7 @@ function renderMemoire(){
     if(kdo)bouts.push(kdo+' idée'+(kdo>1?'s':'')+' gardée'+(kdo>1?'s':''));
     return `<div class="todo-item" data-id="${x.id}" style="cursor:pointer">
       <div style="flex-shrink:0;font-size:1.15rem">${x.emoji||'🧑'}</div>
-      <div class="todo-corps"><div class="todo-text">${echap(x.nom)}${x.role?` <span class="todo-date">· ${echap(x.role)}</span>`:''}</div>
+      <div class="todo-corps"><div class="todo-text">${echap(x.nom)}${roleAffiche(x)?` <span class="todo-date">· ${echap(roleAffiche(x))}</span>`:''}</div>
       <div class="todo-date">${bouts.length?echap(bouts.join(' · ')):'On n\'a encore rien noté'}</div></div>
       <div style="color:var(--ink-3)">›</div></div>`;
   };
@@ -3071,7 +3136,7 @@ function renderFichePersonne(zone,p){
     <div class="pp-av">${p.emoji||'🧑'}</div>
     <div style="min-width:0">
       <div class="pp-nom">${echap(p.nom)}</div>
-      ${p.role?`<div class="pp-sous">${echap(p.role)}</div>`:(p.foyer?`<div class="pp-sous">à la maison</div>`:'')}
+      ${roleAffiche(p)?`<div class="pp-sous">${echap(roleAffiche(p))}</div>`:(p.foyer?`<div class="pp-sous">à la maison</div>`:'')}
     </div>
     <span style="flex:1"></span>
     <button class="todo-act" id="mem-editer" title="Modifier">✏️</button>
@@ -3107,7 +3172,7 @@ function renderFichePersonne(zone,p){
     ${kdo.map(c=>`<div class="mem-note-texte">· ${echap(c.idee)} <span class="todo-date">${c.partagee?'👥':'🔒'}${c.ajoute_par?' '+echap(c.ajoute_par):''}</span></div>`).join('')}
   </div>`;
   h+=`<div class="pp-pied">
-    <button class="btn" id="mem-ou">Où la retrouver</button>
+    <button class="btn" id="mem-ou">Modifier</button>
     <button class="btn danger" id="mem-suppr">Tout effacer</button>
   </div>`;
   zone.innerHTML=h;
@@ -3331,6 +3396,41 @@ async function majReglagesNotifs(){
     el.textContent='Indisponibles ici — installe d\'abord l\'app sur l\'écran d\'accueil.';
   }
 }
+function majReglagesFoyer(){
+  const zone=document.getElementById('p-foyer');
+  if(!zone)return;
+  const foyer=CACHE.personnes.filter(x=>x.foyer)
+    .sort((a,b)=>((a.email?0:1)-(b.email?0:1))||a.nom.localeCompare(b.nom));
+  zone.innerHTML=foyer.map(x=>{
+    const moi=(x.email||'').toLowerCase()===EMAIL_CONNECTE;
+    return `<div class="pf-ligne"><span>${x.emoji||'🧑'}</span><span class="n">${echap(x.nom)}</span>
+      <span class="r">${moi?'toi':(x.email?'a un compte':'pas de compte')}</span>
+      ${moi?'':`<button class="todo-act" data-sortir="${x.id}" title="Ne vit plus à la maison">✕</button>`}</div>`;
+  }).join('')||'<p class="discret2">Personne pour l\'instant.</p>';
+  zone.querySelectorAll('[data-sortir]').forEach(b=>{b.onclick=()=>{
+    const x=CACHE.personnes.find(y=>y.id===b.dataset.sortir);
+    if(!x)return;
+    if(!confirm(x.nom+' ne vit plus à la maison ?\n(Tout le reste est gardé : anniversaire, notes, santé.)'))return;
+    enregistrerObjet(x.id,'personnes',{foyer:false});
+    recalculerMembres();majReglagesFoyer();
+  }});
+  const aj=document.getElementById('p-foyer-ajout');
+  const dehors=CACHE.personnes.filter(x=>!x.foyer).sort((a,b)=>a.nom.localeCompare(b.nom));
+  aj.innerHTML=`<div style="display:flex;gap:8px">
+    <select id="p-foyer-qui" style="flex:1"><option value="">+ Ajouter quelqu'un à la maison…</option>
+      ${dehors.map(x=>`<option value="${x.id}">${echap(x.nom)}${roleAffiche(x)?' · '+echap(roleAffiche(x)):''}</option>`).join('')}
+      <option value="__new">Quelqu'un de nouveau…</option></select></div>`;
+  document.getElementById('p-foyer-qui').onchange=(e)=>{
+    const v=e.target.value;
+    if(!v)return;
+    if(v==='__new'){fermerTiroir();formPersonne(null);toast('Ajoute-la d\'abord, puis reviens dans ⚙️ pour la mettre à la maison');return}
+    const x=CACHE.personnes.find(y=>y.id===v);
+    if(!x)return;
+    enregistrerObjet(x.id,'personnes',{foyer:true});
+    recalculerMembres();majReglagesFoyer();
+    toast(x.nom+' vit maintenant à la maison 🏠');
+  };
+}
 function formParams(){
   ouvrirTiroirBrut('⚙️ Réglages');
   const corps=document.getElementById('dbd');
@@ -3342,11 +3442,18 @@ function formParams(){
       <button class="btn" id="p-notif-btn" style="width:100%;display:none"></button>
     </div>
     <div class="carte-solo">
+      <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🏠 Qui vit à la maison</div>
+      <p class="discret2" style="margin:0 0 4px">Ces personnes peuvent se voir confier une tâche, ont un carnet de santé, et apparaissent dans ta journée.</p>
+      <div id="p-foyer"></div>
+      <div id="p-foyer-ajout" style="margin-top:8px"></div>
+    </div>
+    <div class="carte-solo">
       <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🔧 Bientôt ici</div>
       <p class="discret2" style="margin:0">L'heure du briefing du matin · les préférences de rappels · le partage de l'app à d'autres familles…</p>
     </div>
     <button class="btn" id="p-deco" style="width:100%;margin-top:8px;color:var(--alert)">Se déconnecter</button>`;
   majReglagesNotifs();
+  majReglagesFoyer();
   document.getElementById('p-deco').onclick=async()=>{
     if(!confirm('Se déconnecter ?'))return;
     await sb.auth.signOut();
