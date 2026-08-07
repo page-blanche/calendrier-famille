@@ -33,6 +33,26 @@
 .mem-note-texte{font-size:.92rem;line-height:1.45;white-space:normal}
 .mem-partage{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.86rem;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
 .mem-partage input{width:auto}
+.journee{grid-column:1/-1;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-radius:18px;padding:14px 16px;box-shadow:0 3px 10px rgba(120,80,180,.08)}
+.jr-tete{display:flex;align-items:baseline;gap:8px}
+.jr-t{font-weight:800;font-size:1.02rem;letter-spacing:-.02em}
+.jr-d{font-size:.72rem;color:var(--ink-2);margin-left:auto}
+.jr-sous{font-size:.76rem;color:var(--ink-2);margin-top:2px}
+.jr-sect{font-size:.62rem;font-weight:800;letter-spacing:.06em;color:var(--ink-3);text-transform:uppercase;margin:12px 0 2px}
+.jr-li{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid rgba(28,27,24,.07);cursor:pointer}
+.jr-li:hover{opacity:.75}
+.jr-ic{flex-shrink:0;font-size:.95rem;width:20px;text-align:center}
+.jr-co{flex:1;min-width:0}
+.jr-ti{font-size:.87rem;font-weight:600;line-height:1.35}
+.jr-de{font-size:.71rem;color:var(--ink-2);margin-top:1px}
+.jr-fl{color:var(--ink-3);font-size:.85rem;align-self:center}
+.jr-cb{width:19px;height:19px;border:2px solid var(--ink-3);border-radius:6px;flex-shrink:0;margin-top:2px;cursor:pointer}
+.jr-cb.on{background:var(--vert,#2f9e44);border-color:var(--vert,#2f9e44);position:relative}
+.jr-cb.on::after{content:'✓';color:#fff;font-size:.68rem;position:absolute;top:-2px;left:2.5px;font-weight:800}
+.jr-faite .jr-ti{text-decoration:line-through;opacity:.45}
+.jr-aussi{font-size:.73rem;color:var(--ink-2);margin-top:10px;padding-top:8px;border-top:1px solid rgba(28,27,24,.07);cursor:pointer}
+.jr-retard{background:#fdecea;border:1px solid #f5b8ae;border-radius:12px;padding:8px 11px;font-size:.76rem;color:#8e2f22;margin-top:10px;cursor:pointer}
+.jr-plier{text-align:center;font-size:.72rem;font-weight:700;color:var(--ink-2);padding:8px 0 0;margin-top:6px;border-top:1px solid rgba(28,27,24,.07);cursor:pointer}
 .magie{grid-column:1/-1;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-radius:18px;padding:12px 14px;box-shadow:0 3px 10px rgba(120,80,180,.08)}
 .magie-titre{font-size:.7rem;font-weight:800;letter-spacing:.06em;color:#8a5fc0;margin-bottom:8px;text-transform:uppercase}
 .magie-aide{font-size:.72rem;color:var(--ink-3);margin-top:7px}
@@ -1452,6 +1472,7 @@ function renderCadeaux(zone){
 }
 
 /* ================== 🪄 SAISIE MAGIQUE (chat) ================== */
+let MAGIE_HISTO=[];     // le fil de la conversation, envoyé à l'IA pour qu'elle suive
 let MAGIE_PROPS=null;   // cartes en attente de validation
 let MAGIE_TEXTE='';     // dernier texte analysé (pour les corrections)
 let MAGIE_ATTENTE=null; // question « qui ? » en cours
@@ -1480,7 +1501,7 @@ function formMagie(pre){
       <input type="text" id="mg-texte" placeholder="Écris ou dicte 🎤 …" style="flex:1">
       <button class="btn primaire" id="mg-envoyer" style="padding:0 18px;font-size:1.05rem">↑</button>
     </div>`;
-  MAGIE_PROPS=null;MAGIE_ATTENTE=null;
+  MAGIE_PROPS=null;MAGIE_ATTENTE=null;MAGIE_HISTO=[];
   mgBulle('ia','Dis-moi tout : quelque chose à ranger, ou une question 🙂');
   const input=document.getElementById('mg-texte');
   document.getElementById('mg-envoyer').onclick=mgEnvoyer;
@@ -1516,14 +1537,15 @@ async function mgEnvoyer(){
   if(!texte)return;
   input.value='';
   mgBulle('moi',echap(texte));
-  if(MAGIE_ATTENTE){mgRepondreQui(texte);return}
+  if(MAGIE_ATTENTE){MAGIE_HISTO.push({role:'user',content:texte});mgRepondreQui(texte);return}
   const enCorrection=!!MAGIE_PROPS;
+  if(!enCorrection)MAGIE_HISTO.push({role:'user',content:texte});
   mgPense();
   let data=null,error=null;
   try{
     const body={texte:enCorrection?MAGIE_TEXTE:texte,
       contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)},
-      donnees:donneesPourIA()};
+      donnees:donneesPourIA(),historique:MAGIE_HISTO.slice(-12)};
     if(enCorrection){body.correction=texte;body.precedent=MAGIE_PROPS}
     const r=await sb.functions.invoke('saisie-magique',{body});
     data=r.data;error=r.error;
@@ -1535,11 +1557,17 @@ async function mgEnvoyer(){
   }
   if(data.mode==='reponse'&&data.texte){
     MAGIE_PROPS=null;
+    MAGIE_HISTO.push({role:'assistant',content:data.texte});
     mgBulle('ia',echap(data.texte).replace(/\n/g,'<br>'));
     return;
   }
-  if(!data.actions.length){mgBulle('ia','Hmm, je n\'ai rien trouvé à ranger là-dedans 🤔 Reformule ?');return}
-  if(!enCorrection)MAGIE_TEXTE=texte;
+  if(!data.actions.length){
+    MAGIE_HISTO.push({role:'assistant',content:"(rien trouvé à ranger)"});
+    mgBulle('ia','Hmm, je n\'ai pas vu quoi ranger là-dedans 🤔 Tu peux préciser ?');return;
+  }
+  if(enCorrection)MAGIE_HISTO.push({role:'user',content:texte});
+  else MAGIE_TEXTE=texte;
+  MAGIE_HISTO.push({role:'assistant',content:JSON.stringify({mode:'saisie',actions:data.actions})});
   mgProposer(data);
 }
 function mgProposer(data){
@@ -1562,6 +1590,7 @@ function mgProposer(data){
 function mgRepondreQui(rep){
   const att=MAGIE_ATTENTE;MAGIE_ATTENTE=null;
   if(!att)return;
+  MAGIE_HISTO.push({role:'assistant',content:'(question : qui s\'en occupe ? → réponse : '+(rep||'peu importe')+')'});
   att.manquantes.forEach(i=>{att.actions[i].qui=(rep||'').trim()||null});
   mgCartes(att.actions);
 }
@@ -1592,6 +1621,7 @@ function mgCartes(actions){
     if(restants>0)return;
     MAGIE_PROPS=null;
     render();
+    MAGIE_HISTO.push({role:'assistant',content:'('+(enregistres?enregistres+' proposition(s) enregistrée(s)':'rien gardé')+')'});
     mgBulle('ia',(enregistres?enregistres+' élément'+(enregistres>1?'s':'')+' enregistré'+(enregistres>1?'s':'')+' ✅ ':'Ok, rien gardé 🙂 ')+'Autre chose ?');
   };
   const fige=(i,txt)=>{
@@ -2037,10 +2067,85 @@ async function majCloche(){
   }
 }
 
+let journeePliee=null;  // null = automatique, true/false = choix de l'utilisateur
+function blocJournee(){
+  const auj=new Date(),sAuj=iso(auj);
+  const v=enVacances(auj),f=ferie(auj);
+  const bds=bdaysDuJour(auj);
+  const evs=evtsDuJour(auj).sort((a,b)=>minutes(a.heure)-minutes(b.heure));
+  const tj=toutesTaches().filter(t=>t.ech===sAuj);
+  const aFaire=tj.filter(t=>!estFaite(t.id));
+  const acts=actsDuJour(auj).sort((a,b)=>minutes(a.hd)-minutes(b.hd));
+  const retard=tachesEnRetard();
+  const actsVives=acts.filter(a=>!a.annuleeCeJour);
+  const n=bds.length+evs.length+tj.length+actsVives.length;
+  if(journeePliee===null)journeePliee=(n===0);
+  const plie=journeePliee;
+
+  let h=`<div class="jr-tete"><span class="jr-t">☀️ Ta journée</span>
+    <span class="jr-d">${DFR[jSem(auj)-1].toLowerCase()} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}</span></div>
+    <div class="jr-sous">${[f?'🇫🇷 '+echap(f):'',v?'☀️ '+echap(v.nom):'',
+      n?n+' chose'+(n>1?'s':'')+' au programme':'rien de prévu 🌿'].filter(Boolean).join(' · ')}</div>`;
+  if(!plie){
+    if(bds.length||evs.length){
+      h+='<div class="jr-sect">Au programme</div>';
+      bds.forEach(b=>{h+=`<div class="jr-li" data-jr="jour"><div class="jr-ic">🎂</div>
+        <div class="jr-co"><div class="jr-ti">${echap(b.titre.replace(/^🎂 /,''))}</div>
+        ${b.detail?`<div class="jr-de">${echap(b.detail)}</div>`:''}</div><div class="jr-fl">›</div></div>`});
+      evs.forEach(e=>{
+        const multi=e.fin&&e.fin!==e.debut;
+        const det=[e.heure,e.qui,multi?'du '+deIso(e.debut).getDate()+' au '+deIso(e.fin).getDate()+' '+MFR[deIso(e.fin).getMonth()].toLowerCase():''].filter(Boolean).join(' · ');
+        h+=`<div class="jr-li" data-jr="jour"><div class="jr-ic" style="color:${coulEvt(e)}">●</div>
+          <div class="jr-co"><div class="jr-ti">${echap(e.titre)}</div>${det?`<div class="jr-de">${echap(det)}</div>`:''}</div>
+          <div class="jr-fl">›</div></div>`;
+      });
+    }
+    if(tj.length){
+      h+='<div class="jr-sect">À faire</div>';
+      tj.forEach(t=>{
+        const faite=estFaite(t.id);
+        const det=[GROUPES[t.cat]||GROUPES.other,t.qui?'👤 '+t.qui:null].filter(Boolean).join(' · ');
+        h+=`<div class="jr-li ${faite?'jr-faite':''}" data-jrt="${t.id}">
+          <div class="jr-cb ${faite?'on':''}" data-jrcoche="${t.id}"></div>
+          <div class="jr-co"><div class="jr-ti">${echap(t.texte)}</div><div class="jr-de">${echap(det)}</div></div>
+          <div class="jr-fl">›</div></div>`;
+      });
+    }
+    if(tj.length&&!aFaire.length){
+      h+=`<div class="jr-de" style="text-align:center;padding:8px 0 2px">Tout est coché 🎉</div>`;
+    }
+    if(acts.length){
+      h+=`<div class="jr-aussi" data-jr="cal">🔁 Aussi aujourd'hui : ${acts.slice(0,4).map(a=>
+        echap(a.titre.split('—')[0].trim())+(a.hd?' '+a.hd:'')+(a.annuleeCeJour?' (annulée)':'')).join(' · ')}${acts.length>4?' · +'+(acts.length-4):''}</div>`;
+    }
+    if(retard.length){
+      h+=`<div class="jr-retard" data-jr="todo">🚨 <strong>${retard.length} tâche${retard.length>1?'s':''} en retard</strong>${retard.length===1?' — '+echap(retard[0].texte):''}</div>`;
+    }
+  }
+  h+=`<div class="jr-plier" data-jr="plier">${plie?'▼ Voir ma journée':'▲ Replier'}</div>`;
+  return `<div class="journee" id="blocJournee">${h}</div>`;
+}
+function brancherJournee(zone){
+  zone.querySelectorAll('[data-jr]').forEach(el=>{
+    el.onclick=(ev)=>{
+      ev.stopPropagation();
+      const q=el.dataset.jr;
+      if(q==='plier'){journeePliee=!journeePliee;renderAccueil();return}
+      if(q==='jour'){ouvrirJour(new Date());return}
+      if(q==='cal'){setSection('cal');return}
+      if(q==='todo'){setSection('todo');return}
+    };
+  });
+  zone.querySelectorAll('[data-jrcoche]').forEach(el=>{
+    el.onclick=(ev)=>{ev.stopPropagation();basculerFaite(el.dataset.jrcoche);renderAccueil()};
+  });
+  zone.querySelectorAll('[data-jrt]').forEach(el=>{
+    el.onclick=()=>{const id=el.dataset.jrt;if(id.startsWith('auto-'))ouvrirJour(new Date());else formTache(id)};
+  });
+}
 function renderAccueil(){
   const zone=document.getElementById('vueAccueil');
   const auj=new Date();const sAuj=iso(auj);
-  const nbAuj=evtsDuJour(auj).length+bdaysDuJour(auj).length+actsDuJour(auj).filter(a=>!a.annuleeCeJour).length;
   const prochain=lesEvts().filter(e=>e.debut>=sAuj).sort((a,b)=>a.debut<b.debut?-1:1)[0];
   const y=auj.getFullYear(),m=auj.getMonth()+1;
   const enRetard=tachesEnRetard().length;
@@ -2051,8 +2156,8 @@ function renderAccueil(){
   zone.innerHTML=`
   <div style="grid-column:1/-1;margin-bottom:2px">
     <h2 class="ps-titre">Bonjour ${echap(UTILISATEUR||'')} 👋</h2>
-    <div class="discret2" style="margin:0">${DFR[jSem(auj)-1]} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}${nbAuj?` — ${nbAuj} chose${nbAuj>1?'s':''} au programme aujourd'hui`:" — rien de prévu aujourd'hui 🌿"}</div>
   </div>
+  ${blocJournee()}
   <div class="magie">
     <div class="magie-titre">🪄 Dis-moi tout</div>
     <div style="display:flex;gap:8px">
@@ -2077,6 +2182,7 @@ function renderAccueil(){
     <button class="btn primaire" id="btnAjouterAccueil" style="padding:15px 46px;font-size:1.05rem;border-radius:18px">＋ Ajouter</button>
   </div>
 `;
+  brancherJournee(zone);
   zone.querySelectorAll('.acc-carte').forEach(c=>{c.onclick=()=>setSection(c.dataset.sec)});
   const lancerMagie=()=>{const ch=document.getElementById('magie-accueil');const v=ch.value.trim();ch.value='';formMagie(v)};
   document.getElementById('magie-btn').onclick=lancerMagie;
