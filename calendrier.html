@@ -114,6 +114,21 @@
   color:var(--ink-3);margin:16px 0 6px}
 .mem-groupe:first-of-type{margin-top:6px}
 .mg-n{margin-left:6px;font-weight:700;color:var(--ink-3);opacity:.75}
+.st-h-tete{font-size:.73rem;font-weight:800;color:var(--ink-2);margin:12px 0 6px}
+.st-h{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.st-h span{flex:1;font-size:.88rem}
+.st-h input{width:120px}
+/* Un médicament en retard barre la route : ce n'est pas une pastille de plus */
+.prise-plein{position:fixed;inset:0;z-index:9000;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:28px 24px;text-align:center;overflow-y:auto}
+.pp-pil{font-size:3.2rem;line-height:1;margin-bottom:14px}
+.pp-titre{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin-bottom:6px}
+.pp-quand{font-size:1rem;color:var(--ink-2);margin-bottom:2px}
+.pp-retard{font-size:.85rem;font-weight:700;color:var(--alert);margin-top:8px}
+.pp-btns{display:flex;flex-direction:column;gap:10px;width:100%;max-width:330px;margin-top:26px}
+.pp-btns .btn{width:100%;padding:15px;font-size:1rem}
+.pp-reste{font-size:.78rem;color:var(--ink-3);margin-top:18px}
 .fp-echo{font-size:.78rem;color:var(--ink-2);margin:7px 0 2px;padding-left:2px}
 .fp-echo b{color:var(--ink)}
 .fp-changer{background:none;border:none;padding:0;font:inherit;font-size:.76rem;
@@ -371,6 +386,7 @@
 <div class="page-solo" id="vueMemoire" style="display:none"></div>
 <div class="page-solo" id="vueSante" style="display:none"></div>
 <div class="page-accueil" id="vueAccueil" style="display:none"></div>
+<div class="prise-plein" id="prisePlein" style="display:none"></div>
 </div>
 
 <button class="fab" onclick="fabAction()">＋ Ajouter</button>
@@ -618,7 +634,8 @@ function toutesTaches(){return lesTaches().concat(tachesAuto())}
 function tachesLiees(idInfo){return toutesTaches().filter(t=>t.lien===idInfo)}
 function trouverParId(id){
   return lesEvts().find(x=>x.id===id)||lesVacances().find(x=>x.id===id)||
-         lesBdays().find(x=>x.id===id)||lesActs().find(x=>x.id===id)||toutesTaches().find(x=>x.id===id);
+         lesBdays().find(x=>x.id===id)||lesActs().find(x=>x.id===id)||toutesTaches().find(x=>x.id===id)||
+         (CACHE.personnes||[]).find(x=>x.id===id);
 }
 
 /* Tout est toujours visible (pas de filtres) */
@@ -1046,7 +1063,7 @@ function renderYearSidebar(){
 }
 
 /* ================== TO-DO ================== */
-const GROUPES={deadline:'📋 Admin & inscriptions',facture:'💳 Factures',family:'👨‍👩‍👧 Événements & préparatifs',other:'📌 Divers'};
+const GROUPES={deadline:'📋 Admin & inscriptions',facture:'💳 Factures',family:'👨‍👩‍👧 Événements & préparatifs',sante:'🩺 Santé',other:'📌 Divers'};
 
 function tachesDuMois(y,m){
   const val=y*12+m;
@@ -2018,6 +2035,7 @@ function renderCadeaux(zone){
    saisi une fois même s'il suit les trois enfants. */
 let santeFiche=null;   // id de la personne ouverte, null = la liste
 const MOMENTS=[['matin','☀️','matin'],['midi','🕛','midi'],['soir','🌙','soir'],['coucher','🛏️','coucher']];
+const HEURES_DEF={matin:'08:00',midi:'12:30',soir:'19:30',coucher:'21:45'};
 
 /* Qui apparaît dans la Santé : le foyer, plus toute personne pour qui on
    a noté quelque chose de médical. */
@@ -2076,6 +2094,59 @@ function dosesDuJour(d){
   return out.sort((a,b)=>ordre.indexOf(a.moment)-ordre.indexOf(b.moment));
 }
 
+/* Une prise est « en retard » quand son heure est passée et qu'elle
+   n'est pas cochée. On ne compte que celles qui ont une heure :
+   sans heure, c'est un pense-bête, pas un rendez-vous. */
+function prisesEnRetard(){
+  const d=new Date(),jour=iso(d),mnt=d.getHours()*60+d.getMinutes(),out=[];
+  CACHE.personnes.forEach(p=>{
+    traitementsActifs(p.id,d).forEach(t=>{
+      const hh=t.heures||{};
+      (t.moments||[]).forEach(m=>{
+        const v=String(hh[m]||'').match(/^(\d{1,2}):(\d{2})$/);
+        if(!v)return;
+        const h=Number(v[1])*60+Number(v[2]);
+        if(mnt<h)return;
+        if(priseFaite(t.id,jour,m))return;
+        out.push({profil:p,trait:t,moment:m,jour,minutes:h,retard:mnt-h});
+      });
+    });
+  });
+  return out.sort((a,b)=>b.retard-a.retard);
+}
+let priseEcartee=new Set();   // « pas maintenant » — le temps de cette visite
+function montrerPriseSiBesoin(){
+  const zone=document.getElementById('prisePlein');
+  if(!zone)return;
+  const due=prisesEnRetard().filter(x=>!priseEcartee.has(x.trait.id+'-'+x.jour+'-'+x.moment));
+  if(!due.length){zone.style.display='none';zone.innerHTML='';return}
+  const x=due[0];
+  const def=MOMENTS.find(m=>m[0]===x.moment)||[x.moment,'💊',x.moment];
+  const sien=(x.profil.email||'').toLowerCase()===EMAIL_CONNECTE;
+  const h=Math.floor(x.retard/60),mn=x.retard%60;
+  zone.innerHTML=`<div class="pp-pil">💊</div>
+    <div class="pp-titre">${echap(x.trait.medicament)}</div>
+    <div class="pp-quand">La prise ${def[1]} ${echap(def[2])}${sien?'':' de '+echap(x.profil.nom)}${x.trait.dose?' · '+echap(x.trait.dose):''}</div>
+    <div class="pp-retard">${x.retard<5?'C\'est l\'heure':(h?h+' h '+(mn?mn+' min':''):mn+' min')+' de retard'}</div>
+    <div class="pp-btns">
+      <button class="btn primaire" id="pp-fait">C'est pris ✔</button>
+      <button class="btn" id="pp-plus-tard">Pas maintenant</button>
+    </div>
+    ${due.length>1?`<div class="pp-reste">et ${due.length-1} autre${due.length>2?'s':''} en attente</div>`:''}`;
+  zone.style.display='flex';
+  document.getElementById('pp-fait').onclick=()=>{
+    basculerPrise(x.trait.id,x.jour,x.moment);
+    montrerPriseSiBesoin();
+    render();
+  };
+  document.getElementById('pp-plus-tard').onclick=()=>{
+    priseEcartee.add(x.trait.id+'-'+x.jour+'-'+x.moment);
+    montrerPriseSiBesoin();
+  };
+}
+/* Toutes les minutes : si une heure vient de tomber, l'écran s'ouvre tout seul */
+setInterval(()=>{if(typeof CACHE!=='undefined'&&CACHE.personnes)montrerPriseSiBesoin()},60000);
+
 function renderSante(){
   const zone=document.getElementById('vueSante');
   if(santeFiche&&!CACHE.personnes.some(p=>p.id===santeFiche))santeFiche=null;
@@ -2108,13 +2179,12 @@ function renderSante(){
   });
   h+=`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
     ${gens.length?'<button class="btn primaire" id="sa-new-trait">💊 Déclarer un traitement</button>':''}
-    <button class="btn" id="sa-new-gens">＋ Ajouter quelqu'un</button>
-  </div>`;
+  </div>
+  <p class="discret2" style="margin-top:10px">Qui vit à la maison se règle dans ⚙️ Réglages. Pour suivre la santé de quelqu'un d'autre (tes parents…), déclare simplement son traitement ou son suivi : sa page apparaîtra ici.</p>`;
   zone.innerHTML=h;
   zone.querySelectorAll('[data-profil]').forEach(el=>{el.onclick=()=>{santeFiche=el.dataset.profil;renderSante()}});
   const bt=document.getElementById('sa-new-trait');
   if(bt)bt.onclick=()=>formTraitement(null,null);
-  document.getElementById('sa-new-gens').onclick=()=>formPersonne(null);
 }
 
 function renderSanteFiche(zone){
@@ -2148,6 +2218,20 @@ function renderSanteFiche(zone){
         <button class="btn mini danger" data-stoptrait="${t.id}">Arrêter</button>
       </div></div>`;
   });
+  // Les actions de santé qui la concernent : elles vivent dans la to-do,
+  // on les montre aussi ici. Une seule tâche, deux endroits où la voir.
+  const aFaire=tachesLiees(p.id).filter(t=>t.cat==='sante'&&!estFaite(t.id))
+    .sort((a,b)=>String(a.ech||'9999').localeCompare(String(b.ech||'9999')));
+  h+=`<div class="sa-bloc"><div class="sa-bt">✅ À faire pour sa santé<span class="n">${aFaire.length||''}</span></div>`;
+  if(!aFaire.length)h+=`<div class="sa-s" style="padding:4px 0">Rien en attente.</div>`;
+  aFaire.forEach(t=>{
+    const tard=t.ech&&t.ech<auj;
+    h+=`<div class="sa-l ${tard?'retard':''}">
+      <span class="cb" data-fait-tache="${t.id}" title="C'est fait"></span>
+      <span class="txt" data-mod-tache="${t.id}">${echap(t.texte)}</span>
+      <span class="quand">${t.ech?(tard?'en retard depuis le ':'')+deIso(t.ech).getDate()+' '+MFR[deIso(t.ech).getMonth()].toLowerCase():''}</span></div>`;
+  });
+  h+=`<button class="btn mini" id="sa-new-tache" style="margin-top:10px">＋ Ajouter une action</button></div>`;
   h+=`<div class="sa-bloc"><div class="sa-bt">💉 Vaccins &amp; bilans<span class="n">${suivis.length||''}</span></div>`;
   if(!suivis.length)h+=`<div class="sa-s" style="padding:4px 0">Rien de suivi pour l'instant.</div>`;
   suivis.forEach(su=>{
@@ -2178,6 +2262,14 @@ function renderSanteFiche(zone){
   document.getElementById('sa-retour').onclick=()=>{santeFiche=null;renderSante()};
   document.getElementById('sa-edit').onclick=()=>formSanteInfos(p.id);
   document.getElementById('sa-new-suivi').onclick=()=>formSuivi(null,p.id);
+  document.getElementById('sa-new-tache').onclick=()=>{
+    formTache(null,p.id);
+    setTimeout(()=>{const c=document.getElementById('f-cat');if(c)c.value='sante'},60);
+  };
+  zone.querySelectorAll('[data-fait-tache]').forEach(el=>{el.onclick=()=>{
+    basculerFaite(el.dataset.faitTache);renderSante();
+  }});
+  zone.querySelectorAll('[data-mod-tache]').forEach(el=>{el.onclick=()=>formTache(el.dataset.modTache)});
   document.getElementById('sa-add-trait').onclick=()=>formTraitement(null,p.id);
   document.getElementById('sa-add-med').onclick=()=>formMedecin(p.id);
   zone.querySelectorAll('[data-dose]').forEach(el=>{
@@ -2253,35 +2345,67 @@ function formMedecin(pid){
 
 function formTraitement(id,personnePre){
   const t=id?CACHE.traitements.find(x=>x.id===id):null;
+  const dejaLa=new Set(gensSante().map(x=>x.id));
   const gens=gensSante();
-  if(!gens.length){toast('Ajoute d\'abord les gens du foyer');return}
+  const ailleurs=CACHE.personnes.filter(x=>!dejaLa.has(x.id)).sort((a,b)=>a.nom.localeCompare(b.nom));
+  if(!gens.length&&!ailleurs.length){toast('Ajoute d\'abord les gens du foyer');return}
   ouvrirTiroirBrut(t?'Modifier le traitement':'💊 Déclarer un traitement');
   let pid=t?t.personne_id:(personnePre||gens[0].id);
   let moments=t?[...(t.moments||[])]:['matin','soir'];
+  const heures={...(t&&t.heures?t.heures:{})};
   const auj=iso(new Date());
   document.getElementById('dbd').innerHTML=`
     <label class="lbl">Pour qui ?</label>
     <div class="mg-chips" id="st-qui">${gens.map(p=>`<button class="mg-chip ${p.id===pid?'actif':''}" data-p="${p.id}">${p.emoji||'🙂'} ${echap(p.nom)}</button>`).join('')}</div>
+    ${ailleurs.length?`<select id="st-autre" style="margin-top:7px">
+      <option value="">Quelqu'un d'autre…</option>
+      ${ailleurs.map(x=>`<option value="${x.id}" ${x.id===pid?'selected':''}>${echap(x.nom)}${roleAffiche(x)?' · '+echap(roleAffiche(x)):''}</option>`).join('')}
+    </select>`:''}
     <label class="lbl">Médicament</label>
     <input type="text" id="st-med" value="${t?echap(t.medicament):''}" placeholder="Amoxicilline">
     <label class="lbl">Dose <span class="discret2">(facultatif)</span></label>
     <input type="text" id="st-dose" value="${t?echap(t.dose||''):''}" placeholder="5 ml">
     <label class="lbl">Quand ?</label>
     <div class="mg-chips" id="st-moments">${MOMENTS.map(m=>`<button class="mg-chip ${moments.includes(m[0])?'actif':''}" data-m="${m[0]}">${m[1]} ${m[2]}</button>`).join('')}</div>
+    <div id="st-heures"></div>
     <label class="lbl">Du</label>
     <input type="date" id="st-debut" value="${t?t.debut:auj}">
     <label class="lbl">Jusqu'au <span class="discret2">(vide = jusqu'à ce que tu l'arrêtes)</span></label>
     <input type="date" id="st-fin" value="${t&&t.fin?t.fin:''}">
     <div class="mg-chips" id="st-duree">${[3,5,7,10].map(n=>`<button class="mg-chip" data-j="${n}">${n} jours</button>`).join('')}</div>
     <button class="btn primaire" id="st-ok" style="width:100%;margin-top:14px">${t?'Enregistrer':'Démarrer le suivi 💊'}</button>`;
+  const chAutre=document.getElementById('st-autre');
   document.querySelectorAll('#st-qui [data-p]').forEach(b=>{b.onclick=()=>{
     pid=b.dataset.p;document.querySelectorAll('#st-qui .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+    if(chAutre)chAutre.value='';
   }});
+  if(chAutre)chAutre.onchange=()=>{
+    if(!chAutre.value)return;
+    pid=chAutre.value;
+    document.querySelectorAll('#st-qui .mg-chip').forEach(x=>x.classList.remove('actif'));
+  };
+  const ordreM=MOMENTS.map(x=>x[0]);
+  const majHeures=()=>{
+    const z=document.getElementById('st-heures');
+    const l=[...moments].sort((a,b)=>ordreM.indexOf(a)-ordreM.indexOf(b));
+    if(!l.length){z.innerHTML='';return}
+    z.innerHTML=`<div class="st-h-tete">À quelle heure te le rappeler ?</div>`+
+      l.map(m=>{const d=MOMENTS.find(x=>x[0]===m)||[m,'💊',m];
+        return `<div class="st-h"><span>${d[1]} ${d[2]}</span>
+          <input type="time" data-h="${m}" value="${attr(heures[m]!==undefined?heures[m]:HEURES_DEF[m]||'')}"></div>`}).join('')+
+      `<p class="discret2" style="margin-top:6px">Efface l'heure pour ne pas être rappelée : la prise reste à cocher, mais elle ne sonne pas.</p>`;
+    z.querySelectorAll('[data-h]').forEach(i=>{
+      heures[i.dataset.h]=i.value;
+      i.addEventListener('input',()=>{heures[i.dataset.h]=i.value});
+    });
+  };
   document.querySelectorAll('#st-moments [data-m]').forEach(b=>{b.onclick=()=>{
     const m=b.dataset.m;
     if(moments.includes(m))moments=moments.filter(x=>x!==m);else moments.push(m);
     b.classList.toggle('actif',moments.includes(m));
+    majHeures();
   }});
+  majHeures();
   document.querySelectorAll('#st-duree [data-j]').forEach(b=>{b.onclick=()=>{
     const deb=deIso(document.getElementById('st-debut').value||auj);
     deb.setDate(deb.getDate()+Number(b.dataset.j)-1);
@@ -2292,9 +2416,12 @@ function formTraitement(id,personnePre){
     if(!med){toast('Il faut le nom du médicament');return}
     if(!moments.length){toast('Choisis au moins un moment de la journée');return}
     const ordre=MOMENTS.map(x=>x[0]);
+    const gardees={};
+    moments.forEach(m=>{const v=String(heures[m]||'').trim();if(v)gardees[m]=v});
     enregistrerObjet(id,'traitements',{personne_id:pid,medicament:med,
       dose:document.getElementById('st-dose').value.trim()||null,
       moments:[...moments].sort((a,b)=>ordre.indexOf(a)-ordre.indexOf(b)),
+      heures:gardees,
       debut:document.getElementById('st-debut').value||auj,
       fin:document.getElementById('st-fin').value||null});
     toast(t?'Traitement enregistré':'C\'est parti 💊');fermerTiroir();santeFiche=pid;renderSante();
@@ -2569,7 +2696,7 @@ function magiResume(a){
   const badge=x=>x?'👥 partagée':'🔒 privée';
   switch(a.type){
     case 'evenement':return {ico:'📌',type:'Événement',titre:a.titre,det:[dfr(a.debut),a.fin&&a.fin!==a.debut?'→ '+dfr(a.fin):null,a.heure,a.qui?'pour '+a.qui:null].filter(Boolean).join(' · ')};
-    case 'tache':return {ico:'✅',type:'Tâche',titre:a.texte,det:[(GROUPES[a.cat]||GROUPES.other),a.ech?'avant le '+dfr(a.ech):null,a.qui?'👤 '+a.qui:'👤 non assignée'].filter(Boolean).join(' · ')};
+    case 'tache':return {ico:'✅',type:'Tâche',titre:a.texte,det:[(GROUPES[a.cat]||GROUPES.other),a.ech?'avant le '+dfr(a.ech):null,a.qui?'👤 '+a.qui:'👤 non assignée',a.sante_de?'🩺 santé de '+a.sante_de:null].filter(Boolean).join(' · ')};
     case 'course':return {ico:'🛒',type:'Courses',titre:a.texte,det:'ajouté à la liste partagée'};
     case 'cadeau':return {ico:'🎁',type:'Idée cadeau',titre:a.idee,det:'pour '+(a.personne||'?')+' · '+badge(a.partagee)};
     case 'note':return {ico:'🧠',type:'Note',titre:a.texte,det:'sur '+(a.personne||'?')+(a.categorie&&!CACHE.personnes.some(x=>x.nom.trim().toLowerCase()===String(a.personne||'').trim().toLowerCase())?' · '+emojiCat(a.categorie)+' '+a.categorie:'')+' · '+badge(a.partagee)};
@@ -2592,9 +2719,11 @@ function magiEnregistrer(actions){
       delete a._dateOk;delete a._quiOk;
       const ech=a.ech||null;
       const base=ech?deIso(ech):new Date();
-      enregistrerObjet(null,'taches',{texte:a.texte,cat:GROUPES[a.cat]?a.cat:'other',qui:a.qui||'',ech,
+      // une action de santé se rattache à la personne : même tâche, visible aussi chez elle
+      const cible=a.sante_de?CACHE.personnes.find(x=>x.nom.trim().toLowerCase()===String(a.sante_de).trim().toLowerCase()):null;
+      enregistrerObjet(null,'taches',{texte:a.texte,cat:cible?'sante':(GROUPES[a.cat]?a.cat:'other'),qui:a.qui||'',ech,
         dateTexte:ech?'Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase():'',
-        persistante:false,lien:'',y:base.getFullYear(),m:base.getMonth()+1,debY:null,debM:null,finY:null,finM:null});n++;
+        persistante:false,lien:cible?cible.id:'',y:base.getFullYear(),m:base.getMonth()+1,debY:null,debM:null,finY:null,finM:null});n++;
     }else if(a.type==='course'&&a.texte){
       enregistrerObjet(null,'courses',{texte:a.texte,coche:false,achete_le:null});n++;
     }else if(a.type==='cadeau'&&a.idee){
@@ -3347,7 +3476,7 @@ function renderAccueil(){
   const aFaire=tachesDuMois(y,m).filter(t=>!estFaite(t.id)).length;
   const nbCourses=CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length;
   const nbCaddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche).length;
-  const nAlertes=alertesSante();
+  const nAlertes=alertesSante()+prisesEnRetard().length;
   const nbIdees=cadeauxVisibles().filter(c=>!c.offert).length;
   zone.innerHTML=`
   <h2 class="ps-titre" style="margin-bottom:2px">Bonjour ${echap(UTILISATEUR||'')} 👋</h2>
@@ -3514,6 +3643,7 @@ function setVue(v){
   render();
 }
 function render(){
+  if(typeof montrerPriseSiBesoin==='function')montrerPriseSiBesoin();
   if(section==='accueil'){renderAccueil();return}
   if(section==='courses'){renderCourses();return}
   if(section==='memoire'){renderMemoire();return}
@@ -3574,7 +3704,7 @@ document.addEventListener('visibilitychange',async()=>{
   if(!s.session||!s.role){window.location.replace('index.html');return}
   UTILISATEUR=s.nom||s.session.user.email;
   EMAIL_CONNECTE=(s.session.user.email||'').toLowerCase();
-  if(await chargerTout()){setVue(vue);setSection('accueil')}
+  if(await chargerTout()){setVue(vue);setSection('accueil');montrerPriseSiBesoin()}
 })();
 
 </script>
