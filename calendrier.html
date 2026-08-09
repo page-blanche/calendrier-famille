@@ -114,6 +114,13 @@
   color:var(--ink-3);margin:16px 0 6px}
 .mem-groupe:first-of-type{margin-top:6px}
 .mg-n{margin-left:6px;font-weight:700;color:var(--ink-3);opacity:.75}
+/* Qui emmène : bleu = comme d'habitude, ambre = exception, pointillé = personne */
+.acc{border:1.3px solid #cbd9e8;background:#f2f7fc;color:#1c5d99;border-radius:99px;
+  padding:2px 9px;font-size:.72rem;font-weight:650;cursor:pointer;white-space:nowrap;
+  font-family:inherit;line-height:1.5;display:inline-block;margin-top:3px}
+.acc.exception{border-color:#f0d9a8;background:#fdf6e6;color:#8a6d10}
+.acc.vide{border-style:dashed;border-color:var(--border);background:transparent;color:var(--ink-3)}
+.acc:active{opacity:.6}
 .st-h-tete{font-size:.73rem;font-weight:800;color:var(--ink-2);margin:12px 0 6px}
 .st-h{display:flex;align-items:center;gap:10px;margin-bottom:7px}
 .st-h span{flex:1;font-size:.88rem}
@@ -137,6 +144,9 @@
 .pf-ligne:first-child{border-top:none}
 .pf-ligne .n{font-weight:650;font-size:.9rem}
 .pf-ligne .r{margin-left:auto;font-size:.71rem;color:var(--ink-3)}
+.pf-seg{margin-left:auto;display:flex;border:1.3px solid var(--border);border-radius:99px;overflow:hidden;flex-shrink:0}
+.pf-seg span{font-size:.68rem;font-weight:700;padding:3px 9px;color:var(--ink-3);cursor:pointer}
+.pf-seg span.on{background:var(--ink);color:#fff}
 .mem-plier{font-size:.63rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
   color:var(--ink-3);margin:16px 0 6px;cursor:pointer;user-select:none}
 .mem-plier:active{color:var(--ink)}
@@ -437,12 +447,13 @@ const FER={
    chaque modification est appliquée immédiatement à l'écran puis
    envoyée à la base (avec rechargement en cas d'erreur). */
 let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],personnes:[],notes:[],envies:[],membres:[],etatsAuto:{},
-  medecins:[],traitements:[],prises:[],suivis:[]};
+  medecins:[],traitements:[],prises:[],suivis:[],accomp:[]};
 const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux',personnes:'personnes',notes:'notes_personnes',envies:'envies',
-  medecins:'sante_medecins',traitements:'sante_traitements',prises:'sante_prises',suivis:'sante_suivis'};
+  medecins:'sante_medecins',traitements:'sante_traitements',prises:'sante_prises',suivis:'sante_suivis',
+  accomp:'accompagnements'};
 
 async function chargerTout(){
-  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su]=await Promise.all([
+  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su,ac]=await Promise.all([
     sb.from('evenements').select('*'),
     sb.from('vacances').select('*'),
     sb.from('anniversaires').select('*'),
@@ -459,6 +470,7 @@ async function chargerTout(){
     sb.from('sante_traitements').select('*'),
     sb.from('sante_prises').select('*'),
     sb.from('sante_suivis').select('*'),
+    sb.from('accompagnements').select('*'),
   ]);
   const err=[e,v,b,a,t,s].find(r=>r.error);
   if(err){toast('⚠️ Erreur de chargement : '+err.error.message);return false}
@@ -481,6 +493,7 @@ async function chargerTout(){
   CACHE.traitements=tr.error?[]:tr.data;
   CACHE.prises=pri.error?[]:pri.data;
   CACHE.suivis=su.error?[]:su.data;
+  CACHE.accomp=ac.error?[]:ac.data;
   return true;
 }
 const lesEvts=()=>CACHE.evts;
@@ -1220,6 +1233,58 @@ function elementsJour(d){
   });
   return out;
 }
+/* La pastille « qui emmène », sur une ligne d'activité */
+function pastilleAccomp(actId,d){
+  const act=lesActs().find(a=>a.id===actId);
+  if(!act)return '';
+  const {qui,exception}=quiAccompagne(act,d);
+  // On n'affiche rien tant que tu n'as rien dit sur cette activité : sinon
+  // « qui l'emmène ? » s'afficherait neuf fois sur une journée d'école.
+  // La pastille creuse n'apparaît que si tu as ouvert la question toi-même.
+  if(!qui&&!act.accompagne&&!exception)return '';
+  const cls=['acc',exception?'exception':'',qui?'':'vide'].filter(Boolean).join(' ');
+  const txt=qui?'🚗 '+echap(qui)+' emmène'+(exception?' · cette fois':''):'qui l\'emmène ?';
+  return `<button type="button" class="${cls}" data-acc="${act.id}" data-accj="${iso(d)}">${txt}</button>`;
+}
+/* On touche la pastille : deux prénoms, et une seule vraie décision —
+   cette fois-ci, ou pour de bon. */
+function choisirAccompagnateur(actId,sJour){
+  const act=lesActs().find(a=>a.id===actId);
+  if(!act)return;
+  const d=deIso(sJour);
+  const {qui}=quiAccompagne(act,d);
+  let choix=qui||'',pourToujours=false;
+  const nomEnfant=(act.qui||'').trim();
+  ouvrirTiroirBrut('Qui emmène '+(nomEnfant||'à '+act.titre.split('—')[0].trim())+' ?');
+  const maj=()=>{
+    document.querySelectorAll('#ac-qui [data-q]').forEach(b=>
+      b.classList.toggle('actif',b.dataset.q===choix));
+    document.querySelectorAll('#ac-port [data-t]').forEach(b=>
+      b.classList.toggle('actif',(b.dataset.t==='1')===pourToujours));
+  };
+  document.getElementById('dbd').innerHTML=`
+    <p class="discret2" style="margin-bottom:12px">${echap(act.titre.split('—')[0].trim())} · ${DFR[jSem(d)-1].toLowerCase()} ${d.getDate()} ${MFR[d.getMonth()].toLowerCase()}</p>
+    <div class="mg-chips" id="ac-qui">
+      ${adultesMaison().map(p=>`<button type="button" class="mg-chip" data-q="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')}
+      <button type="button" class="mg-chip" data-q="">on verra</button>
+    </div>
+    <label class="lbl" style="margin-top:16px">C'est pour…</label>
+    <div class="mg-chips" id="ac-port">
+      <button type="button" class="mg-chip" data-t="0">cette fois</button>
+      <button type="button" class="mg-chip" data-t="1">toutes les fois</button>
+    </div>
+    <p class="discret2" style="margin-top:9px">« Cette fois » ne touche pas à l'habitude : la prochaine fois, ${echap(act.accompagne||'personne')} reprend.</p>
+    <button class="btn primaire" id="ac-ok" style="width:100%;margin-top:16px">C'est noté</button>`;
+  maj();
+  document.querySelectorAll('#ac-qui [data-q]').forEach(b=>{b.onclick=()=>{choix=b.dataset.q;maj()}});
+  document.querySelectorAll('#ac-port [data-t]').forEach(b=>{b.onclick=()=>{pourToujours=b.dataset.t==='1';maj()}});
+  document.getElementById('ac-ok').onclick=()=>{
+    poserAccompagnateur(act,d,choix,pourToujours);
+    toast(choix?(pourToujours?'C\'est l\'habitude maintenant ✔':'C\'est noté pour cette fois ✔'):'On verra 🙂');
+    render();
+    ouvrirJour(d);   // on revient sur la journée qu'on regardait
+  };
+}
 function ouvrirJour(d){
   jourOuvert=d;
   ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()]+' '+d.getFullYear());
@@ -1257,7 +1322,8 @@ function ouvrirJour(d){
       h+=`<div class="${cls}" data-detail="${it.id}">
         <div class="tj-rail"><span class="${pa}"></span></div>
         <div class="tj-co"><div class="tj-ti">${echap(it.titre)}</div>
-          ${it.sous?`<div class="tj-su">${echap(it.sous)}</div>`:''}</div>
+          ${it.sous?`<div class="tj-su">${echap(it.sous)}</div>`:''}
+          ${it.type==='act'?pastilleAccomp(it.id,d):''}</div>
         ${etiquettePersonne(it.qui)}</div>`;
       if(montrerMaintenant&&i===dernierPasse){
         h+=`<div class="tj-mnt"><div class="tj-rail"><span class="tj-pt"></span></div>
@@ -1325,6 +1391,9 @@ function ouvrirJour(d){
   // ---- Câblage ----
   corps.querySelectorAll('[data-detail]').forEach(el=>{
     el.onclick=()=>detailJour(el.dataset.detail,d);
+  });
+  corps.querySelectorAll('[data-acc]').forEach(el=>{
+    el.onclick=(ev)=>{ev.stopPropagation();choisirAccompagnateur(el.dataset.acc,el.dataset.accj)};
   });
   corps.querySelectorAll('[data-coche]').forEach(el=>{
     el.onclick=(ev)=>{ev.stopPropagation();basculerFaite(el.dataset.coche);render();ouvrirJour(d)};
@@ -1694,6 +1763,7 @@ function formAct(id){
   const corps=document.getElementById('dbd');
   const pers=[['darya','Darya'],['kyan','Kyan'],['cyrus','Cyrus'],['didier','Didier'],['mandana','Mandana'],['school','École / crèche']];
   const sel=new Set(a?a.jours:[]);
+  let accomp=a&&a.accompagne?a.accompagne:'';
   const b=boutonsForm(()=>{
     const titre=document.getElementById('f-titre').value.trim();
     const hd=document.getElementById('f-hd').value.trim();
@@ -1702,6 +1772,7 @@ function formAct(id){
       titre,cat:document.getElementById('f-cat').value,jours:[...sel].sort(),
       hd,hf:document.getElementById('f-hf').value.trim()||'',
       lieu:document.getElementById('f-lieu').value.trim()||'',
+      accompagne:accomp,
       qui:document.getElementById('f-qui').value.trim()||''});
     apresEnregistrement(a?'Activité modifiée':'Activité ajoutée');
   });
@@ -1719,7 +1790,16 @@ function formAct(id){
       <div><label>Lieu (optionnel)</label><input type="text" id="f-lieu" value="${attr(a?.lieu)}"></div>
       <div><label>Qui ? (optionnel)</label><input type="text" id="f-qui" value="${attr(a?.qui)}" placeholder="Darya"></div>
     </div>
+    <label class="lbl">Qui l'emmène ? <span class="discret2">(en général — tu pourras changer semaine par semaine)</span></label>
+    <div class="mg-chips" id="f-accomp">
+      ${adultesMaison().map(p=>`<button type="button" class="mg-chip ${accomp===p.nom?'actif':''}" data-a="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')}
+      <button type="button" class="mg-chip ${accomp?'':'actif'}" data-a="">on verra</button>
+    </div>
     ${b.html}`;
+  document.querySelectorAll('#f-accomp [data-a]').forEach(bt=>{bt.onclick=()=>{
+    accomp=bt.dataset.a;
+    document.querySelectorAll('#f-accomp .mg-chip').forEach(x=>x.classList.toggle('actif',x===bt));
+  }});
   document.querySelectorAll('#f-jours .jp').forEach(p=>{
     p.onclick=()=>{const n=parseInt(p.dataset.j);if(sel.has(n)){sel.delete(n);p.classList.remove('on')}else{sel.add(n);p.classList.add('on')}};
   });
@@ -2482,7 +2562,8 @@ function donneesPourIA(){
     evenements:CACHE.evts.filter(e=>(e.fin||e.debut)>=auj).map(e=>({titre:e.titre,debut:e.debut,fin:e.fin||undefined,heure:e.heure||undefined,qui:e.qui||undefined})),
     vacances_scolaires:CACHE.vac.map(v=>({nom:v.nom,debut:v.debut,fin:v.fin})),
     anniversaires:CACHE.bdays.map(b=>({nom:b.nom,jour:b.jour,mois:b.mois,annee:b.annee||undefined})),
-    activites_hebdo:CACHE.acts.map(a=>({titre:a.titre,jours_semaine:a.jours,debut:a.hd,fin:a.hf||undefined,qui:a.qui||undefined})),
+    activites_hebdo:CACHE.acts.map(a=>({id:a.id,titre:a.titre,jours_semaine:a.jours,debut:a.hd,fin:a.hf||undefined,
+      qui:a.qui||undefined,emmene_dhabitude:a.accompagne||undefined})),
     taches_a_faire:toutesTaches().filter(t=>!estFaite(t.id)).map(t=>({id:t.id,texte:t.texte,echeance:t.ech||undefined,qui:t.qui||undefined})),
     taches_faites_recemment:toutesTaches().filter(t=>estFaite(t.id)&&t.ech&&t.ech>=iso(new Date(Date.now()-7*864e5))).map(t=>({id:t.id,texte:t.texte})),
     liste_courses:CACHE.courses.filter(c=>!c.achete_le&&!c.coche).map(c=>({id:c.id,texte:c.texte})),
@@ -2551,7 +2632,8 @@ async function mgEnvoyer(){
   let data=null,error=null;
   try{
     const body={texte:enCorrection?MAGIE_TEXTE:texte,
-      contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom)},
+      contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom),
+        moi:UTILISATEUR||'',adultes:adultesMaison().map(p=>p.nom)},
       donnees:donneesPourIA(),historique:MAGIE_HISTO.slice(-12)};
     if(enCorrection){body.correction=texte;body.precedent=MAGIE_PROPS}
     const r=await sb.functions.invoke('saisie-magique',{body});
@@ -2681,6 +2763,49 @@ function mgCartes(actions){
   }});
 }
 /* Qui vit à la maison → qui peut se voir confier une tâche. Adultes d'abord. */
+/* Adulte ou enfant. Tant que ce n'est pas posé dans ⚙️ Réglages, on retombe
+   sur ce qu'on sait : avoir un compte, ou avoir 18 ans. */
+function estAdulte(p){
+  if(!p)return false;
+  if(p.adulte===true)return true;
+  if(p.adulte===false)return false;
+  if((p.email||'').trim())return true;
+  if(p.naiss_annee)return (new Date().getFullYear()-p.naiss_annee)>=18;
+  return false;
+}
+function adultesMaison(){return CACHE.personnes.filter(p=>p.foyer&&estAdulte(p))}
+function enfantsMaison(){return CACHE.personnes.filter(p=>p.foyer&&!estAdulte(p))}
+/* Qui emmène, pour une occurrence précise. L'exception gagne sur l'habitude,
+   mais ne l'écrase jamais. */
+function quiAccompagne(act,d){
+  const j=iso(d);
+  const ex=(CACHE.accomp||[]).find(x=>x.activite_id===act.id&&x.jour===j);
+  if(ex)return {qui:ex.qui||null,exception:true};
+  return {qui:act.accompagne||null,exception:false};
+}
+function poserAccompagnateur(act,d,qui,pourToujours){
+  if(pourToujours){
+    enregistrerObjet(act.id,'acts',{accompagne:qui||null});
+    // l'habitude change : les exceptions à venir ne servent plus à rien
+    const aJeter=(CACHE.accomp||[]).filter(x=>x.activite_id===act.id&&x.jour>=iso(new Date()));
+    aJeter.forEach(x=>{
+      const i=CACHE.accomp.indexOf(x);
+      if(i>=0)CACHE.accomp.splice(i,1);
+      pousser(sb.from('accompagnements').delete().eq('id',x.id));
+    });
+    return;
+  }
+  const j=iso(d),id=act.id+'-'+j;
+  const dejaI=(CACHE.accomp||[]).findIndex(x=>x.id===id);
+  if(dejaI>=0){
+    CACHE.accomp[dejaI]={...CACHE.accomp[dejaI],qui:qui||null};
+    pousser(sb.from('accompagnements').update({qui:qui||null}).eq('id',id));
+  }else{
+    const l={id,activite_id:act.id,jour:j,qui:qui||null,pose_par:UTILISATEUR||null};
+    CACHE.accomp.push(l);
+    pousser(sb.from('accompagnements').insert(l));
+  }
+}
 function recalculerMembres(){
   const comptes=CACHE.comptes||[];
   const foyer=CACHE.personnes.filter(p=>p.foyer).map(p=>p.nom);
@@ -2697,6 +2822,8 @@ function magiResume(a){
   switch(a.type){
     case 'evenement':return {ico:'📌',type:'Événement',titre:a.titre,det:[dfr(a.debut),a.fin&&a.fin!==a.debut?'→ '+dfr(a.fin):null,a.heure,a.qui?'pour '+a.qui:null].filter(Boolean).join(' · ')};
     case 'tache':return {ico:'✅',type:'Tâche',titre:a.texte,det:[(GROUPES[a.cat]||GROUPES.other),a.ech?'avant le '+dfr(a.ech):null,a.qui?'👤 '+a.qui:'👤 non assignée',a.sante_de?'🩺 santé de '+a.sante_de:null].filter(Boolean).join(' · ')};
+    case 'emmene':return {ico:'🚗',type:'Qui emmène',titre:(a.qui||'Personne')+' emmène — '+(a.activite||''),
+      det:a.toujours?'à partir de maintenant, c\'est l\'habitude':(a.jour?'seulement le '+dfr(a.jour):'seulement cette fois')};
     case 'course':return {ico:'🛒',type:'Courses',titre:a.texte,det:'ajouté à la liste partagée'};
     case 'cadeau':return {ico:'🎁',type:'Idée cadeau',titre:a.idee,det:'pour '+(a.personne||'?')+' · '+badge(a.partagee)};
     case 'note':return {ico:'🧠',type:'Note',titre:a.texte,det:'sur '+(a.personne||'?')+(a.categorie&&!CACHE.personnes.some(x=>x.nom.trim().toLowerCase()===String(a.personne||'').trim().toLowerCase())?' · '+emojiCat(a.categorie)+' '+a.categorie:'')+' · '+badge(a.partagee)};
@@ -2724,6 +2851,10 @@ function magiEnregistrer(actions){
       enregistrerObjet(null,'taches',{texte:a.texte,cat:cible?'sante':(GROUPES[a.cat]?a.cat:'other'),qui:a.qui||'',ech,
         dateTexte:ech?'Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase():'',
         persistante:false,lien:cible?cible.id:'',y:base.getFullYear(),m:base.getMonth()+1,debY:null,debM:null,finY:null,finM:null});n++;
+    }else if(a.type==='emmene'&&a.activite_id){
+      const act=lesActs().find(x=>x.id===a.activite_id);
+      if(!act){toast('⚠️ Je n\'ai pas retrouvé cette activité');return}
+      poserAccompagnateur(act,a.jour?deIso(a.jour):new Date(),a.qui||'',!!a.toujours);n++;
     }else if(a.type==='course'&&a.texte){
       enregistrerObjet(null,'courses',{texte:a.texte,coche:false,achete_le:null});n++;
     }else if(a.type==='cadeau'&&a.idee){
@@ -3517,6 +3648,23 @@ async function majReglagesNotifs(){
   if(!el||!btn)return;
   const e=await etatPush();
   btn.style.display='none';
+  // Un test qui ne passe PAS par le serveur : si celui-ci s'affiche et que
+  // les vrais rappels non, le problème est dans la livraison, pas dans le
+  // téléphone. S'il ne s'affiche pas non plus, c'est un réglage iOS.
+  const bTest=document.getElementById('p-notif-test');
+  const diag=document.getElementById('p-notif-diag');
+  if(bTest){
+    bTest.style.display=(e==='active')?'':'none';
+    bTest.onclick=async()=>{
+      diag.textContent='';
+      try{
+        const reg=await navigator.serviceWorker.getRegistration();
+        if(!reg){diag.textContent='⚠️ Pas de service worker sur cet appareil.';return}
+        await reg.showNotification('🏡 Famille',{body:'Si tu vois ceci, ton téléphone sait afficher mes notifications.',icon:'icon-192.png',badge:'icon-192.png'});
+        diag.textContent='Envoyée. Si rien ne s\'affiche : Réglages iOS → Notifications → Famille.';
+      }catch(err){diag.textContent='⚠️ '+(err.message||err)}
+    };
+  }
   if(e==='active'){
     el.textContent='Activées sur cet appareil ✓ — tu es prévenu·e le matin et quand quelqu\'un ajoute un événement.';
     btn.style.display='';btn.textContent='🔕 Couper sur cet appareil';
@@ -3538,10 +3686,18 @@ function majReglagesFoyer(){
     .sort((a,b)=>((a.email?0:1)-(b.email?0:1))||a.nom.localeCompare(b.nom));
   zone.innerHTML=foyer.map(x=>{
     const moi=(x.email||'').toLowerCase()===EMAIL_CONNECTE;
+    const ad=estAdulte(x);
     return `<div class="pf-ligne"><span>${x.emoji||'🧑'}</span><span class="n">${echap(x.nom)}</span>
-      <span class="r">${moi?'toi':(x.email?'a un compte':'pas de compte')}</span>
+      <span class="pf-seg" data-age="${x.id}">
+        <span class="${ad?'on':''}" data-ad="1">adulte</span><span class="${ad?'':'on'}" data-ad="0">enfant</span>
+      </span>
       ${moi?'':`<button class="todo-act" data-sortir="${x.id}" title="Ne vit plus à la maison">✕</button>`}</div>`;
   }).join('')||'<p class="discret2">Personne pour l\'instant.</p>';
+  zone.querySelectorAll('[data-age] [data-ad]').forEach(b=>{b.onclick=()=>{
+    const id=b.closest('[data-age]').dataset.age;
+    enregistrerObjet(id,'personnes',{adulte:b.dataset.ad==='1'});
+    majReglagesFoyer();
+  }});
   zone.querySelectorAll('[data-sortir]').forEach(b=>{b.onclick=()=>{
     const x=CACHE.personnes.find(y=>y.id===b.dataset.sortir);
     if(!x)return;
@@ -3575,10 +3731,12 @@ function formParams(){
       <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🔔 Notifications</div>
       <p class="discret2" id="p-notif-etat" style="margin:0 0 8px">…</p>
       <button class="btn" id="p-notif-btn" style="width:100%;display:none"></button>
+      <button class="btn mini" id="p-notif-test" style="width:100%;margin-top:8px;display:none">🧪 M'envoyer une notification maintenant</button>
+      <p class="discret2" id="p-notif-diag" style="margin:8px 0 0"></p>
     </div>
     <div class="carte-solo">
       <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🏠 Qui vit à la maison</div>
-      <p class="discret2" style="margin:0 0 4px">Ces personnes peuvent se voir confier une tâche, ont un carnet de santé, et apparaissent dans ta journée.</p>
+      <p class="discret2" style="margin:0 0 4px">Les adultes peuvent se voir confier une tâche ou emmener quelqu'un. Tout le monde a un carnet de santé.</p>
       <div id="p-foyer"></div>
       <div id="p-foyer-ajout" style="margin-top:8px"></div>
     </div>
