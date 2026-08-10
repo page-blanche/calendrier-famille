@@ -63,7 +63,9 @@
 .jc-next{display:flex;gap:9px;align-items:baseline;margin-top:7px}
 .jc-heure{font-weight:800;font-size:.82rem;color:var(--event);white-space:nowrap}
 .jc-ti{font-size:.88rem;font-weight:600;line-height:1.3;flex:1;min-width:0}
-.jc-bas{display:flex;gap:8px;align-items:center;margin-top:9px;padding-top:8px;border-top:1px solid rgba(28,27,24,.08);font-size:.73rem;color:var(--ink-2)}
+.jc-bas{display:flex;gap:8px;align-items:center;margin-top:9px;padding-top:8px;border-top:1px solid rgba(28,27,24,.08);font-size:.73rem;color:var(--ink-2);
+  white-space:nowrap;overflow:hidden}
+.jc-bas>span:first-child,.jc-bas{min-width:0}
 .jc-lien{margin-left:auto;font-weight:700;color:var(--ink-2);white-space:nowrap}
 .jc-retard{background:#fdecea;color:#8e2f22;border:1px solid #f5b8ae;border-radius:999px;padding:1px 8px;font-size:.68rem;font-weight:700;white-space:nowrap}
 .magie{grid-column:1/-1;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-radius:18px;padding:12px 14px;box-shadow:0 3px 10px rgba(120,80,180,.08)}
@@ -136,6 +138,23 @@
 .pp-btns{display:flex;flex-direction:column;gap:10px;width:100%;max-width:330px;margin-top:26px}
 .pp-btns .btn{width:100%;padding:15px;font-size:1rem}
 .pp-reste{font-size:.78rem;color:var(--ink-3);margin-top:18px}
+.td-ong{display:flex;background:var(--surface-2,#f2f0ec);border-radius:99px;padding:3px;margin-bottom:14px;gap:2px}
+.td-ong button{flex:1;border:none;background:none;font:inherit;font-size:.85rem;font-weight:700;
+  padding:7px 4px;border-radius:99px;color:var(--ink-3);cursor:pointer}
+.td-ong button.on{background:var(--surface,#fff);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.td-ong .n{font-weight:800;opacity:.55;margin-left:3px;font-size:.78rem}
+.td-sect{font-size:.62rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+  margin:18px 0 4px;display:flex;align-items:center;gap:7px}
+.td-sect:first-of-type{margin-top:2px}
+.td-sect.rouge{color:var(--alert)}
+.td-sect .n{margin-left:auto;font-weight:700;opacity:.8}
+.td-tard{color:var(--alert);font-weight:700}
+.td-prendre{border:1.3px dashed var(--border);border-radius:99px;padding:3px 10px;font-size:.72rem;
+  font-weight:700;color:var(--ink-3);background:none;font-family:inherit;cursor:pointer;flex-shrink:0;
+  align-self:flex-start;margin-top:1px}
+.td-prendre:active{background:var(--ink);color:#fff;border-style:solid}
+.td-plier{font-size:.62rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+  margin:18px 0 2px;cursor:pointer;user-select:none}
 .fp-echo{font-size:.78rem;color:var(--ink-2);margin:7px 0 2px;padding-left:2px}
 .fp-echo b{color:var(--ink)}
 .fp-changer{background:none;border:none;padding:0;font:inherit;font-size:.76rem;
@@ -658,7 +677,8 @@ function visible(){return true}
 let vue = window.innerWidth<700 ? 'agenda' : 'mois';
 let cur = new Date();
 let jourOuvert = null;   // Date du jour affiché dans le tiroir
-let ongletTodo = 'auj';  // 'auj' | 'mois'
+let ongletTodo = 'moi';  // 'moi' | le prénom (en minuscules) d'un autre compte
+let todoPlie = {ailleurs:false, faites:false, tard:false, sansdate:false};
 const ALL_MONTHS=[];
 for(let m=2;m<=11;m++)ALL_MONTHS.push({y:2026,m});
 for(let m=0;m<=11;m++)ALL_MONTHS.push({y:2027,m});
@@ -1121,70 +1141,201 @@ function ligneTache(t,opts){
   </div>`;
 }
 
+/* La to-do est rangée par personne, pas par catégorie administrative :
+   la question qu'on se pose n'est pas « de quel type est cette tâche »
+   mais « qui la porte, et qu'est-ce que personne n'a pris ». */
+const EMOJI_TACHE={deadline:'📋',facture:'💳',family:'🎁',sante:'🩺',other:'📌'};
+function emojiTache(t){
+  const m=String(t.texte||'').trim().match(RE_EMOJI);
+  if(m)return '';                                  // le texte porte déjà le sien
+  return (EMOJI_TACHE[t.cat]||EMOJI_TACHE.other)+' ';
+}
+/* Pourquoi cette ligne est là — une seule façon d'écrire les dates. */
+function raisonTache(t){
+  const auj=new Date(),sAuj=iso(auj);
+  if(t.persistante){
+    const val=auj.getFullYear()*12+(auj.getMonth()+1);
+    const rest=(t.finY*12+t.finM)-val;
+    if(rest<=0)return {txt:'dernier mois pour le faire',tard:true};
+    if(rest===1)return {txt:'encore ce mois-ci et le suivant',tard:false};
+    return {txt:'chaque mois, jusqu\'en '+MFR[t.finM-1].toLowerCase()+' '+t.finY,tard:false};
+  }
+  if(!t.ech)return {txt:'',tard:false};
+  const d=deIso(t.ech);
+  const j=Math.round((d-deIso(sAuj))/864e5);
+  if(j<0)return {txt:(-j)+' jour'+(j<-1?'s':'')+' de retard',tard:true};
+  if(j===0)return {txt:'aujourd\'hui',tard:true};
+  if(j===1)return {txt:'demain',tard:false};
+  if(j<=6)return {txt:DFR[jSem(d)-1].toLowerCase(),tard:false};
+  return {txt:d.getDate()+' '+MFR[d.getMonth()].toLowerCase(),tard:false};
+}
+function ligneTache2(t,opts){
+  const faite=estFaite(t.id);
+  const r=raisonTache(t);
+  const bouts=[];
+  if(r.txt)bouts.push(`<span class="${r.tard&&!faite?'td-tard':''}">${echap(r.txt)}</span>`);
+  if(t.lien){
+    const info=trouverParId(t.lien);
+    if(info)bouts.push('🔗 '+echap((info.titre||info.nom||'').substring(0,26)));
+  }
+  return `<div class="todo-item ${faite?'done':''}" data-id="${t.id}">
+    <div class="todo-check" data-act="cocher"></div>
+    <div class="todo-corps" data-act="cocher">
+      <div class="todo-text">${emojiTache(t)}${echap(t.texte)}</div>
+      ${bouts.length?`<div class="todo-date">${bouts.join(' · ')}</div>`:''}
+    </div>
+    ${opts&&opts.prendre?`<button class="td-prendre" data-act="prendre">je prends</button>`:''}
+    <div class="todo-actions">
+      <button class="todo-act" data-act="modif" title="Modifier">✏️</button>
+      <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
+    </div>
+  </div>`;
+}
+/* Les autres comptes du foyer : un onglet chacun. */
+function autresComptes(){
+  const moi=String(UTILISATEUR||'').trim().toLowerCase();
+  return (CACHE.comptes||[]).filter(n=>String(n).trim().toLowerCase()!==moi);
+}
+const estAMoi=(t)=>String(t.qui||'').trim().toLowerCase()===String(UTILISATEUR||'').trim().toLowerCase();
+const estAPersonne=(t)=>!String(t.qui||'').trim();
+/* Tout ce qui reste à faire — le retard ne remonte pas à l'infini, et une
+   action automatique (souhaiter un anniversaire) ne traîne que 7 jours. */
+function tachesOuvertes(){
+  const auj=iso(new Date()),il7=iso(new Date(Date.now()-7*864e5)),il30=iso(new Date(Date.now()-30*864e5));
+  return toutesTaches().filter(t=>{
+    if(estFaite(t.id))return false;
+    if(t.persistante){
+      const val=new Date().getFullYear()*12+(new Date().getMonth()+1);
+      return val>=(t.debY*12+t.debM)&&val<=(t.finY*12+t.finM);
+    }
+    if(!t.ech)return true;
+    if(t.ech>=auj)return true;
+    return t.ech>=(t.auto?il7:il30);
+  });
+}
+/* L'horizon : ce qui demande une décision maintenant. Au-delà, ça existe
+   mais ça dort replié — sinon vingt-deux anniversaires noient trois urgences. */
+const HORIZON_JOURS=14;
+function dansLHorizon(t){
+  if(t.persistante)return true;
+  if(!t.ech)return false;
+  const j=Math.round((deIso(t.ech)-deIso(iso(new Date())))/864e5);
+  return j<=HORIZON_JOURS;
+}
+const plusTard=(t)=>!t.persistante&&t.ech&&!dansLHorizon(t);
+const sansDate=(t)=>!t.persistante&&!t.ech;
+function trierTaches(l){
+  return l.slice().sort((a,b)=>{
+    const ra=raisonTache(a),rb=raisonTache(b);
+    if(ra.tard!==rb.tard)return ra.tard?-1:1;
+    return String(a.ech||'9999').localeCompare(String(b.ech||'9999'));
+  });
+}
+function faitesRecemment(filtre){
+  const il7=iso(new Date(Date.now()-7*864e5));
+  return toutesTaches().filter(t=>estFaite(t.id)&&t.ech&&t.ech>=il7&&filtre(t));
+}
+/* Le chiffre rouge de l'accueil : ce qui est à toi ou que personne n'a pris. */
+function tachesQuiTePressent(){
+  return tachesOuvertes().filter(t=>(estAMoi(t)||estAPersonne(t))&&raisonTache(t).tard);
+}
+
 function renderTodo(){
   const p=document.getElementById('todoPanel');
-  const reel=new Date();
-  const [y,m]=ongletTodo==='auj'?[reel.getFullYear(),reel.getMonth()+1]:[cur.getFullYear(),cur.getMonth()+1];
-  let h=`<div class="onglets-todo">
-    <button class="${ongletTodo==='auj'?'actif':''}" data-o="auj">✅ Maintenant</button>
-    <button class="${ongletTodo==='mois'?'actif':''}" data-o="mois">📅 Mois affiché</button>
-  </div>`;
-  h+=`<div class="todo-section-title" style="margin-bottom:8px">${ongletTodo==='auj'?'To-do — '+MFR[m-1]+' '+y:'To-do — '+MFR[m-1]+' '+y}</div>`;
+  const autres=autresComptes();
+  const ouvertes=tachesOuvertes();
+  const miennes=trierTaches(ouvertes.filter(estAMoi));
+  const libres=trierTaches(ouvertes.filter(estAPersonne));
+  if(ongletTodo!=='moi'&&!autres.some(n=>n.toLowerCase()===ongletTodo))ongletTodo='moi';
+  // le compteur des onglets ne compte que ce qui est à l'écran : sinon il annonce
+  // soixante-six choses et n'en montre six
+  const nMoi=miennes.concat(libres).filter(dansLHorizon).length;
 
-  // Section urgente (onglet Maintenant uniquement)
-  if(ongletTodo==='auj'){
-    const retard=tachesEnRetard();
-    if(retard.length){
-      h+=`<div class="todo-section urgent"><div class="todo-section-title">🚨 En retard / urgent</div>`;
-      retard.forEach(t=>{h+=ligneTache(t,{prefixe:'',mois:!t.persistante})});
-      h+='</div>';
+  let h='';
+  if(autres.length){
+    h+=`<div class="td-ong">
+      <button class="${ongletTodo==='moi'?'on':''}" data-o="moi">Toi <span class="n">${nMoi}</span></button>
+      ${autres.map(n=>{
+        const k=ouvertes.filter(t=>String(t.qui||'').trim().toLowerCase()===n.toLowerCase()&&dansLHorizon(t));
+        return `<button class="${ongletTodo===n.toLowerCase()?'on':''}" data-o="${attr(n.toLowerCase())}">${echap(n)} <span class="n">${k.length}</span></button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  if(ongletTodo==='moi'){
+    const mA=miennes.filter(dansLHorizon),lA=libres.filter(dansLHorizon);
+    h+=`<div class="td-sect">À toi<span class="n">${mA.length}</span></div>`;
+    if(!mA.length)h+=`<div class="todo-empty">Rien sur ton dos 🌿</div>`;
+    mA.forEach(t=>{h+=ligneTache2(t,{})});
+
+    if(lA.length){
+      h+=`<div class="td-sect rouge">Personne dessus<span class="n">${lA.length}</span></div>`;
+      lA.forEach(t=>{h+=ligneTache2(t,{prendre:true})});
     }
-  }
 
-  const toutes=tachesDuMois(y,m);
-  const retardIds=ongletTodo==='auj'?new Set(tachesEnRetard().map(t=>t.id)):new Set();
-  const aFaire=toutes.filter(t=>!estFaite(t.id)&&!retardIds.has(t.id));
-  const faites=toutes.filter(t=>estFaite(t.id));
-
-  if(!aFaire.length&&!faites.length)h+='<div class="todo-empty">Rien à faire ce mois-ci 🌿</div>';
-  else{
-    const groupes={};
-    aFaire.forEach(t=>{const g=GROUPES[t.cat]||GROUPES.other;(groupes[g]=groupes[g]||[]).push(t)});
-    for(const[titre,items]of Object.entries(groupes)){
-      h+=`<div class="todo-section"><div class="todo-section-title">${titre}</div>`;
-      items.forEach(t=>{
-        let prefixe='';
-        if(t.persistante){
-          const rest=(t.finY*12+t.finM)-(y*12+m);
-          prefixe=rest<=0?'🚨 ':rest<=1?'⚠️ ':'';
-        }
-        h+=ligneTache(t,{prefixe});
-      });
-      h+='</div>';
+    const tard=trierTaches(miennes.concat(libres).filter(plusTard));
+    if(tard.length){
+      h+=`<div class="td-plier" data-plier="tard">${todoPlie.tard?'▾':'▸'} Plus tard (${tard.length})</div>`;
+      if(todoPlie.tard)tard.forEach(t=>{h+=ligneTache2(t,{prendre:estAPersonne(t)})});
     }
+    const sd=trierTaches(miennes.concat(libres).filter(sansDate));
+    if(sd.length){
+      h+=`<div class="td-plier" data-plier="sansdate">${todoPlie.sansdate?'▾':'▸'} Sans date (${sd.length})</div>`;
+      if(todoPlie.sansdate)sd.forEach(t=>{h+=ligneTache2(t,{prendre:estAPersonne(t)})});
+    }
+
+    // Ce qui est confié aux enfants ou à quelqu'un d'autre : on le sait, sans l'avoir sous le nez
+    const comptesBas=(CACHE.comptes||[]).map(x=>String(x).trim().toLowerCase());
+    const ailleurs=trierTaches(ouvertes.filter(t=>{
+      const q=String(t.qui||'').trim().toLowerCase();
+      return q&&!comptesBas.includes(q);
+    }));
+    if(ailleurs.length){
+      h+=`<div class="td-plier" data-plier="ailleurs">${todoPlie.ailleurs?'▾':'▸'} Confié à quelqu'un d'autre (${ailleurs.length})</div>`;
+      if(todoPlie.ailleurs)ailleurs.forEach(t=>{h+=ligneTache2(t,{})});
+    }
+    const faites=faitesRecemment(t=>estAMoi(t)||estAPersonne(t));
+    if(faites.length){
+      h+=`<div class="td-plier" data-plier="faites">${todoPlie.faites?'▾':'▸'} Fait cette semaine (${faites.length})</div>`;
+      if(todoPlie.faites)faites.forEach(t=>{h+=ligneTache2(t,{})});
+    }
+  }else{
+    const nom=autres.find(n=>n.toLowerCase()===ongletTodo)||ongletTodo;
+    const siennes=trierTaches(ouvertes.filter(t=>String(t.qui||'').trim().toLowerCase()===ongletTodo&&dansLHorizon(t)));
+    h+=`<div class="td-sect">Ce que ${echap(nom)} porte<span class="n">${siennes.length}</span></div>`;
+    if(!siennes.length)h+=`<div class="todo-empty">${echap(nom)} n'a rien sur le feu 🌿</div>`;
+    siennes.forEach(t=>{h+=ligneTache2(t,{})});
+    const f=faitesRecemment(t=>String(t.qui||'').trim().toLowerCase()===ongletTodo);
+    if(f.length){
+      h+=`<div class="td-plier" data-plier="faites">${todoPlie.faites?'▾':'▸'} Ce qu'${echap(nom)} a fait cette semaine (${f.length})</div>`;
+      if(todoPlie.faites)f.forEach(t=>{h+=ligneTache2(t,{})});
+    }
+    h+=`<p class="discret2" style="margin-top:16px">Les projets et ce que personne n'a pris restent sur ton onglet.</p>`;
   }
 
-  if(faites.length){
-    h+=`<div class="todo-section" style="border-top:1px dashed var(--border);padding-top:10px">
-      <div class="todo-section-title" style="color:var(--ink-3)">Complétées — clic pour décocher</div>`;
-    faites.forEach(t=>{h+=ligneTache(t,{})});
-    h+='</div>';
-  }
-  h+=`<button class="btn" style="width:100%;margin-top:10px" onclick="formTache(null)">＋ Ajouter une tâche</button>`;
+  h+=`<button class="btn" style="width:100%;margin-top:14px" id="td-ajout">＋ Ajouter une tâche</button>`;
   p.innerHTML=h;
 
-  p.querySelectorAll('.onglets-todo button').forEach(b=>{b.onclick=()=>{ongletTodo=b.dataset.o;renderTodo()}});
+  p.querySelectorAll('.td-ong button').forEach(b=>{b.onclick=()=>{ongletTodo=b.dataset.o;renderTodo()}});
+  p.querySelectorAll('[data-plier]').forEach(b=>{b.onclick=()=>{
+    todoPlie[b.dataset.plier]=!todoPlie[b.dataset.plier];renderTodo();
+  }});
+  const ba=document.getElementById('td-ajout');
+  if(ba)ba.onclick=()=>formTache(null);
   p.querySelectorAll('.todo-item [data-act]').forEach(el=>{
     el.addEventListener('click',ev=>{
       ev.stopPropagation();
       const id=el.closest('.todo-item').dataset.id;
       if(!id)return;
       const act=el.dataset.act;
-      if(act==='cocher'){
-        basculerFaite(id);renderTodo();
-      }else if(act==='modif'){formTache(id)}
+      if(act==='cocher'){basculerFaite(id);render()}
+      else if(act==='prendre'){
+        enregistrerObjet(id,'taches',{qui:UTILISATEUR||''});
+        toast('C\'est à toi maintenant ✔');render();
+      }
+      else if(act==='modif'){formTache(id)}
       else if(act==='suppr'){
-        if(confirm('Supprimer cette tâche ?')){supprimerObjet(id);renderTodo();toast('Tâche supprimée')}
+        if(confirm('Supprimer cette tâche ?')){supprimerObjet(id);render();toast('Tâche supprimée')}
       }
     });
   });
@@ -3610,7 +3761,7 @@ function blocJournee(){
   const auj=new Date();
   const v=enVacances(auj),f=ferie(auj);
   const {vedette,dansProg,nProg,nTaches}=prochaineChose();
-  const retard=tachesEnRetard().length;
+  const retard=tachesQuiTePressent().length;
   const dateTxt=`${DFR[jSem(auj)-1].toLowerCase()} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}`;
   let h=`<div class="jc-h"><b>☀️ Ta journée</b>
     ${f?'<span>🇫🇷 '+echap(f)+'</span>':''}${v&&!f?'<span>'+echap(v.nom)+'</span>':''}
@@ -3628,7 +3779,7 @@ function blocJournee(){
   if(autres)bouts.push((vedette&&dansProg?'puis ':'')+autres+' autre'+(autres>1?'s':''));
   if(nTaches)bouts.push(nTaches+' à faire');
   if(dosesRestantes)bouts.push('💊 '+dosesRestantes+' dose'+(dosesRestantes>1?'s':''));
-  h+=`<div class="jc-bas">${bouts.length?echap(bouts.join(' · ')):'<span style="color:var(--ink-3)">journée libre</span>'}
+  h+=`<div class="jc-bas"><span style="overflow:hidden;text-overflow:ellipsis">${bouts.length?echap(bouts.join(' · ')):'<span style="color:var(--ink-3)">journée libre</span>'}</span>
     ${retard?`<span class="jc-retard">🚨 ${retard} en retard</span>`:''}
     <span class="jc-lien">tout voir ›</span></div>`;
   return `<div class="journee compacte" id="blocJournee" data-jr="jour">${h}</div>`;
@@ -3649,7 +3800,7 @@ function renderAccueil(){
   const auj=new Date();const sAuj=iso(auj);
   const prochain=lesEvts().filter(e=>e.debut>=sAuj).sort((a,b)=>a.debut<b.debut?-1:1)[0];
   const y=auj.getFullYear(),m=auj.getMonth()+1;
-  const enRetard=tachesEnRetard().length;
+  const enRetard=tachesQuiTePressent().length;
   const aFaire=tachesDuMois(y,m).filter(t=>!estFaite(t.id)).length;
   const nbCourses=CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length;
   const nbCaddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche).length;
