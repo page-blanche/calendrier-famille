@@ -155,6 +155,20 @@
 .td-prendre:active{background:var(--ink);color:#fff;border-style:solid}
 .td-plier{font-size:.62rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
   margin:18px 0 2px;cursor:pointer;user-select:none}
+.pj-l{display:flex;gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--border);cursor:pointer}
+.td-sect + .pj-l{border-top:none}
+.pj-l:active{opacity:.65}
+.pj-l .ic{font-size:1.2rem;flex-shrink:0}
+.pj-l .co{flex:1;min-width:0}
+.pj-l .tx{font-weight:700;font-size:.92rem}
+.pj-l .barre{height:4px;background:var(--border);border-radius:99px;margin-top:5px;overflow:hidden}
+.pj-l .barre i{display:block;height:100%;background:var(--ink-3);border-radius:99px;transition:width .2s}
+.pj-l .su{font-size:.73rem;color:var(--ink-3);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pj-l .ch{color:var(--ink-3);font-size:.8rem;flex-shrink:0}
+.pj-tete{display:flex;align-items:center;gap:11px;margin:4px 0 10px}
+.pj-tete .ic{font-size:1.6rem}
+.pj-tete .nom{font-size:1.28rem;font-weight:800;line-height:1.15}
+.pj-tete .sous{font-size:.79rem;color:var(--ink-3)}
 .fp-echo{font-size:.78rem;color:var(--ink-2);margin:7px 0 2px;padding-left:2px}
 .fp-echo b{color:var(--ink)}
 .fp-changer{background:none;border:none;padding:0;font:inherit;font-size:.76rem;
@@ -466,13 +480,13 @@ const FER={
    chaque modification est appliquée immédiatement à l'écran puis
    envoyée à la base (avec rechargement en cas d'erreur). */
 let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],personnes:[],notes:[],envies:[],membres:[],etatsAuto:{},
-  medecins:[],traitements:[],prises:[],suivis:[],accomp:[]};
+  medecins:[],traitements:[],prises:[],suivis:[],accomp:[],projets:[]};
 const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux',personnes:'personnes',notes:'notes_personnes',envies:'envies',
   medecins:'sante_medecins',traitements:'sante_traitements',prises:'sante_prises',suivis:'sante_suivis',
-  accomp:'accompagnements'};
+  accomp:'accompagnements',projets:'projets'};
 
 async function chargerTout(){
-  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su,ac]=await Promise.all([
+  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su,ac,pj]=await Promise.all([
     sb.from('evenements').select('*'),
     sb.from('vacances').select('*'),
     sb.from('anniversaires').select('*'),
@@ -490,6 +504,7 @@ async function chargerTout(){
     sb.from('sante_prises').select('*'),
     sb.from('sante_suivis').select('*'),
     sb.from('accompagnements').select('*'),
+    sb.from('projets').select('*'),
   ]);
   const err=[e,v,b,a,t,s].find(r=>r.error);
   if(err){toast('⚠️ Erreur de chargement : '+err.error.message);return false}
@@ -513,6 +528,7 @@ async function chargerTout(){
   CACHE.prises=pri.error?[]:pri.data;
   CACHE.suivis=su.error?[]:su.data;
   CACHE.accomp=ac.error?[]:ac.data;
+  CACHE.projets=pj.error?[]:pj.data;
   return true;
 }
 const lesEvts=()=>CACHE.evts;
@@ -594,7 +610,7 @@ function supprimerObjet(id){
     CACHE.medecins=CACHE.medecins.filter(m=>m.personne_id!==id&&m.medecin_id!==id);
   }
   for(const coll of ['evts','vac','bdays','acts','taches','courses','cadeaux','notes','envies','personnes',
-                     'medecins','traitements','prises','suivis']){
+                     'medecins','traitements','prises','suivis','accomp','projets']){
     const i=CACHE[coll].findIndex(x=>x.id===id);
     if(i>=0){
       CACHE[coll].splice(i,1);
@@ -678,7 +694,7 @@ let vue = window.innerWidth<700 ? 'agenda' : 'mois';
 let cur = new Date();
 let jourOuvert = null;   // Date du jour affiché dans le tiroir
 let ongletTodo = 'moi';  // 'moi' | le prénom (en minuscules) d'un autre compte
-let todoPlie = {ailleurs:false, faites:false, tard:false, sansdate:false};
+let todoPlie = {ailleurs:false, faites:false, tard:false, sansdate:false, pjfaites:false};
 const ALL_MONTHS=[];
 for(let m=2;m<=11;m++)ALL_MONTHS.push({y:2026,m});
 for(let m=0;m<=11;m++)ALL_MONTHS.push({y:2027,m});
@@ -1235,15 +1251,167 @@ function faitesRecemment(filtre){
   const il7=iso(new Date(Date.now()-7*864e5));
   return toutesTaches().filter(t=>estFaite(t.id)&&t.ech&&t.ech>=il7&&filtre(t));
 }
+/* ---------- Les projets ----------
+   Un projet, c'est un nom et des tâches qui lui appartiennent. Dans la to-do
+   il tient sur une ligne pliée : sept tâches de vacances ne doivent jamais
+   écraser trois urgences. */
+function lesProjets(){return (CACHE.projets||[]).filter(p=>!p.archive)}
+function tachesDuProjet(id){return toutesTaches().filter(t=>t.projet_id===id)}
+function avancement(id){
+  const l=tachesDuProjet(id);
+  return {faites:l.filter(t=>estFaite(t.id)).length,total:l.length};
+}
+/* La prochaine chose à faire dans un projet : la plus datée, puis la première. */
+function prochaineDuProjet(id){
+  const l=trierTaches(tachesDuProjet(id).filter(t=>!estFaite(t.id)));
+  return l[0]||null;
+}
+const MODELES_PROJET=[
+  ['🧳','Un voyage',['Réserver le transport','Réserver le logement','Préparer les valises',
+    'Prévoir qui garde la maison','Trousse à pharmacie','Papiers et cartes d\'identité']],
+  ['🎈','Un anniversaire',['Faire la liste des invités','Envoyer les invitations','Commander le gâteau',
+    'Acheter le cadeau','Prévoir les jeux','Décoration']],
+  ['📦','Un déménagement',['Faire les cartons','Réserver le camion','Changer l\'adresse (impôts, banque…)',
+    'Résilier les abonnements','État des lieux','Prévenir l\'école']],
+  ['🎒','La rentrée',['Fournitures scolaires','Certificats médicaux','Inscriptions aux activités',
+    'Vêtements et chaussures','Assurance scolaire']],
+  ['✨','Rien de tout ça',[]],
+];
+
 /* Le chiffre rouge de l'accueil : ce qui est à toi ou que personne n'a pris. */
 function tachesQuiTePressent(){
   return tachesOuvertes().filter(t=>(estAMoi(t)||estAPersonne(t))&&raisonTache(t).tard);
 }
 
+let projetOuvert=null;
+function ouvrirProjet(id){projetOuvert=id;renderProjet()}
+function renderProjet(){
+  const p=(CACHE.projets||[]).find(x=>x.id===projetOuvert);
+  const zone=document.getElementById('todoPanel');
+  if(!p){projetOuvert=null;renderTodo();return}
+  const l=tachesDuProjet(p.id);
+  const restent=trierTaches(l.filter(t=>!estFaite(t.id)));
+  const faites=l.filter(t=>estFaite(t.id));
+  const a=avancement(p.id);
+  const evt=p.evt_id?trouverParId(p.evt_id):null;
+  const sous=[
+    p.ech?'pour le '+deIso(p.ech).getDate()+' '+MFR[deIso(p.ech).getMonth()].toLowerCase():'',
+    evt?'🔗 '+(evt.titre||evt.nom||''):'',
+    a.total?a.faites+' sur '+a.total:'aucune tâche',
+  ].filter(Boolean).join(' · ');
+  let h=`<button class="btn mini" id="pj-retour" style="margin-bottom:12px">‹ La to-do</button>
+  <div class="pj-tete"><span class="ic">${p.emoji||'✨'}</span>
+    <div style="min-width:0"><div class="nom">${echap(p.nom)}</div>
+      <div class="sous">${echap(sous)}</div></div>
+    <span style="flex:1"></span>
+    <button class="todo-act" id="pj-editer" title="Modifier">✏️</button></div>
+  <div class="pj-l" style="border:none;padding:0 0 14px;cursor:default"><div class="co">
+    <div class="barre"><i style="width:${a.total?Math.round(a.faites/a.total*100):0}%"></i></div></div></div>`;
+  h+=`<div class="td-sect">Ce qu'il reste<span class="n">${restent.length}</span></div>`;
+  if(!restent.length)h+=`<div class="todo-empty">${a.total?'Tout est fait 🎉':'Rien encore — ajoute la première étape.'}</div>`;
+  restent.forEach(t=>{h+=ligneTache2(t,{prendre:estAPersonne(t)})});
+  if(faites.length){
+    h+=`<div class="td-plier" data-plier="pjfaites">${todoPlie.pjfaites?'▾':'▸'} Déjà fait (${faites.length})</div>`;
+    if(todoPlie.pjfaites)faites.forEach(t=>{h+=ligneTache2(t,{})});
+  }
+  h+=`<button class="btn" id="pj-ajout" style="width:100%;margin-top:14px">＋ Ajouter une étape</button>`;
+  zone.innerHTML=h;
+  document.getElementById('pj-retour').onclick=()=>{projetOuvert=null;renderTodo()};
+  document.getElementById('pj-editer').onclick=()=>formProjet(p.id);
+  document.getElementById('pj-ajout').onclick=()=>formTache(null,null,p.id);
+  zone.querySelectorAll('[data-plier]').forEach(b=>{b.onclick=()=>{
+    todoPlie[b.dataset.plier]=!todoPlie[b.dataset.plier];renderProjet();
+  }});
+  zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
+    el.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const id=el.closest('.todo-item').dataset.id,act=el.dataset.act;
+      if(!id)return;
+      if(act==='cocher'){basculerFaite(id);renderProjet()}
+      else if(act==='prendre'){enregistrerObjet(id,'taches',{qui:UTILISATEUR||''});toast('C\'est à toi maintenant ✔');renderProjet()}
+      else if(act==='modif'){formTache(id)}
+      else if(act==='suppr'){if(confirm('Supprimer cette étape ?')){supprimerObjet(id);renderProjet()}}
+    });
+  });
+}
+function formProjet(id){
+  const p=id?(CACHE.projets||[]).find(x=>x.id===id):null;
+  ouvrirTiroirBrut(p?echap(p.nom):'Nouveau projet');
+  let modele=p?-1:0;
+  let emoji=p&&p.emoji?p.emoji:MODELES_PROJET[0][0];
+  const evts=lesEvts().filter(e=>e.debut>=iso(new Date())).sort((a,b)=>a.debut<b.debut?-1:1).slice(0,25);
+  document.getElementById('dbd').innerHTML=`
+    ${p?'':`<label class="lbl">C'est quoi ?</label>
+    <div class="mg-chips" id="pj-mod">${MODELES_PROJET.map((m,i)=>`<button type="button" class="mg-chip ${i===0?'actif':''}" data-m="${i}">${m[0]} ${echap(m[1])}</button>`).join('')}</div>`}
+    <label class="lbl">Son nom</label>
+    <input type="text" id="pj-nom" value="${p?echap(p.nom):''}" placeholder="Vacances à la Réunion">
+    <label class="lbl">Son icône</label>
+    <div class="mg-chips" id="pj-emos">${['🧳','🎈','📦','🎒','🏡','🎓','💍','✨','🎄','🚗'].map(e=>`<button type="button" class="mg-chip ${emoji===e?'actif':''}" data-e="${e}" style="font-size:1.1rem">${e}</button>`).join('')}</div>
+    <label class="lbl">Tout doit être prêt pour… <span class="discret2">(facultatif)</span></label>
+    <input type="date" id="pj-ech" value="${p&&p.ech?p.ech:''}">
+    <label class="lbl">Rattacher à un événement du calendrier <span class="discret2">(facultatif)</span></label>
+    <select id="pj-evt"><option value="">—</option>
+      ${evts.map(e=>`<option value="${e.id}" ${p&&p.evt_id===e.id?'selected':''}>${echap(sansEmoji(e.titre))} · ${deIso(e.debut).getDate()} ${MFR[deIso(e.debut).getMonth()].toLowerCase()}</option>`).join('')}
+    </select>
+    ${p?'':`<p class="discret2" id="pj-apercu" style="margin-top:12px"></p>`}
+    <button class="btn primaire" id="pj-ok" style="width:100%;margin-top:14px">${p?'Enregistrer':'Créer le projet'}</button>
+    ${p?`<button class="btn danger" id="pj-suppr" style="width:100%;margin-top:8px">Supprimer le projet</button>`:''}`;
+  const majApercu=()=>{
+    const el=document.getElementById('pj-apercu');
+    if(!el)return;
+    const m=MODELES_PROJET[modele];
+    el.textContent=(m&&m[2].length)?'Je te prépare '+m[2].length+' étapes — tu enlèveras celles qui ne servent pas.':'Tu ajouteras les étapes toi-même.';
+  };
+  document.querySelectorAll('#pj-mod [data-m]').forEach(b=>{b.onclick=()=>{
+    modele=Number(b.dataset.m);
+    emoji=MODELES_PROJET[modele][0];
+    document.querySelectorAll('#pj-mod .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+    document.querySelectorAll('#pj-emos .mg-chip').forEach(x=>x.classList.toggle('actif',x.dataset.e===emoji));
+    majApercu();
+  }});
+  document.querySelectorAll('#pj-emos [data-e]').forEach(b=>{b.onclick=()=>{
+    emoji=b.dataset.e;
+    document.querySelectorAll('#pj-emos .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+  }});
+  majApercu();
+  document.getElementById('pj-ok').onclick=()=>{
+    const nom=document.getElementById('pj-nom').value.trim();
+    if(!nom){toast('Il faut un nom');return}
+    const l={nom,emoji:emoji||null,ech:document.getElementById('pj-ech').value||null,
+      evt_id:document.getElementById('pj-evt').value||null};
+    if(!p){
+      l.id=genId();
+      enregistrerObjet(null,'projets',l);
+      // les étapes du modèle : sans date, à personne, prêtes à être triées
+      const m=MODELES_PROJET[modele];
+      const base=new Date();
+      (m?m[2]:[]).forEach(txt=>{
+        enregistrerObjet(null,'taches',{texte:txt,cat:'other',qui:'',ech:null,dateTexte:'',
+          persistante:false,lien:'',projet_id:l.id,
+          y:base.getFullYear(),m:base.getMonth()+1,debY:null,debM:null,finY:null,finM:null});
+      });
+      fermerTiroir();
+      toast('C\'est parti ✨');
+      ouvrirProjet(l.id);
+      return;
+    }
+    enregistrerObjet(id,'projets',l);
+    fermerTiroir();toast('C\'est noté ✔');renderProjet();
+  };
+  const sup=document.getElementById('pj-suppr');
+  if(sup)sup.onclick=()=>{
+    const n=tachesDuProjet(id).length;
+    if(!confirm('Supprimer « '+p.nom+' »'+(n?' et ses '+n+' étape'+(n>1?'s':''):'')+' ?'))return;
+    tachesDuProjet(id).forEach(t=>supprimerObjet(t.id));
+    supprimerObjet(id);
+    fermerTiroir();projetOuvert=null;toast('Supprimé');renderTodo();
+  };
+}
+
 function renderTodo(){
   const p=document.getElementById('todoPanel');
   const autres=autresComptes();
-  const ouvertes=tachesOuvertes();
+  const ouvertes=tachesOuvertes().filter(t=>!t.projet_id);   // les projets ont leur propre bloc
   const miennes=trierTaches(ouvertes.filter(estAMoi));
   const libres=trierTaches(ouvertes.filter(estAPersonne));
   if(ongletTodo!=='moi'&&!autres.some(n=>n.toLowerCase()===ongletTodo))ongletTodo='moi';
@@ -1272,6 +1440,22 @@ function renderTodo(){
       h+=`<div class="td-sect rouge">Personne dessus<span class="n">${lA.length}</span></div>`;
       lA.forEach(t=>{h+=ligneTache2(t,{prendre:true})});
     }
+
+    const projs=lesProjets().slice().sort((a,b)=>String(a.ech||'9999').localeCompare(String(b.ech||'9999')));
+    h+=`<div class="td-sect">Les projets<span class="n">${projs.length||''}</span></div>`;
+    if(!projs.length)h+=`<div class="todo-empty" style="padding:10px 0">Rien en cours.</div>`;
+    projs.forEach(p=>{
+      const a=avancement(p.id);
+      const suite=prochaineDuProjet(p.id);
+      h+=`<div class="pj-l" data-projet="${p.id}">
+        <span class="ic">${p.emoji||'✨'}</span>
+        <div class="co"><div class="tx">${echap(p.nom)}</div>
+          <div class="barre"><i style="width:${a.total?Math.round(a.faites/a.total*100):0}%"></i></div>
+          ${suite?`<div class="su">à suivre : ${echap(suite.texte)}</div>`:(a.total?'<div class="su">tout est fait 🎉</div>':'<div class="su">aucune tâche pour l\'instant</div>')}
+        </div>
+        <span class="ch">${a.faites} / ${a.total} ›</span></div>`;
+    });
+    h+=`<button class="btn mini" id="td-new-projet" style="width:100%;margin-top:8px">＋ Nouveau projet</button>`;
 
     const tard=trierTaches(miennes.concat(libres).filter(plusTard));
     if(tard.length){
@@ -1322,6 +1506,9 @@ function renderTodo(){
   }});
   const ba=document.getElementById('td-ajout');
   if(ba)ba.onclick=()=>formTache(null);
+  const bp=document.getElementById('td-new-projet');
+  if(bp)bp.onclick=()=>formProjet(null);
+  p.querySelectorAll('[data-projet]').forEach(el=>{el.onclick=()=>ouvrirProjet(el.dataset.projet)});
   p.querySelectorAll('.todo-item [data-act]').forEach(el=>{
     el.addEventListener('click',ev=>{
       ev.stopPropagation();
@@ -2087,13 +2274,15 @@ function formCadeau(){
 }
 
 /* ---------- Formulaire tâche ---------- */
-function formTache(id,lienPre){
+function formTache(id,lienPre,projetPre){
   const t=id?trouverParId(id):null;
   ouvrirTiroirBrut(t?'Modifier la tâche':'Nouvelle tâche');
   const corps=document.getElementById('dbd');
   const reel=new Date();
   const finMois=t?.persistante?t.finY+'-'+String(t.finM).padStart(2,'0'):'';
   const lien=t?t.lien:lienPre;
+  const projId=t?(t.projet_id||null):(projetPre||null);
+  const proj=projId?(CACHE.projets||[]).find(x=>x.id===projId):null;
   const infoLiee=lien?trouverParId(lien):null;
   const b=boutonsForm(()=>{
     const texte=document.getElementById('f-texte').value.trim();
@@ -2103,7 +2292,7 @@ function formTache(id,lienPre){
     let dateTexte=document.getElementById('f-datetexte').value.trim();
     if(!dateTexte&&ech)dateTexte='Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase();
     const donnees={texte,cat:document.getElementById('f-cat').value,
-      qui:document.getElementById('f-qui').value.trim()||'',ech,dateTexte,persistante,lien:lien||''};
+      qui:document.getElementById('f-qui').value.trim()||'',ech,dateTexte,persistante,lien:lien||'',projet_id:projId};
     if(persistante){
       const fm=document.getElementById('f-fin').value;
       const [fy,fmm]=fm?fm.split('-').map(Number):[reel.getFullYear(),reel.getMonth()+1];
@@ -2115,9 +2304,11 @@ function formTache(id,lienPre){
       donnees.debY=null;donnees.debM=null;donnees.finY=null;donnees.finM=null;
     }
     enregistrerObjet(id,'taches',donnees);
+    if(projId&&projetOuvert===projId){fermerTiroir();toast(t?'C\'est noté ✔':'Étape ajoutée ✔');renderProjet();return}
     apresEnregistrement(t?'Tâche modifiée':'Tâche ajoutée');
   });
   corps.innerHTML=`
+    ${proj?`<p style="font-size:.82rem;color:var(--ink-2)">${proj.emoji||'✨'} Étape de <strong>${echap(proj.nom)}</strong></p>`:''}
     ${infoLiee?`<p style="font-size:.82rem;color:var(--ink-2)">🔗 Action liée à <strong>${echap(infoLiee.titre||infoLiee.nom)}</strong> — elle apparaîtra chez elle et dans la to-do.</p>`:''}
     <label>Qu'est-ce qu'il faut faire ?</label>
     <input type="text" id="f-texte" value="${attr(t?.texte)}" placeholder="🎁 Acheter le cadeau de…">
@@ -4003,7 +4194,7 @@ function render(){
   if(section==='courses'){renderCourses();return}
   if(section==='memoire'){renderMemoire();return}
   if(section==='sante'){renderSante();return}
-  if(section==='todo'){renderTodo();return}
+  if(section==='todo'){projetOuvert?renderProjet():renderTodo();return}
   if(vue==='mois')renderMois();
   else if(vue==='semaine')renderSemaine();
   else if(vue==='agenda')renderAgenda();
