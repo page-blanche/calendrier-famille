@@ -169,6 +169,19 @@
 .pj-tete .ic{font-size:1.6rem}
 .pj-tete .nom{font-size:1.28rem;font-weight:800;line-height:1.15}
 .pj-tete .sous{font-size:.79rem;color:var(--ink-3)}
+.rp-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 12px}
+.rp-nav span{font-weight:700;font-size:.9rem}
+.rp-j{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border);cursor:pointer}
+.rp-j:first-of-type{border-top:none}
+.rp-j:active{opacity:.65}
+.rp-j.passe{opacity:.5}
+.rp-j.auj .rp-d b{color:var(--alert)}
+.rp-d{width:52px;flex-shrink:0;display:flex;flex-direction:column;line-height:1.15}
+.rp-d b{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+.rp-d span{font-size:1.05rem;font-weight:700}
+.rp-q{flex:1;font-size:.95rem;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.rp-q.vide{color:var(--ink-3);font-style:italic}
+.rp-ch{color:var(--ink-3)}
 .fp-echo{font-size:.78rem;color:var(--ink-2);margin:7px 0 2px;padding-left:2px}
 .fp-echo b{color:var(--ink)}
 .fp-changer{background:none;border:none;padding:0;font:inherit;font-size:.76rem;
@@ -480,13 +493,13 @@ const FER={
    chaque modification est appliquée immédiatement à l'écran puis
    envoyée à la base (avec rechargement en cas d'erreur). */
 let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],personnes:[],notes:[],envies:[],membres:[],etatsAuto:{},
-  medecins:[],traitements:[],prises:[],suivis:[],accomp:[],projets:[]};
+  medecins:[],traitements:[],prises:[],suivis:[],accomp:[],projets:[],recettes:[],menus:[]};
 const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux',personnes:'personnes',notes:'notes_personnes',envies:'envies',
   medecins:'sante_medecins',traitements:'sante_traitements',prises:'sante_prises',suivis:'sante_suivis',
-  accomp:'accompagnements',projets:'projets'};
+  accomp:'accompagnements',projets:'projets',recettes:'recettes',menus:'menus'};
 
 async function chargerTout(){
-  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su,ac,pj]=await Promise.all([
+  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su,ac,pj,re,me]=await Promise.all([
     sb.from('evenements').select('*'),
     sb.from('vacances').select('*'),
     sb.from('anniversaires').select('*'),
@@ -505,6 +518,8 @@ async function chargerTout(){
     sb.from('sante_suivis').select('*'),
     sb.from('accompagnements').select('*'),
     sb.from('projets').select('*'),
+    sb.from('recettes').select('*'),
+    sb.from('menus').select('*'),
   ]);
   const err=[e,v,b,a,t,s].find(r=>r.error);
   if(err){toast('⚠️ Erreur de chargement : '+err.error.message);return false}
@@ -529,6 +544,8 @@ async function chargerTout(){
   CACHE.suivis=su.error?[]:su.data;
   CACHE.accomp=ac.error?[]:ac.data;
   CACHE.projets=pj.error?[]:pj.data;
+  CACHE.recettes=re.error?[]:re.data;
+  CACHE.menus=me.error?[]:me.data;
   return true;
 }
 const lesEvts=()=>CACHE.evts;
@@ -610,7 +627,7 @@ function supprimerObjet(id){
     CACHE.medecins=CACHE.medecins.filter(m=>m.personne_id!==id&&m.medecin_id!==id);
   }
   for(const coll of ['evts','vac','bdays','acts','taches','courses','cadeaux','notes','envies','personnes',
-                     'medecins','traitements','prises','suivis','accomp','projets']){
+                     'medecins','traitements','prises','suivis','accomp','projets','recettes','menus']){
     const i=CACHE[coll].findIndex(x=>x.id===id);
     if(i>=0){
       CACHE[coll].splice(i,1);
@@ -2335,11 +2352,220 @@ function formTache(id,lienPre,projetPre){
 /* ================== PAGES COURSES & CADEAUX ================== */
 function linkifie(t){const e=echap(t);return e.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>')}
 
+/* ---------- 🍽️ Les repas de la semaine ----------
+   Une recette, c'est un nom et des ingrédients en texte libre — « 6 œufs »
+   si tu veux, l'app ne cherche pas à comprendre. Tu dis « mardi, quiche » :
+   les ingrédients partent dans les courses en gardant leur provenance. */
+let ongletCourses='liste';    // 'liste' | 'repas'
+let semaineRepas=0;           // décalage en semaines
+function lundiDe(d){
+  const x=deIso(iso(d));
+  const j=(x.getDay()+6)%7;   // 0 = lundi
+  x.setDate(x.getDate()-j);
+  return x;
+}
+function menuDuJour(sJour){return (CACHE.menus||[]).find(m=>m.jour===sJour)||null}
+function recetteDe(id){return (CACHE.recettes||[]).find(r=>r.id===id)||null}
+/* Poser un repas : les ingrédients rejoignent la liste, en gardant d'où ils viennent. */
+function poserMenu(sJour,recetteId,texte){
+  const id='menu-'+sJour;
+  const avant=menuDuJour(sJour);
+  if(avant)retirerIngredients(sJour);
+  const l={id,jour:sJour,recette_id:recetteId||null,texte:texte||null,ajoute_par:UTILISATEUR||null};
+  const i=(CACHE.menus||[]).findIndex(m=>m.id===id);
+  if(i>=0){CACHE.menus[i]={...CACHE.menus[i],...l};pousser(sb.from('menus').update(l).eq('id',id))}
+  else{CACHE.menus.push(l);pousser(sb.from('menus').insert(l))}
+  const r=recetteId?recetteDe(recetteId):null;
+  if(r)(r.ingredients||[]).forEach(ing=>{
+    const t=String(ing||'').trim();
+    if(!t)return;
+    enregistrerObjet(null,'courses',{texte:t,coche:false,achete_le:null,
+      recette_id:r.id,pour_le:sJour});
+  });
+  return r?(r.ingredients||[]).filter(x=>String(x).trim()).length:0;
+}
+/* Enlever un repas : on ne retire QUE ce qui n'a pas encore été acheté ni coché. */
+function retirerIngredients(sJour){
+  const aJeter=CACHE.courses.filter(c=>c.pour_le===sJour&&c.recette_id&&!c.coche&&!c.achete_le);
+  aJeter.forEach(c=>supprimerObjet(c.id));
+  return aJeter.length;
+}
+function enleverMenu(sJour){
+  const n=retirerIngredients(sJour);
+  const id='menu-'+sJour;
+  const i=(CACHE.menus||[]).findIndex(m=>m.id===id);
+  if(i>=0){CACHE.menus.splice(i,1);pousser(sb.from('menus').delete().eq('id',id))}
+  return n;
+}
+function renderRepas(zone){
+  const lundi=lundiDe(new Date());
+  lundi.setDate(lundi.getDate()+semaineRepas*7);
+  const sAuj=iso(new Date());
+  let h=`<h2 class="ps-titre">🛒 Courses & repas</h2>${ongletsCourses()}
+  <div class="rp-nav">
+    <button class="btn mini" data-sem="-1">‹</button>
+    <span>${semaineRepas===0?'Cette semaine':semaineRepas===1?'La semaine prochaine':'Semaine du '+lundi.getDate()+' '+MFR[lundi.getMonth()].toLowerCase()}</span>
+    <button class="btn mini" data-sem="1">›</button>
+  </div>`;
+  for(let i=0;i<7;i++){
+    const d=new Date(lundi);d.setDate(d.getDate()+i);
+    const sJ=iso(d);
+    const m=menuDuJour(sJ);
+    const r=m&&m.recette_id?recetteDe(m.recette_id):null;
+    const quoi=r?((r.emoji||'🍽️')+' '+r.nom):(m&&m.texte?m.texte:'');
+    h+=`<div class="rp-j ${sJ===sAuj?'auj':''} ${sJ<sAuj?'passe':''}" data-jour="${sJ}">
+      <div class="rp-d"><b>${DFR[jSem(d)-1]}</b><span>${d.getDate()}</span></div>
+      <div class="rp-q ${quoi?'':'vide'}">${quoi?echap(quoi):'rien de prévu'}</div>
+      <span class="rp-ch">›</span></div>`;
+  }
+  h+=`<div style="display:flex;gap:8px;margin-top:16px">
+    <button class="btn" id="rp-recettes" style="flex:1">📖 Mes recettes (${(CACHE.recettes||[]).length})</button>
+  </div>`;
+  zone.innerHTML=h;
+  brancherOngletsCourses(zone);
+  zone.querySelectorAll('[data-sem]').forEach(b=>{b.onclick=()=>{semaineRepas+=Number(b.dataset.sem);renderCourses()}});
+  zone.querySelectorAll('[data-jour]').forEach(el=>{el.onclick=()=>formMenu(el.dataset.jour)});
+  document.getElementById('rp-recettes').onclick=()=>renderRecettes();
+}
+function provenanceCourse(c){
+  if(!c.recette_id)return '';
+  const r=recetteDe(c.recette_id);
+  const d=c.pour_le?deIso(c.pour_le):null;
+  const q=[r?(r.emoji||'🍽️')+' '+r.nom:'',d?DFR[jSem(d)-1].toLowerCase():''].filter(Boolean).join(' · ');
+  return q?`<div class="todo-date">pour ${echap(q)}</div>`:'';
+}
+function formMenu(sJour){
+  const d=deIso(sJour);
+  const m=menuDuJour(sJour);
+  ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase());
+  const recs=(CACHE.recettes||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
+  document.getElementById('dbd').innerHTML=`
+    ${m?`<p class="discret2" style="margin-bottom:12px">Prévu : <strong>${echap(m.recette_id?((recetteDe(m.recette_id)||{}).nom||'?'):(m.texte||''))}</strong></p>`:''}
+    <label class="lbl">Dans tes recettes</label>
+    ${recs.length?`<div class="mg-chips" id="mn-recs">${recs.map(r=>`<button type="button" class="mg-chip ${m&&m.recette_id===r.id?'actif':''}" data-r="${r.id}">${r.emoji||'🍽️'} ${echap(r.nom)}</button>`).join('')}</div>`
+      :`<p class="discret2">Tu n'as pas encore de recette. Ajoute-en une, ses ingrédients partiront tout seuls dans les courses.</p>`}
+    <label class="lbl">Ou juste un mot</label>
+    <div class="mg-chips" id="mn-libres">
+      ${['Restes','Au resto','Chez des amis','Pâtes','Improvisation'].map(x=>`<button type="button" class="mg-chip ${m&&m.texte===x?'actif':''}" data-l="${attr(x)}">${echap(x)}</button>`).join('')}
+    </div>
+    <input type="text" id="mn-texte" value="${m&&m.texte?attr(m.texte):''}" placeholder="ou écris ce que tu veux…" style="margin-top:8px">
+    <button class="btn primaire" id="mn-ok" style="width:100%;margin-top:16px">C'est noté</button>
+    ${m?`<button class="btn danger" id="mn-vide" style="width:100%;margin-top:8px">Rien de prévu finalement</button>`:''}
+    <button class="btn mini" id="mn-new" style="width:100%;margin-top:14px">＋ Nouvelle recette</button>`;
+  let choix=m&&m.recette_id?m.recette_id:null;
+  document.querySelectorAll('#mn-recs [data-r]').forEach(b=>{b.onclick=()=>{
+    choix=b.dataset.r;
+    document.getElementById('mn-texte').value='';
+    document.querySelectorAll('#mn-recs .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+    document.querySelectorAll('#mn-libres .mg-chip').forEach(x=>x.classList.remove('actif'));
+  }});
+  document.querySelectorAll('#mn-libres [data-l]').forEach(b=>{b.onclick=()=>{
+    choix=null;
+    document.getElementById('mn-texte').value=b.dataset.l;
+    document.querySelectorAll('#mn-libres .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+    document.querySelectorAll('#mn-recs .mg-chip').forEach(x=>x.classList.remove('actif'));
+  }});
+  document.getElementById('mn-texte').addEventListener('input',()=>{
+    if(document.getElementById('mn-texte').value.trim()){
+      choix=null;
+      document.querySelectorAll('#mn-recs .mg-chip,#mn-libres .mg-chip').forEach(x=>x.classList.remove('actif'));
+    }
+  });
+  document.getElementById('mn-ok').onclick=()=>{
+    const txt=document.getElementById('mn-texte').value.trim();
+    if(!choix&&!txt){toast('Choisis une recette ou écris un mot');return}
+    const n=poserMenu(sJour,choix,choix?null:txt);
+    fermerTiroir();
+    toast(n?n+' ingrédient'+(n>1?'s':'')+' dans les courses 🛒':'C\'est noté ✔');
+    renderCourses();
+  };
+  const bv=document.getElementById('mn-vide');
+  if(bv)bv.onclick=()=>{
+    const n=enleverMenu(sJour);
+    fermerTiroir();
+    toast(n?n+' ingrédient'+(n>1?'s':'')+' retiré'+(n>1?'s':'')+' des courses':'C\'est effacé');
+    renderCourses();
+  };
+  document.getElementById('mn-new').onclick=()=>formRecette(null,sJour);
+}
+let recettesOuvertes=false;
+function renderRecettes(){
+  recettesOuvertes=true;
+  const zone=document.getElementById('vueCourses');
+  const recs=(CACHE.recettes||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
+  let h=`<button class="btn mini" id="rc-retour" style="margin-bottom:12px">‹ Les repas</button>
+  <h2 class="ps-titre">📖 Tes recettes</h2>
+  <p class="discret2">Le socle de la maison. Une recette, c'est un nom et des ingrédients — écris-les comme tu les dirais.</p>`;
+  if(!recs.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">Aucune recette pour l'instant.<br>Commence par celle que tu fais le plus souvent 🙂</div>`;
+  recs.forEach(r=>{
+    const n=(r.ingredients||[]).filter(x=>String(x).trim()).length;
+    h+=`<div class="todo-item" data-rec="${r.id}" style="cursor:pointer">
+      <div style="flex-shrink:0;font-size:1.15rem">${r.emoji||'🍽️'}</div>
+      <div class="todo-corps"><div class="todo-text">${echap(r.nom)}</div>
+      <div class="todo-date">${n?n+' ingrédient'+(n>1?'s':''):'aucun ingrédient'}</div></div>
+      <div style="color:var(--ink-3)">›</div></div>`;
+  });
+  h+=`<button class="btn primaire" id="rc-new" style="width:100%;margin-top:14px">＋ Nouvelle recette</button>`;
+  zone.innerHTML=h;
+  document.getElementById('rc-retour').onclick=()=>{recettesOuvertes=false;renderCourses()};
+  document.getElementById('rc-new').onclick=()=>formRecette(null);
+  zone.querySelectorAll('[data-rec]').forEach(el=>{el.onclick=()=>formRecette(el.dataset.rec)});
+}
+const EMOJIS_RECETTE=['🍽️','🥗','🍝','🍲','🥘','🍕','🐟','🍗','🥩','🥧','🍳','🥕'];
+function formRecette(id,pourJour){
+  const r=id?recetteDe(id):null;
+  ouvrirTiroirBrut(r?echap(r.nom):'Nouvelle recette');
+  let emoji=r&&r.emoji?r.emoji:'🍽️';
+  document.getElementById('dbd').innerHTML=`
+    <label class="lbl">Son nom</label>
+    <input type="text" id="rc-nom" value="${r?echap(r.nom):''}" placeholder="Quiche aux poireaux">
+    <label class="lbl">Son icône</label>
+    <div class="mg-chips" id="rc-emos">${EMOJIS_RECETTE.map(e=>`<button type="button" class="mg-chip ${emoji===e?'actif':''}" data-e="${e}" style="font-size:1.1rem">${e}</button>`).join('')}</div>
+    <label class="lbl">Les ingrédients <span class="discret2">(un par ligne — écris-les comme tu les dirais)</span></label>
+    <textarea id="rc-ing" style="min-height:130px" placeholder="1 pâte brisée&#10;6 œufs&#10;20 cl de crème&#10;3 poireaux">${r?echap((r.ingredients||[]).join('\n')):''}</textarea>
+    <label class="lbl">Un lien ou une note <span class="discret2">(facultatif)</span></label>
+    <input type="text" id="rc-lien" value="${r?attr(r.lien||''):''}" placeholder="https://…">
+    <button class="btn primaire" id="rc-ok" style="width:100%;margin-top:14px">${r?'Enregistrer':'Ajouter à mes recettes'}</button>
+    ${r?`<button class="btn danger" id="rc-suppr" style="width:100%;margin-top:8px">Supprimer</button>`:''}`;
+  document.querySelectorAll('#rc-emos [data-e]').forEach(b=>{b.onclick=()=>{
+    emoji=b.dataset.e;
+    document.querySelectorAll('#rc-emos .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+  }});
+  document.getElementById('rc-ok').onclick=()=>{
+    const nom=document.getElementById('rc-nom').value.trim();
+    if(!nom){toast('Il faut un nom');return}
+    const ing=document.getElementById('rc-ing').value.split('\n').map(x=>x.trim()).filter(Boolean);
+    const l={nom,emoji,ingredients:ing,lien:document.getElementById('rc-lien').value.trim()||null};
+    if(!r)l.id=genId();
+    enregistrerObjet(id,'recettes',l);
+    fermerTiroir();
+    if(!r&&pourJour){poserMenu(pourJour,l.id,null);toast(ing.length+' ingrédient'+(ing.length>1?'s':'')+' dans les courses 🛒')}
+    else toast(r?'C\'est noté ✔':'Ajoutée à tes recettes ✔');
+    renderCourses();
+  };
+  const sup=document.getElementById('rc-suppr');
+  if(sup)sup.onclick=()=>{
+    if(!confirm('Supprimer « '+r.nom+' » ?'))return;
+    supprimerObjet(id);fermerTiroir();toast('Supprimée');renderCourses();
+  };
+}
+function ongletsCourses(){
+  return `<div class="onglets-todo" style="margin-bottom:12px">
+    <button class="${ongletCourses==='liste'?'actif':''}" data-oc="liste">🛒 La liste</button>
+    <button class="${ongletCourses==='repas'?'actif':''}" data-oc="repas">🍽️ Les repas</button>
+  </div>`;
+}
+function brancherOngletsCourses(zone){
+  zone.querySelectorAll('[data-oc]').forEach(b=>{b.onclick=()=>{ongletCourses=b.dataset.oc;recettesOuvertes=false;renderCourses()}});
+}
+
 function renderCourses(){
   const zone=document.getElementById('vueCourses');
+  if(recettesOuvertes){renderRecettes();return}
+  if(ongletCourses==='repas'){renderRepas(zone);return}
   const aAcheter=CACHE.courses.filter(c=>!c.achete_le&&!c.coche);
   const caddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche);
-  let h=`<h2 class="ps-titre">🛒 Liste de courses</h2>
+  let h=`<h2 class="ps-titre">🛒 Courses & repas</h2>${ongletsCourses()}
   <p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>
   <div class="ps-ajout"><input type="text" id="course-texte" placeholder="Lait, piles, sac de sport…">
   <button class="btn primaire" id="course-ajouter">Ajouter</button></div>`;
@@ -2349,7 +2575,8 @@ function renderCourses(){
     aAcheter.sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?-1:1).forEach(c=>{
       h+=`<div class="todo-item" data-id="${c.id}">
         <div class="todo-check" data-act="cocher"></div>
-        <div class="todo-corps" data-act="cocher"><div class="todo-text">${echap(c.texte)}</div></div>
+        <div class="todo-corps" data-act="cocher"><div class="todo-text">${echap(c.texte)}</div>
+          ${provenanceCourse(c)}</div>
         <div class="todo-actions"><button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div></div>`;
     });
     h+='</div>';
@@ -2359,12 +2586,14 @@ function renderCourses(){
     caddie.forEach(c=>{
       h+=`<div class="todo-item done" data-id="${c.id}">
         <div class="todo-check" data-act="cocher"></div>
-        <div class="todo-corps" data-act="cocher"><div class="todo-text">${echap(c.texte)}</div></div>
+        <div class="todo-corps" data-act="cocher"><div class="todo-text">${echap(c.texte)}</div>
+          ${provenanceCourse(c)}</div>
         <div class="todo-actions"><button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div></div>`;
     });
     h+=`</div><button class="btn primaire" style="width:100%;margin-top:8px" id="courses-terminees">✔ Courses terminées — archiver le caddie</button>`;
   }
   zone.innerHTML=h;
+  brancherOngletsCourses(zone);
   const ajouter=()=>{
     const texte=document.getElementById('course-texte').value.trim();
     if(!texte)return;
