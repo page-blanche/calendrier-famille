@@ -718,6 +718,70 @@ for(let m=0;m<=11;m++)ALL_MONTHS.push({y:2027,m});
 
 /* ================== TOAST & BANDEAU ================== */
 let toastTimer=null;
+/* ---------- Partager vers WhatsApp, Messages, Mail ----------
+   On n'envoie jamais à ta place : on ouvre la feuille de partage de ton
+   téléphone avec le texte déjà écrit, tu choisis qui et tu envoies. */
+function partagePossible(){return typeof navigator!=='undefined'&&!!navigator.share}
+async function partager(texte,titre){
+  const t=String(texte||'').trim();
+  if(!t)return false;
+  if(navigator.share){
+    try{await navigator.share({text:t,title:titre||'Famille'});return true}
+    catch(e){if(String(e&&e.name)==='AbortError')return false}
+  }
+  // pas de feuille de partage (ordinateur) : on copie, c'est le mieux qu'on puisse faire
+  try{await navigator.clipboard.writeText(t);toast('Copié — colle-le où tu veux ✔');return true}
+  catch(e){toast('⚠️ Impossible de partager depuis cet appareil');return false}
+}
+/* Ce qu'on partage, en clair — pas de capture d'écran, du texte qui se lit
+   dans WhatsApp comme un message écrit à la main. */
+function texteCourses(){
+  const l=CACHE.courses.filter(c=>!c.achete_le&&!c.coche);
+  if(!l.length)return '';
+  return '🛒 La liste de courses\n'+l.map(c=>'· '+c.texte+(c.recette_id?' ('+((recetteDe(c.recette_id)||{}).nom||'')+')':'')).join('\n');
+}
+function texteProjet(id){
+  const p=(CACHE.projets||[]).find(x=>x.id===id);
+  if(!p)return '';
+  const l=tachesDuProjet(id);
+  const a=avancement(id);
+  return (p.emoji||'✨')+' '+p.nom+(p.ech?' — pour le '+deIso(p.ech).getDate()+' '+MFR[deIso(p.ech).getMonth()].toLowerCase():'')
+    +'\n'+a.faites+' sur '+a.total+'\n\n'
+    +l.map(t=>(estFaite(t.id)?'✅ ':'⬜ ')+t.texte+(t.qui?' — '+t.qui:'')).join('\n');
+}
+function texteJournee(d){
+  const items=elementsJour(d);
+  const jour=DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase();
+  const lignes=items.map(it=>(it.h?it.h+' · ':'')+sansEmoji(it.titre)+(it.qui?' ('+it.qui+')':''));
+  const t=toutesTaches().filter(x=>x.ech===iso(d)&&!estFaite(x.id)).map(x=>'· '+x.texte+(x.qui?' — '+x.qui:''));
+  if(!lignes.length&&!t.length)return '📅 '+jour+'\nRien de prévu 🌿';
+  return '📅 '+jour+(lignes.length?'\n\n'+lignes.join('\n'):'')+(t.length?'\n\nÀ faire :\n'+t.join('\n'):'');
+}
+function texteRepas(lundi){
+  const l=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(lundi);d.setDate(d.getDate()+i);
+    const m=menuDuJour(iso(d));
+    if(!m)continue;
+    const r=m.recette_id?recetteDe(m.recette_id):null;
+    l.push(DFR[jSem(d)-1]+' : '+(r?(r.emoji||'')+' '+r.nom:m.texte||''));
+  }
+  return l.length?'🍽️ Les repas de la semaine\n'+l.join('\n'):'';
+}
+function boutonPartage(id,libelle){
+  return `<button class="btn mini" id="${id}">📤 ${echap(libelle||'Partager')}</button>`;
+}
+/* ---------- Coller ce qu'on t'a envoyé ----------
+   Apple ne laisse pas WhatsApp partager vers une app web. Le chemin réaliste :
+   tu copies le message, et ce bouton le récupère et l'analyse d'un geste. */
+async function collerDansChat(champ){
+  try{
+    const t=await navigator.clipboard.readText();
+    if(!t||!t.trim()){toast('Rien dans le presse-papier');return}
+    champ.value=t.trim().slice(0,2000);
+    champ.focus();
+  }catch(e){toast('Autorise le presse-papier, ou colle à la main 🙂')}
+}
 function toast(txt){
   const t=document.getElementById('toast');
   t.textContent=txt;t.classList.add('visible');
@@ -1331,11 +1395,15 @@ function renderProjet(){
     h+=`<div class="td-plier" data-plier="pjfaites">${todoPlie.pjfaites?'▾':'▸'} Déjà fait (${faites.length})</div>`;
     if(todoPlie.pjfaites)faites.forEach(t=>{h+=ligneTache2(t,{})});
   }
-  h+=`<button class="btn" id="pj-ajout" style="width:100%;margin-top:14px">＋ Ajouter une étape</button>`;
+  h+=`<div style="display:flex;gap:8px;margin-top:14px">
+    <button class="btn" id="pj-ajout" style="flex:1">＋ Ajouter une étape</button>
+    ${boutonPartage('pj-part','Envoyer')}
+  </div>`;
   zone.innerHTML=h;
   document.getElementById('pj-retour').onclick=()=>{projetOuvert=null;renderTodo()};
   document.getElementById('pj-editer').onclick=()=>formProjet(p.id);
   document.getElementById('pj-ajout').onclick=()=>formTache(null,null,p.id);
+  document.getElementById('pj-part').onclick=()=>partager(texteProjet(p.id),p.nom);
   zone.querySelectorAll('[data-plier]').forEach(b=>{b.onclick=()=>{
     todoPlie[b.dataset.plier]=!todoPlie[b.dataset.plier];renderProjet();
   }});
@@ -1754,13 +1822,18 @@ function ouvrirJour(d){
     const rtd=tachesEnRetard();
     if(rtd.length)h+=`<div class="tj-retard" data-voir-todo="1">🚨 ${rtd.length} tâche${rtd.length>1?'s':''} en retard — voir la to-do ›</div>`;
   }
-  h+=`<button class="btn primaire" style="width:100%;margin-top:18px" data-ajout-ici="1">＋ Ajouter ce jour-là</button>`;
+  h+=`<div style="display:flex;gap:8px;margin-top:18px">
+    <button class="btn primaire" style="flex:1" data-ajout-ici="1">＋ Ajouter ce jour-là</button>
+    ${boutonPartage('tj-part','Envoyer')}
+  </div>`;
   corps.innerHTML=h;
 
   // ---- Câblage ----
   corps.querySelectorAll('[data-detail]').forEach(el=>{
     el.onclick=()=>detailJour(el.dataset.detail,d);
   });
+  const btp=document.getElementById('tj-part');
+  if(btp)btp.onclick=(ev)=>{ev.stopPropagation();partager(texteJournee(d),'La journée')};
   corps.querySelectorAll('[data-acc]').forEach(el=>{
     el.onclick=(ev)=>{ev.stopPropagation();choisirAccompagnateur(el.dataset.acc,el.dataset.accj)};
   });
@@ -2420,12 +2493,14 @@ function renderRepas(zone){
   }
   h+=`<div style="display:flex;gap:8px;margin-top:16px">
     <button class="btn" id="rp-recettes" style="flex:1">📖 Mes recettes (${(CACHE.recettes||[]).length})</button>
+    ${boutonPartage('rp-part','Envoyer')}
   </div>`;
   zone.innerHTML=h;
   brancherOngletsCourses(zone);
   zone.querySelectorAll('[data-sem]').forEach(b=>{b.onclick=()=>{semaineRepas+=Number(b.dataset.sem);renderCourses()}});
   zone.querySelectorAll('[data-jour]').forEach(el=>{el.onclick=()=>formMenu(el.dataset.jour)});
   document.getElementById('rp-recettes').onclick=()=>renderRecettes();
+  document.getElementById('rp-part').onclick=()=>partager(texteRepas(lundi),'Les repas de la semaine');
 }
 function provenanceCourse(c){
   if(!c.recette_id)return '';
@@ -2592,8 +2667,11 @@ function renderCourses(){
     });
     h+=`</div><button class="btn primaire" style="width:100%;margin-top:8px" id="courses-terminees">✔ Courses terminées — archiver le caddie</button>`;
   }
+  if(aAcheter.length||caddie.length)h+=`<div style="margin-top:12px">${boutonPartage('course-part','Envoyer la liste')}</div>`;
   zone.innerHTML=h;
   brancherOngletsCourses(zone);
+  const bcp=document.getElementById('course-part');
+  if(bcp)bcp.onclick=()=>partager(texteCourses(),'Liste de courses');
   const ajouter=()=>{
     const texte=document.getElementById('course-texte').value.trim();
     if(!texte)return;
@@ -3179,6 +3257,7 @@ function formMagie(pre){
   corps.innerHTML=`
     <div id="mg-fil"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn mini" id="mg-coller" title="Coller un message reçu" style="padding:0 12px;font-size:1.05rem">📋</button>
       <input type="text" id="mg-texte" placeholder="Écris ou dicte 🎤 …" style="flex:1">
       <button class="btn primaire" id="mg-envoyer" style="padding:0 18px;font-size:1.05rem">↑</button>
     </div>`;
@@ -3186,6 +3265,7 @@ function formMagie(pre){
   mgBulle('ia','Dis-moi tout : quelque chose à ranger, ou une question 🙂');
   const input=document.getElementById('mg-texte');
   document.getElementById('mg-envoyer').onclick=mgEnvoyer;
+  document.getElementById('mg-coller').onclick=()=>collerDansChat(input);
   input.addEventListener('keydown',e=>{if(e.key==='Enter')mgEnvoyer()});
   if(pre&&pre.trim()){input.value=pre;mgEnvoyer()}
   else setTimeout(()=>input.focus(),150);
@@ -3244,7 +3324,16 @@ async function mgEnvoyer(){
   if(data.mode==='reponse'&&data.texte){
     MAGIE_PROPS=null;
     MAGIE_HISTO.push({role:'assistant',content:data.texte});
-    mgBulle('ia',echap(data.texte).replace(/\n/g,'<br>'));
+    const b=mgBulle('ia',echap(data.texte).replace(/\n/g,'<br>'));
+    // un message rédigé s'envoie : le brouillon ne sert à rien s'il faut le recopier
+    if(data.brouillon){
+      const z=document.createElement('div');
+      z.style.marginTop='8px';
+      z.innerHTML=boutonPartage('mg-part','Envoyer ce message');
+      b.appendChild(z);
+      document.getElementById('mg-part').onclick=()=>partager(data.texte);
+      mgScroll();
+    }
     return;
   }
   if(!data.actions.length){
