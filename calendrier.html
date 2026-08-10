@@ -1243,7 +1243,9 @@ function pastilleAccomp(actId,d){
   // La pastille creuse n'apparaît que si tu as ouvert la question toi-même.
   if(!qui&&!act.accompagne&&!exception)return '';
   const cls=['acc',exception?'exception':'',qui?'':'vide'].filter(Boolean).join(' ');
-  const txt=qui?'🚗 '+echap(qui)+' emmène'+(exception?' · cette fois':''):'qui l\'emmène ?';
+  // Pas de voiture : on ne sait pas comment on y va, et le plus souvent
+  // c'est à pied. « avec X » dit qui est là, sans rien présumer d'autre.
+  const txt=qui?'avec '+echap(qui)+(exception?' · cette fois':''):'avec qui ?';
   return `<button type="button" class="${cls}" data-acc="${act.id}" data-accj="${iso(d)}">${txt}</button>`;
 }
 /* On touche la pastille : deux prénoms, et une seule vraie décision —
@@ -1265,9 +1267,13 @@ function choisirAccompagnateur(actId,sJour){
   document.getElementById('dbd').innerHTML=`
     <p class="discret2" style="margin-bottom:12px">${echap(act.titre.split('—')[0].trim())} · ${DFR[jSem(d)-1].toLowerCase()} ${d.getDate()} ${MFR[d.getMonth()].toLowerCase()}</p>
     <div class="mg-chips" id="ac-qui">
-      ${adultesMaison().map(p=>`<button type="button" class="mg-chip" data-q="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')}
+      ${accompagnateurs().chips.map(p=>`<button type="button" class="mg-chip" data-q="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')}
       <button type="button" class="mg-chip" data-q="">on verra</button>
     </div>
+    ${accompagnateurs().menu.length?`<select id="ac-autre" style="margin-top:8px">
+      <option value="">Quelqu'un d'autre…</option>
+      ${accompagnateurs().menu.map(p=>`<option value="${attr(p.nom)}">${echap(p.nom)}${roleAffiche(p)?' · '+echap(roleAffiche(p)):''}</option>`).join('')}
+    </select>`:''}
     <label class="lbl" style="margin-top:16px">C'est pour…</label>
     <div class="mg-chips" id="ac-port">
       <button type="button" class="mg-chip" data-t="0">cette fois</button>
@@ -1276,7 +1282,15 @@ function choisirAccompagnateur(actId,sJour){
     <p class="discret2" style="margin-top:9px">« Cette fois » ne touche pas à l'habitude : la prochaine fois, ${echap(act.accompagne||'personne')} reprend.</p>
     <button class="btn primaire" id="ac-ok" style="width:100%;margin-top:16px">C'est noté</button>`;
   maj();
-  document.querySelectorAll('#ac-qui [data-q]').forEach(b=>{b.onclick=()=>{choix=b.dataset.q;maj()}});
+  const acAutre=document.getElementById('ac-autre');
+  document.querySelectorAll('#ac-qui [data-q]').forEach(b=>{b.onclick=()=>{
+    choix=b.dataset.q;if(acAutre)acAutre.value='';maj();
+  }});
+  if(acAutre)acAutre.onchange=()=>{
+    if(!acAutre.value)return;
+    choix=acAutre.value;
+    document.querySelectorAll('#ac-qui [data-q]').forEach(b=>b.classList.remove('actif'));
+  };
   document.querySelectorAll('#ac-port [data-t]').forEach(b=>{b.onclick=()=>{pourToujours=b.dataset.t==='1';maj()}});
   document.getElementById('ac-ok').onclick=()=>{
     poserAccompagnateur(act,d,choix,pourToujours);
@@ -1792,14 +1806,25 @@ function formAct(id){
     </div>
     <label class="lbl">Qui l'emmène ? <span class="discret2">(en général — tu pourras changer semaine par semaine)</span></label>
     <div class="mg-chips" id="f-accomp">
-      ${adultesMaison().map(p=>`<button type="button" class="mg-chip ${accomp===p.nom?'actif':''}" data-a="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')}
+      ${accompagnateurs().chips.map(p=>`<button type="button" class="mg-chip ${accomp===p.nom?'actif':''}" data-a="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')}
       <button type="button" class="mg-chip ${accomp?'':'actif'}" data-a="">on verra</button>
     </div>
+    ${accompagnateurs().menu.length?`<select id="f-accomp-autre" style="margin-top:7px">
+      <option value="">Quelqu'un d'autre…</option>
+      ${accompagnateurs().menu.map(p=>`<option value="${attr(p.nom)}" ${accomp===p.nom?'selected':''}>${echap(p.nom)}${roleAffiche(p)?' · '+echap(roleAffiche(p)):''}</option>`).join('')}
+    </select>`:''}
     ${b.html}`;
+  const chAcc=document.getElementById('f-accomp-autre');
   document.querySelectorAll('#f-accomp [data-a]').forEach(bt=>{bt.onclick=()=>{
     accomp=bt.dataset.a;
     document.querySelectorAll('#f-accomp .mg-chip').forEach(x=>x.classList.toggle('actif',x===bt));
+    if(chAcc)chAcc.value='';
   }});
+  if(chAcc)chAcc.onchange=()=>{
+    if(!chAcc.value)return;
+    accomp=chAcc.value;
+    document.querySelectorAll('#f-accomp .mg-chip').forEach(x=>x.classList.remove('actif'));
+  };
   document.querySelectorAll('#f-jours .jp').forEach(p=>{
     p.onclick=()=>{const n=parseInt(p.dataset.j);if(sel.has(n)){sel.delete(n);p.classList.remove('on')}else{sel.add(n);p.classList.add('on')}};
   });
@@ -2633,7 +2658,7 @@ async function mgEnvoyer(){
   try{
     const body={texte:enCorrection?MAGIE_TEXTE:texte,
       contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom),
-        moi:UTILISATEUR||'',adultes:adultesMaison().map(p=>p.nom)},
+        moi:UTILISATEUR||'',adultes:accompagnateurs().chips.concat(accompagnateurs().menu).map(p=>p.nom)},
       donnees:donneesPourIA(),historique:MAGIE_HISTO.slice(-12)};
     if(enCorrection){body.correction=texte;body.precedent=MAGIE_PROPS}
     const r=await sb.functions.invoke('saisie-magique',{body});
@@ -2774,6 +2799,27 @@ function estAdulte(p){
   return false;
 }
 function adultesMaison(){return CACHE.personnes.filter(p=>p.foyer&&estAdulte(p))}
+/* Qui peut accompagner un enfant : la maison, mais aussi Zora, une grand-mère,
+   la maman d'un copain. Hors foyer, on ne connaît pas les âges — on suppose
+   adulte sauf si on a dit le contraire.
+   Apparaissent en pastilles : la maison, plus celles à qui tu l'as déjà confié.
+   Les autres restent dans le menu, pour ne pas noyer l'écran. */
+function dejaAccompagne(){
+  const v=new Set();
+  lesActs().forEach(a=>{if(a.accompagne)v.add(a.accompagne.trim().toLowerCase())});
+  (CACHE.accomp||[]).forEach(x=>{if(x.qui)v.add(x.qui.trim().toLowerCase())});
+  return v;
+}
+function accompagnateurs(){
+  const maison=adultesMaison();
+  const vus=dejaAccompagne();
+  const dedans=new Set(maison.map(p=>p.id));
+  const dehors=CACHE.personnes.filter(p=>!p.foyer&&p.adulte!==false&&!dedans.has(p.id))
+    .sort((a,b)=>a.nom.localeCompare(b.nom));
+  const habitues=dehors.filter(p=>vus.has(p.nom.trim().toLowerCase()));
+  const reste=dehors.filter(p=>!vus.has(p.nom.trim().toLowerCase()));
+  return {chips:maison.concat(habitues),menu:reste};
+}
 function enfantsMaison(){return CACHE.personnes.filter(p=>p.foyer&&!estAdulte(p))}
 /* Qui emmène, pour une occurrence précise. L'exception gagne sur l'habitude,
    mais ne l'écrase jamais. */
