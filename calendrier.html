@@ -475,6 +475,8 @@ body.a-barre .fab{bottom:calc(78px + env(safe-area-inset-bottom))}
 <button data-mode="famille" class="actif">🏡 La famille</button>
 </div>
 
+<div id="barreVues" style="margin:0 16px"></div>
+
 <div class="page-chat" id="vueChat">
 <div class="chat-fil" id="mg-fil"></div>
 <div class="chat-saisie">
@@ -2575,7 +2577,7 @@ function renderRepas(zone){
   const lundi=lundiDe(new Date());
   lundi.setDate(lundi.getDate()+semaineRepas*7);
   const sAuj=iso(new Date());
-  let h=`${vuesPlanning()}<h2 class="ps-titre">🍽️ Les repas de la semaine</h2>
+  let h=`<h2 class="ps-titre">🍽️ Les repas de la semaine</h2>
   <div class="rp-nav">
     <button class="btn mini" data-sem="-1">‹</button>
     <span>${semaineRepas===0?'Cette semaine':semaineRepas===1?'La semaine prochaine':'Semaine du '+lundi.getDate()+' '+MFR[lundi.getMonth()].toLowerCase()}</span>
@@ -2597,10 +2599,9 @@ function renderRepas(zone){
     ${boutonPartage('rp-part','Envoyer')}
   </div>`;
   zone.innerHTML=h;
-  brancherVues(zone,setVuePlanning);
   zone.querySelectorAll('[data-sem]').forEach(b=>{b.onclick=()=>{semaineRepas+=Number(b.dataset.sem);render()}});
   zone.querySelectorAll('[data-jour]').forEach(el=>{el.onclick=()=>formMenu(el.dataset.jour)});
-  document.getElementById('rp-recettes').onclick=()=>renderRecettes();
+  document.getElementById('rp-recettes').onclick=()=>{ongletMem='recettes';setSection('memoire')};
   document.getElementById('rp-part').onclick=()=>partager(texteRepas(lundi),'Les repas de la semaine');
 }
 function provenanceCourse(c){
@@ -4592,9 +4593,9 @@ function formParams(){
       <div id="p-foyer-ajout" style="margin-top:8px"></div>
     </div>
     <div class="carte-solo">
-      <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">💬 Pia sur Telegram</div>
-      <p class="discret2" style="margin:0 0 8px">Pour recevoir le briefing et les rappels dans sa messagerie,
-        et pouvoir répondre — sans jamais ouvrir l'app.</p>
+      <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">💬 Qui parle avec Pia</div>
+      <p class="discret2" style="margin:0 0 8px">Chacun reçoit son briefing et ses rappels dans sa messagerie,
+        et peut lui répondre — sans jamais ouvrir l'app. Une conversation par personne.</p>
       <div id="p-tg"></div>
     </div>
     <div class="carte-solo">
@@ -5048,20 +5049,22 @@ function majReglagesTelegram(){
   });
   zone.innerHTML=tous.map(x=>{
     const l=lienTg(x.personne);
-    const etat=l&&l.actif?`<span style="color:var(--ok,#2f9e44);font-weight:700;font-size:.76rem">Telegram ✓</span>`
+    const etat=l&&l.actif?`<span style="color:#2f9e44;font-weight:700;font-size:.76rem">✓ branché</span>`
       :l?`<span class="discret2" style="font-size:.76rem">en pause</span>`
-      :`<button class="btn mini" data-tginv="${attr(x.personne)}" data-tgnom="${attr(x.nom)}">Inviter →</button>`;
+      :`<button class="btn mini" data-tginv="${attr(x.personne)}" data-tgnom="${attr(x.nom)}">Envoyer le lien</button>`;
     return `<div class="todo-item"><div class="todo-corps">
       <div class="todo-text">${echap(x.nom)}</div>
-      <div class="todo-date">${l?(l.vu_le?'vu '+dateNoteFr(l.vu_le):'branché'):'pas encore branché'}</div></div>
+      <div class="todo-date">${l?(l.vu_le?'a parlé à Pia '+dateNoteFr(l.vu_le):'reçoit les messages de Pia'):'ne reçoit encore rien'}</div></div>
       ${etat}</div>`;
   }).join('')
-  +`<button class="btn mini" id="p-tg-autre" style="width:100%;margin-top:8px">＋ Inviter quelqu'un d'autre</button>`;
+  +`<button class="btn mini" id="p-tg-autre" style="width:100%;margin-top:8px">＋ Brancher quelqu'un d'autre</button>`
+  +`<p class="discret2" style="margin:8px 0 0">Le lien met la personne en relation avec Pia : elle appuie une
+     fois sur « Démarrer », et n'a plus jamais rien à faire.</p>`;
   zone.querySelectorAll('[data-tginv]').forEach(b=>{
     b.onclick=()=>inviterSurTelegram(b.dataset.tginv,b.dataset.tgnom);
   });
   document.getElementById('p-tg-autre').onclick=()=>{
-    const email=prompt("L'adresse du compte de la personne à inviter :");
+    const email=prompt("Son adresse de connexion à l'app :");
     if(!email||!email.includes('@'))return;
     inviterSurTelegram(email.trim().toLowerCase(),'');
   };
@@ -5103,7 +5106,11 @@ function brancherVues(zone,poser){
 function setVuePlanning(v){
   vuePlanning=v;
   if(v==='mois')vue='mois';
-  render();
+  // Passer d'une vue à l'autre change de conteneur : « Aujourd'hui » et
+  // « Repas » vivent dans une page, le mois dans la zone calendrier.
+  // C'est setSection qui sait lequel montrer — sinon on redessine dans
+  // un élément resté caché.
+  setSection('planning');
 }
 
 /* Les pastilles de la barre : un point rouge quand quelque chose presse. */
@@ -5140,6 +5147,14 @@ function setSection(s){
   document.getElementById('navBar').style.visibility=surCal?'visible':'hidden';
   document.getElementById('navOutils').style.visibility=surCal?'visible':'hidden';
   document.querySelector('.fab').style.display=(s==='maison')?'none':'';
+  // Les pastilles de vues vivent au-dessus des conteneurs, pas dedans :
+  // sinon elles disparaissent avec la page qu'on quitte.
+  const bv=document.getElementById('barreVues');
+  if(s==='planning'){
+    bv.innerHTML=barreVues([['jour',"Aujourd'hui"],['mois','Mois'],['repas','🍽️ Repas']],
+      vuePlanning,'planning');
+    brancherVues(bv,setVuePlanning);
+  }else{bv.innerHTML=''}
   majCloche();
   majBarreBas();
   render();
@@ -5195,22 +5210,16 @@ function renderAujourdhui(){
         <div class="todo-date"><span style="color:var(--alert);font-weight:700">${echap(delaiFr(x.jours))}</span>${x.montant?' · '+euros(x.montant)+'/mois':''}</div></div>
         <div style="color:var(--ink-3)">›</div></div>`).join('');
   }
-  zone.innerHTML=vuesPlanning()
-    +`<h2 class="ps-titre">${DFR[jSem(auj)-1]} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}</h2>`
+  zone.innerHTML=`<h2 class="ps-titre">${DFR[jSem(auj)-1]} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}</h2>`
     +(sous?`<p class="discret2" style="margin:-2px 0 8px">${echap(sous)}</p>`:'')
     +corpsJournee(auj,true)+bas;
-  brancherVues(zone,setVuePlanning);
   brancherJournee2(zone,auj,()=>{render()});
   zone.querySelectorAll('[data-recl]').forEach(el=>{
     el.onclick=()=>{const [g,id]=el.dataset.recl.split('|');
       maisonOuvert={genre:g,id};setSection('maison')};
   });
 }
-function vuesPlanning(){
-  const auj=new Date();
-  const nRepas=(CACHE.menus||[]).filter(m=>m.jour>=iso(lundiDe(auj))).length;
-  return barreVues([['jour',"Aujourd'hui"],['mois','Mois'],['repas','🍽️ Repas']],vuePlanning,'planning');
-}
+
 
 /* ================== POPOVER (sélecteur de mois) ================== */
 function fermerPopovers(){
