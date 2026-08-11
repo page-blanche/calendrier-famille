@@ -75,7 +75,7 @@
 .mg-prop input[type=checkbox]{width:auto;margin-top:4px}
 .mg-type{font-size:.64rem;font-weight:800;color:var(--ink-3);letter-spacing:.05em}
 .mg-titre{font-weight:600;font-size:.9rem;margin-top:1px}
-#mg-fil{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto;padding:2px 2px 6px}
+#mg-fil{display:flex;flex-direction:column;gap:8px;overflow-y:auto}
 .mg-b{max-width:86%;border-radius:16px;padding:9px 13px;font-size:.88rem;line-height:1.45}
 .mg-ia{align-self:flex-start;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border:1.5px solid #e7d9f5;border-bottom-left-radius:6px}
 .mg-moi{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:6px}
@@ -370,6 +370,35 @@
 .tj-retour{font-size:.78rem;font-weight:700;color:var(--ink-2);cursor:pointer;margin-bottom:10px}
 .page-accueil{flex:1;display:block;align-content:start;max-width:560px;margin:14px auto 0;padding-bottom:64px}
 
+
+/* --- le mode Parler : un vrai lieu, pas un tiroir --- */
+.page-chat{display:none;flex-direction:column;position:fixed;left:0;right:0;
+  top:var(--haut-chat,116px);bottom:0;background:var(--fond)}
+body.mode-parler .page-chat{display:flex}
+body.mode-parler .barre-bas{display:none}
+body.mode-parler .fab{display:none!important}
+body.mode-parler .main-layout{display:none}
+body.mode-parler #navBar{visibility:hidden!important}
+.chat-fil{flex:1 1 0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 6px}
+.chat-saisie{flex:0 0 auto;display:flex;gap:8px;align-items:center;padding:9px 14px;
+  padding-bottom:calc(11px + env(safe-area-inset-bottom));background:var(--fond);
+  border-top:1px solid var(--border)}
+.chat-saisie input{flex:1;min-width:0}
+.chat-vide{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:0 26px}
+.chat-vide .cv-e{font-size:2.1rem;margin-bottom:9px}
+.chat-vide .cv-t{font-size:1.05rem;font-weight:700;letter-spacing:-.02em;margin-bottom:5px}
+.chat-vide .cv-s{font-size:.85rem;color:var(--ink-2);line-height:1.5;margin-bottom:16px}
+.chat-vide .cv-p{display:flex;flex-direction:column;gap:7px;width:100%;max-width:340px}
+.chat-vide .cv-p button{background:var(--surface);border:1px solid var(--border);border-radius:999px;
+  padding:9px 14px;font-family:inherit;font-size:.83rem;color:var(--ink-2);text-align:left;cursor:pointer}
+.chat-vide .cv-p button:hover{border-color:var(--border-strong)}
+.chat-vide .cv-tg{font-size:.75rem;color:var(--ink-3);margin-top:16px;line-height:1.45}
+.chat-jour{text-align:center;margin:6px 0 11px}
+.chat-jour span{background:#e7e4df;color:var(--ink-3);font-size:.67rem;font-weight:700;
+  padding:2px 10px;border-radius:999px}
+.mg-src{font-size:.66rem;color:var(--ink-3);margin-top:3px}
+
 /* --- la barre du bas : cinq entrées, une icône et son nom --- */
 .barre-bas{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;
   background:var(--surface);border-top:1px solid var(--border);
@@ -389,7 +418,7 @@
 body.a-barre .main-layout{padding-bottom:74px}
 body.a-barre .fab{bottom:calc(78px + env(safe-area-inset-bottom))}
 /* --- l'interrupteur des deux modes --- */
-.modes-bar{display:flex;background:#eceae6;border-radius:999px;padding:3px;margin:0 0 10px;gap:2px}
+.modes-bar{display:flex;background:#eceae6;border-radius:999px;padding:3px;margin:10px 16px 8px;gap:2px}
 .modes-bar button{flex:1;background:none;border:none;font-family:inherit;cursor:pointer;
   font-size:.82rem;font-weight:700;padding:7px 0;border-radius:999px;color:var(--ink-3);transition:all .15s}
 .modes-bar button.actif{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(28,27,24,.09)}
@@ -438,6 +467,20 @@ body.a-barre .fab{bottom:calc(78px + env(safe-area-inset-bottom))}
 </div>
 <div class="h-zone h-droite">
 <button class="today-btn" id="btnParams" title="Réglages">⚙️</button>
+</div>
+</div>
+
+<div class="modes-bar" id="modesBar">
+<button data-mode="parler">💬 Parler</button>
+<button data-mode="famille" class="actif">🏡 La famille</button>
+</div>
+
+<div class="page-chat" id="vueChat">
+<div class="chat-fil" id="mg-fil"></div>
+<div class="chat-saisie">
+<button class="btn mini" id="mg-coller" title="Coller un message reçu" style="padding:0 12px;font-size:1.05rem">📋</button>
+<input type="text" id="mg-texte" placeholder="Écris ou dicte 🎤 …">
+<button class="btn primaire" id="mg-envoyer" style="padding:0 18px;font-size:1.05rem">↑</button>
 </div>
 </div>
 
@@ -3304,25 +3347,111 @@ function donneesPourIA(){
     envies:enviesVisibles().filter(e=>!e.faite).map(e=>({categorie:e.categorie,titre:e.titre})),
   };
 }
-function formMagie(pre){
-  ouvrirTiroirBrut('🪄 Dis-moi tout');
-  const corps=document.getElementById('dbd');
-  corps.innerHTML=`
-    <div id="mg-fil"></div>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn mini" id="mg-coller" title="Coller un message reçu" style="padding:0 12px;font-size:1.05rem">📋</button>
-      <input type="text" id="mg-texte" placeholder="Écris ou dicte 🎤 …" style="flex:1">
-      <button class="btn primaire" id="mg-envoyer" style="padding:0 18px;font-size:1.05rem">↑</button>
-    </div>`;
-  MAGIE_PROPS=null;MAGIE_ATTENTE=null;MAGIE_HISTO=[];
-  mgBulle('ia','Dis-moi tout : quelque chose à ranger, ou une question 🙂');
-  const input=document.getElementById('mg-texte');
-  document.getElementById('mg-envoyer').onclick=mgEnvoyer;
-  document.getElementById('mg-coller').onclick=()=>collerDansChat(input);
-  input.addEventListener('keydown',e=>{if(e.key==='Enter')mgEnvoyer()});
-  if(pre&&pre.trim()){input.value=pre;mgEnvoyer()}
-  else setTimeout(()=>input.focus(),150);
+/* ================== LE MODE PARLER ==================
+   Le chat n'est plus un tiroir : c'est un lieu, avec son fil gardé en
+   base. La même conversation qu'on retrouvera sur Telegram — d'où le
+   champ `source` sur chaque message.                                   */
+let MODE='famille';           // 'parler' | 'famille'
+let CONV_CHARGEE=false;
+
+/* Écrire un message dans la conversation. Silencieux si ça rate :
+   perdre une ligne d'historique ne doit jamais casser l'échange. */
+function noterMessage(role,texte,source,actions){
+  if(!texte||!EMAIL_CONNECTE)return;
+  const l={personne:EMAIL_CONNECTE,role,texte:String(texte).slice(0,4000),
+    source:source||'app',actions:actions||null};
+  sb.from('messages').insert(l).then(r=>{if(r.error)console.warn('message non gardé',r.error.message)});
 }
+
+/* Le fil, tel qu'on le retrouve en ouvrant l'app. */
+async function chargerConversation(){
+  if(!EMAIL_CONNECTE)return[];
+  const {data,error}=await sb.from('messages').select('*')
+    .eq('personne',EMAIL_CONNECTE).order('cree_le',{ascending:false}).limit(80);
+  if(error){console.warn('conversation illisible',error.message);return[]}
+  return (data||[]).reverse();
+}
+
+function jourFr(ts){
+  if(!ts)return '';
+  const d=new Date(ts),auj=new Date();
+  const sd=iso(d),sa=iso(auj);
+  if(sd===sa)return "aujourd'hui";
+  if(sd===iso(new Date(auj.getTime()-864e5)))return 'hier';
+  return DFR[jSem(d)-1].toLowerCase()+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase();
+}
+
+const CHAT_EXEMPLES=[
+  ['📅','foot de Kyan mercredi 17h'],
+  ['🛒','lait, pain, piles'],
+  ['❓',"on a quoi ce week-end ?"],
+  ['💌','écris un mot à la maîtresse'],
+];
+
+function chatVide(){
+  return `<div class="chat-vide">
+    <div class="cv-e">🪄</div>
+    <div class="cv-t">Dis-moi tout</div>
+    <div class="cv-s">Ce que tu me dis, je le range. Ce que tu me demandes, je le cherche.
+      Écris, ou appuie sur le micro et parle.</div>
+    <div class="cv-p">${CHAT_EXEMPLES.map(([e,t])=>
+      `<button data-ex="${attr(t)}">${e} « ${echap(t)} »</button>`).join('')}</div>
+    <div class="cv-tg">Bientôt : tu pourras aussi m'écrire sur Telegram —<br>ce sera la même conversation.</div>
+  </div>`;
+}
+
+/* Dessiner le fil depuis la base. On ne rejoue pas les cartes à valider :
+   ce qui était à décider l'a été, ou ne l'est plus. */
+async function peuplerChat(){
+  const fil=mgFil();if(!fil)return;
+  const msgs=await chargerConversation();
+  CONV_CHARGEE=true;
+  MAGIE_HISTO=msgs.slice(-12).map(m=>({role:m.role==='moi'?'user':'assistant',content:m.texte}));
+  if(!msgs.length){fil.innerHTML=chatVide();brancherChatVide(fil);return}
+  let h='',jour='';
+  msgs.forEach(m=>{
+    const j=jourFr(m.cree_le);
+    if(j!==jour){jour=j;h+=`<div class="chat-jour"><span>${echap(j)}</span></div>`}
+    const src=m.source&&m.source!=='app'
+      ? `<div class="mg-src">${m.source==='telegram'?'dicté sur Telegram':'le réveil du matin'}</div>`:'';
+    h+=`<div class="mg-b ${m.role==='moi'?'mg-moi':'mg-ia'}">${echap(m.texte)}${src}</div>`;
+  });
+  fil.innerHTML=h;
+  mgScroll();
+}
+function brancherChatVide(fil){
+  fil.querySelectorAll('[data-ex]').forEach(b=>{
+    b.onclick=()=>{const i=document.getElementById('mg-texte');i.value=b.dataset.ex;mgEnvoyer()};
+  });
+}
+
+/* La page de chat est fixée sous l'interrupteur : on mesure plutôt que
+   de deviner, l'entête n'a pas la même hauteur sur tous les téléphones. */
+function majHautChat(){
+  const mb=document.getElementById('modesBar');if(!mb)return;
+  document.documentElement.style.setProperty('--haut-chat',
+    Math.round(mb.getBoundingClientRect().bottom+6)+'px');
+}
+function setMode(m,pre){
+  MODE=(m==='parler')?'parler':'famille';
+  document.body.classList.toggle('mode-parler',MODE==='parler');
+  majHautChat();
+  document.querySelectorAll('#modesBar [data-mode]').forEach(b=>
+    b.classList.toggle('actif',b.dataset.mode===MODE));
+  if(MODE!=='parler')return;
+  MAGIE_PROPS=null;MAGIE_ATTENTE=null;
+  const input=document.getElementById('mg-texte');
+  const lancer=()=>{
+    if(pre&&pre.trim()){input.value=pre;mgEnvoyer();return}
+    if(window.matchMedia('(min-width:700px)').matches)setTimeout(()=>input.focus(),150);
+  };
+  if(!CONV_CHARGEE)peuplerChat().then(lancer);
+  else lancer();
+}
+
+/* On garde le nom historique : tout le reste de l'app appelle formMagie(). */
+function formMagie(pre){fermerTiroir();setMode('parler',pre)}
+
 function mgFil(){return document.getElementById('mg-fil')}
 function mgScroll(){const f=mgFil();if(f)f.scrollTop=f.scrollHeight}
 function mgBulle(qui,html){
@@ -3357,6 +3486,7 @@ async function mgEnvoyer(){
   }
   const enCorrection=!!MAGIE_PROPS;
   if(!enCorrection)MAGIE_HISTO.push({role:'user',content:texte});
+  noterMessage('moi',texte,'app');
   mgPense();
   let data=null,error=null;
   try{
@@ -3377,6 +3507,7 @@ async function mgEnvoyer(){
   if(data.mode==='reponse'&&data.texte){
     MAGIE_PROPS=null;
     MAGIE_HISTO.push({role:'assistant',content:data.texte});
+    noterMessage('assistant',data.texte,'app');
     const b=mgBulle('ia',echap(data.texte).replace(/\n/g,'<br>'));
     // un message rédigé s'envoie : le brouillon ne sert à rien s'il faut le recopier
     if(data.brouillon){
@@ -4988,12 +5119,16 @@ document.addEventListener('click',(e)=>{
 
 /* ================== INIT ================== */
 document.querySelectorAll('#barreBas [data-sec]').forEach(b=>{b.onclick=()=>setSection(b.dataset.sec)});
+document.querySelectorAll('#modesBar [data-mode]').forEach(b=>{b.onclick=()=>setMode(b.dataset.mode)});
+document.getElementById('mg-envoyer').onclick=mgEnvoyer;
+document.getElementById('mg-coller').onclick=()=>collerDansChat(document.getElementById('mg-texte'));
+document.getElementById('mg-texte').addEventListener('keydown',e=>{if(e.key==='Enter')mgEnvoyer()});
 document.getElementById('titreAccueil').onclick=()=>{vuePlanning='jour';setSection('planning')};
 document.getElementById('btnParams').onclick=formParams;
 document.body.classList.add('a-barre');
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){fermerTiroir();fermerPopovers()}});
 let _rT=null;
-window.addEventListener('resize',()=>{clearTimeout(_rT);_rT=setTimeout(render,200)});
+window.addEventListener('resize',()=>{clearTimeout(_rT);_rT=setTimeout(()=>{majHautChat();render()},200)});
 // Recharge les données quand on revient sur l'onglet (si >60 s)
 let derniereSync=Date.now();
 document.addEventListener('visibilitychange',async()=>{
@@ -5008,7 +5143,7 @@ document.addEventListener('visibilitychange',async()=>{
   if(!s.session||!s.role){window.location.replace('index.html');return}
   UTILISATEUR=s.nom||s.session.user.email;
   EMAIL_CONNECTE=(s.session.user.email||'').toLowerCase();
-  if(await chargerTout()){setVue('mois');setSection('planning');montrerPriseSiBesoin()}
+  if(await chargerTout()){setVue('mois');setSection('planning');majHautChat();montrerPriseSiBesoin()}
 })();
 
 </script>
