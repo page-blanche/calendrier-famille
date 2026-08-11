@@ -369,6 +369,39 @@
   border-top:1px solid #f2f0ec;cursor:pointer}
 .tj-retour{font-size:.78rem;font-weight:700;color:var(--ink-2);cursor:pointer;margin-bottom:10px}
 .page-accueil{flex:1;display:block;align-content:start;max-width:560px;margin:14px auto 0;padding-bottom:64px}
+
+/* --- la barre du bas : cinq entrées, une icône et son nom --- */
+.barre-bas{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;
+  background:var(--surface);border-top:1px solid var(--border);
+  padding:6px 2px calc(8px + env(safe-area-inset-bottom));
+  box-shadow:0 -2px 12px rgba(28,27,24,.05)}
+.barre-bas button{flex:1;background:none;border:none;font-family:inherit;cursor:pointer;
+  color:var(--ink-3);position:relative;padding:3px 0 1px;transition:color .15s}
+.barre-bas .bb-ico{font-size:1.18rem;display:block;line-height:1.25;transition:transform .15s}
+.barre-bas .bb-lbl{font-size:.61rem;font-weight:700;display:block;margin-top:1px;letter-spacing:.01em}
+.barre-bas button.actif{color:var(--ink)}
+.barre-bas button.actif .bb-ico{transform:scale(1.07)}
+.barre-bas .bb-pt{position:absolute;top:1px;left:50%;margin-left:6px;width:7px;height:7px;
+  background:var(--alert);border-radius:999px;border:1.5px solid var(--surface)}
+.barre-bas .bb-nb{position:absolute;top:-1px;left:50%;margin-left:4px;background:var(--alert);color:#fff;
+  font-size:.6rem;font-weight:800;border-radius:999px;min-width:15px;height:15px;line-height:15px;
+  text-align:center;padding:0 3px;border:1.5px solid var(--surface)}
+body.a-barre .main-layout{padding-bottom:74px}
+body.a-barre .fab{bottom:calc(78px + env(safe-area-inset-bottom))}
+/* --- l'interrupteur des deux modes --- */
+.modes-bar{display:flex;background:#eceae6;border-radius:999px;padding:3px;margin:0 0 10px;gap:2px}
+.modes-bar button{flex:1;background:none;border:none;font-family:inherit;cursor:pointer;
+  font-size:.82rem;font-weight:700;padding:7px 0;border-radius:999px;color:var(--ink-3);transition:all .15s}
+.modes-bar button.actif{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(28,27,24,.09)}
+/* --- les pastilles de vues, à l'intérieur d'un onglet --- */
+.vues{display:flex;gap:5px;margin:0 0 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;padding-bottom:2px}
+.vues::-webkit-scrollbar{display:none}
+.vues button{background:#eceae6;border:none;font-family:inherit;cursor:pointer;white-space:nowrap;
+  font-size:.78rem;font-weight:600;padding:6px 13px;border-radius:999px;color:var(--ink-3);transition:all .15s}
+.vues button.actif{background:var(--ink);color:#fff}
+.vues .n{opacity:.75;margin-left:3px;font-weight:700}
+
 /* --- les tuiles : une icône, un mot --- */
 .tuiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-top:12px}
 .tuile{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:16px;
@@ -401,23 +434,10 @@
 <button class="fleche" onclick="navMois(1)">→</button>
 <button class="today-btn" onclick="allerAujourdhui()">Aujourd'hui</button>
 </span>
-<div class="header-right" id="viewBar">
-<button class="view-btn" data-vue="annee">Année</button>
-<button class="view-btn" data-vue="mois">Mois</button>
-<button class="view-btn" data-vue="semaine">Sem.</button>
-<button class="view-btn" data-vue="agenda">À venir</button>
-</div>
+<div class="header-right" id="viewBar" style="display:none"></div>
 </div>
 <div class="h-zone h-droite">
-<div class="header-right" id="mainNav">
-<button class="view-btn" data-sec="cal">📅<span class="vb-lbl"> Calendrier</span></button>
-<button class="view-btn" data-sec="todo">✅<span class="vb-lbl"> To-do</span></button>
-<button class="view-btn" data-sec="courses">🛒<span class="vb-lbl"> Courses</span></button>
-<button class="view-btn" data-sec="memoire">🧠<span class="vb-lbl"> Mémoire</span></button>
-<button class="view-btn" data-sec="sante">🩺<span class="vb-lbl"> Santé</span></button>
-</div>
-<button class="today-btn" id="btnAccueil"><span class="exit-court">🏡</span><span class="vb-lbl">🏡 Accueil</span></button>
-<button class="today-btn" id="btnParams" title="Réglages" style="visibility:hidden">⚙️</button>
+<button class="today-btn" id="btnParams" title="Réglages">⚙️</button>
 </div>
 </div>
 
@@ -441,9 +461,18 @@
 <div class="page-solo" id="vueCourses" style="display:none"></div>
 <div class="page-solo" id="vueMemoire" style="display:none"></div>
 <div class="page-solo" id="vueSante" style="display:none"></div>
+<div class="page-solo" id="vueMaison" style="display:none"></div>
 <div class="page-accueil" id="vueAccueil" style="display:none"></div>
 <div class="prise-plein" id="prisePlein" style="display:none"></div>
 </div>
+
+<nav class="barre-bas" id="barreBas">
+<button data-sec="planning"><span class="bb-ico">📅</span><span class="bb-lbl">Planning</span></button>
+<button data-sec="todo"><span class="bb-ico">✅</span><span class="bb-lbl">To do</span></button>
+<button data-sec="memoire"><span class="bb-ico">🧠</span><span class="bb-lbl">Mémoire</span></button>
+<button data-sec="sante"><span class="bb-ico">🩺</span><span class="bb-lbl">Santé</span></button>
+<button data-sec="maison"><span class="bb-ico">🏠</span><span class="bb-lbl">Maison</span></button>
+</nav>
 
 <button class="fab" onclick="fabAction()">＋ Ajouter</button>
 <div class="toast" id="toast"></div>
@@ -493,13 +522,15 @@ const FER={
    chaque modification est appliquée immédiatement à l'écran puis
    envoyée à la base (avec rechargement en cas d'erreur). */
 let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],personnes:[],notes:[],envies:[],membres:[],etatsAuto:{},
-  medecins:[],traitements:[],prises:[],suivis:[],accomp:[],projets:[],recettes:[],menus:[]};
+  medecins:[],traitements:[],prises:[],suivis:[],accomp:[],projets:[],recettes:[],menus:[],
+  entretiens:[],abonnements:[]};
 const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux',personnes:'personnes',notes:'notes_personnes',envies:'envies',
   medecins:'sante_medecins',traitements:'sante_traitements',prises:'sante_prises',suivis:'sante_suivis',
-  accomp:'accompagnements',projets:'projets',recettes:'recettes',menus:'menus'};
+  accomp:'accompagnements',projets:'projets',recettes:'recettes',menus:'menus',
+  entretiens:'entretiens',abonnements:'abonnements'};
 
 async function chargerTout(){
-  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su,ac,pj,re,me]=await Promise.all([
+  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su,ac,pj,re,me,ent,abo]=await Promise.all([
     sb.from('evenements').select('*'),
     sb.from('vacances').select('*'),
     sb.from('anniversaires').select('*'),
@@ -520,6 +551,8 @@ async function chargerTout(){
     sb.from('projets').select('*'),
     sb.from('recettes').select('*'),
     sb.from('menus').select('*'),
+    sb.from('entretiens').select('*'),
+    sb.from('abonnements').select('*'),
   ]);
   const err=[e,v,b,a,t,s].find(r=>r.error);
   if(err){toast('⚠️ Erreur de chargement : '+err.error.message);return false}
@@ -546,6 +579,8 @@ async function chargerTout(){
   CACHE.projets=pj.error?[]:pj.data;
   CACHE.recettes=re.error?[]:re.data;
   CACHE.menus=me.error?[]:me.data;
+  CACHE.entretiens=ent.error?[]:ent.data;
+  CACHE.abonnements=abo.error?[]:abo.data;
   return true;
 }
 const lesEvts=()=>CACHE.evts;
@@ -1493,7 +1528,17 @@ function formProjet(id){
   };
 }
 
+/* Les vues de la To do : toi, les autres, puis les courses — même onglet,
+   écrans séparés, pour rester lisible d'une main dans un magasin. */
+let vueTodo='taches';         // 'taches' | 'courses'
+function vuesTodo(){
+  const n=CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length;
+  return barreVues([['taches','✅ À faire'],['courses','🛒 Courses',n]],vueTodo,'todo');
+}
+function setVueTodo(v){vueTodo=v;render()}
+
 function renderTodo(){
+  if(vueTodo==='courses')return renderCourses();
   const p=document.getElementById('todoPanel');
   const autres=autresComptes();
   const ouvertes=tachesOuvertes().filter(t=>!t.projet_id);   // les projets ont leur propre bloc
@@ -1504,7 +1549,7 @@ function renderTodo(){
   // soixante-six choses et n'en montre six
   const nMoi=miennes.concat(libres).filter(dansLHorizon).length;
 
-  let h='';
+  let h=vuesTodo();
   if(autres.length){
     h+=`<div class="td-ong">
       <button class="${ongletTodo==='moi'?'on':''}" data-o="moi">Toi <span class="n">${nMoi}</span></button>
@@ -1722,10 +1767,9 @@ function choisirAccompagnateur(actId,sJour){
     ouvrirJour(d);   // on revient sur la journée qu'on regardait
   };
 }
-function ouvrirJour(d){
-  jourOuvert=d;
-  ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()]+' '+d.getFullYear());
-  const corps=document.getElementById('dbd');
+/* Le corps de « Ta journée ». Sert deux fois : dans le tiroir quand on
+   ouvre un jour du calendrier, et en pleine page sur l'onglet Planning. */
+function corpsJournee(d,pleinePage){
   const sJ=iso(d),sAuj=iso(new Date());
   const v=enVacances(d),f=ferie(d);
   const items=elementsJour(d);
@@ -1823,26 +1867,30 @@ function ouvrirJour(d){
     if(rtd.length)h+=`<div class="tj-retard" data-voir-todo="1">🚨 ${rtd.length} tâche${rtd.length>1?'s':''} en retard — voir la to-do ›</div>`;
   }
   h+=`<div style="display:flex;gap:8px;margin-top:18px">
-    <button class="btn primaire" style="flex:1" data-ajout-ici="1">＋ Ajouter ce jour-là</button>
-    ${boutonPartage('tj-part','Envoyer')}
+    <button class="btn primaire" style="flex:1" data-ajout-ici="1">＋ Ajouter ${pleinePage?'aujourd\'hui':'ce jour-là'}</button>
+    ${boutonPartage(pleinePage?'tj-part-p':'tj-part','Envoyer')}
   </div>`;
-  corps.innerHTML=h;
+  return h;
+}
 
-  // ---- Câblage ----
+/* Le câblage de « Ta journée ». `rafraichir` dit comment se redessiner :
+   le tiroir se rouvre, la pleine page se re-rend. */
+function brancherJournee2(corps,d,rafraichir){
   corps.querySelectorAll('[data-detail]').forEach(el=>{
     el.onclick=()=>detailJour(el.dataset.detail,d);
   });
-  const btp=document.getElementById('tj-part');
-  if(btp)btp.onclick=(ev)=>{ev.stopPropagation();partager(texteJournee(d),'La journée')};
+  corps.querySelectorAll('[id^="tj-part"]').forEach(btp=>{
+    btp.onclick=(ev)=>{ev.stopPropagation();partager(texteJournee(d),'La journée')};
+  });
   corps.querySelectorAll('[data-acc]').forEach(el=>{
     el.onclick=(ev)=>{ev.stopPropagation();choisirAccompagnateur(el.dataset.acc,el.dataset.accj)};
   });
   corps.querySelectorAll('[data-coche]').forEach(el=>{
-    el.onclick=(ev)=>{ev.stopPropagation();basculerFaite(el.dataset.coche);render();ouvrirJour(d)};
+    el.onclick=(ev)=>{ev.stopPropagation();basculerFaite(el.dataset.coche);rafraichir()};
   });
   corps.querySelectorAll('[data-dosej]').forEach(el=>{
     el.onclick=(ev)=>{ev.stopPropagation();const [id,m]=el.dataset.dosej.split('|');
-      basculerPrise(id,iso(d),m);ouvrirJour(d)};
+      basculerPrise(id,iso(d),m);rafraichir()};
   });
   corps.querySelectorAll('[data-ouvrir-tache]').forEach(el=>{
     el.onclick=()=>{const id=el.dataset.ouvrirTache;
@@ -1853,6 +1901,14 @@ function ouvrirJour(d){
   if(rt)rt.onclick=()=>{fermerTiroir();setSection('todo')};
   const aj=corps.querySelector('[data-ajout-ici]');
   if(aj)aj.onclick=()=>ouvrirAjout(iso(d));
+}
+
+function ouvrirJour(d){
+  jourOuvert=d;
+  ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()]+' '+d.getFullYear());
+  const corps=document.getElementById('dbd');
+  corps.innerHTML=corpsJournee(d,false);
+  brancherJournee2(corps,d,()=>{render();ouvrirJour(d)});
 }
 
 /* Le détail d'un élément : tout ce qu'on peut en faire, au même endroit */
@@ -2474,7 +2530,7 @@ function renderRepas(zone){
   const lundi=lundiDe(new Date());
   lundi.setDate(lundi.getDate()+semaineRepas*7);
   const sAuj=iso(new Date());
-  let h=`<h2 class="ps-titre">🛒 Courses & repas</h2>${ongletsCourses()}
+  let h=`${vuesPlanning()}<h2 class="ps-titre">🍽️ Les repas de la semaine</h2>
   <div class="rp-nav">
     <button class="btn mini" data-sem="-1">‹</button>
     <span>${semaineRepas===0?'Cette semaine':semaineRepas===1?'La semaine prochaine':'Semaine du '+lundi.getDate()+' '+MFR[lundi.getMonth()].toLowerCase()}</span>
@@ -2496,8 +2552,8 @@ function renderRepas(zone){
     ${boutonPartage('rp-part','Envoyer')}
   </div>`;
   zone.innerHTML=h;
-  brancherOngletsCourses(zone);
-  zone.querySelectorAll('[data-sem]').forEach(b=>{b.onclick=()=>{semaineRepas+=Number(b.dataset.sem);renderCourses()}});
+  brancherVues(zone,setVuePlanning);
+  zone.querySelectorAll('[data-sem]').forEach(b=>{b.onclick=()=>{semaineRepas+=Number(b.dataset.sem);render()}});
   zone.querySelectorAll('[data-jour]').forEach(el=>{el.onclick=()=>formMenu(el.dataset.jour)});
   document.getElementById('rp-recettes').onclick=()=>renderRecettes();
   document.getElementById('rp-part').onclick=()=>partager(texteRepas(lundi),'Les repas de la semaine');
@@ -2565,11 +2621,10 @@ function formMenu(sJour){
 }
 let recettesOuvertes=false;
 function renderRecettes(){
-  recettesOuvertes=true;
-  const zone=document.getElementById('vueCourses');
+  const zone=document.getElementById('vueMemoire');
   const recs=(CACHE.recettes||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
-  let h=`<button class="btn mini" id="rc-retour" style="margin-bottom:12px">‹ Les repas</button>
-  <h2 class="ps-titre">📖 Tes recettes</h2>
+  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>${ongletsMem()}
+  <h2 class="ps-titre" style="font-size:1.05rem">📖 Tes recettes</h2>
   <p class="discret2">Le socle de la maison. Une recette, c'est un nom et des ingrédients — écris-les comme tu les dirais.</p>`;
   if(!recs.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">Aucune recette pour l'instant.<br>Commence par celle que tu fais le plus souvent 🙂</div>`;
   recs.forEach(r=>{
@@ -2582,7 +2637,7 @@ function renderRecettes(){
   });
   h+=`<button class="btn primaire" id="rc-new" style="width:100%;margin-top:14px">＋ Nouvelle recette</button>`;
   zone.innerHTML=h;
-  document.getElementById('rc-retour').onclick=()=>{recettesOuvertes=false;renderCourses()};
+  brancherOngletsMem(zone);
   document.getElementById('rc-new').onclick=()=>formRecette(null);
   zone.querySelectorAll('[data-rec]').forEach(el=>{el.onclick=()=>formRecette(el.dataset.rec)});
 }
@@ -2616,7 +2671,7 @@ function formRecette(id,pourJour){
     fermerTiroir();
     if(!r&&pourJour){poserMenu(pourJour,l.id,null);toast(ing.length+' ingrédient'+(ing.length>1?'s':'')+' dans les courses 🛒')}
     else toast(r?'C\'est noté ✔':'Ajoutée à tes recettes ✔');
-    renderCourses();
+    render();
   };
   const sup=document.getElementById('rc-suppr');
   if(sup)sup.onclick=()=>{
@@ -2631,16 +2686,14 @@ function ongletsCourses(){
   </div>`;
 }
 function brancherOngletsCourses(zone){
-  zone.querySelectorAll('[data-oc]').forEach(b=>{b.onclick=()=>{ongletCourses=b.dataset.oc;recettesOuvertes=false;renderCourses()}});
+  zone.querySelectorAll('[data-oc]').forEach(b=>{b.onclick=()=>{ongletCourses=b.dataset.oc;recettesOuvertes=false;render()}});
 }
 
 function renderCourses(){
-  const zone=document.getElementById('vueCourses');
-  if(recettesOuvertes){renderRecettes();return}
-  if(ongletCourses==='repas'){renderRepas(zone);return}
+  const zone=document.getElementById('todoPanel');
   const aAcheter=CACHE.courses.filter(c=>!c.achete_le&&!c.coche);
   const caddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche);
-  let h=`<h2 class="ps-titre">🛒 Courses & repas</h2>${ongletsCourses()}
+  let h=`${vuesTodo()}<h2 class="ps-titre">🛒 La liste de courses</h2>
   <p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>
   <div class="ps-ajout"><input type="text" id="course-texte" placeholder="Lait, piles, sac de sport…">
   <button class="btn primaire" id="course-ajouter">Ajouter</button></div>`;
@@ -2669,7 +2722,7 @@ function renderCourses(){
   }
   if(aAcheter.length||caddie.length)h+=`<div style="margin-top:12px">${boutonPartage('course-part','Envoyer la liste')}</div>`;
   zone.innerHTML=h;
-  brancherOngletsCourses(zone);
+  brancherVues(zone,setVueTodo);
   const bcp=document.getElementById('course-part');
   if(bcp)bcp.onclick=()=>partager(texteCourses(),'Liste de courses');
   const ajouter=()=>{
@@ -2686,8 +2739,8 @@ function renderCourses(){
       ev.stopPropagation();
       const id=el.closest('.todo-item').dataset.id;
       const c=CACHE.courses.find(x=>x.id===id);
-      if(el.dataset.act==='cocher'){enregistrerObjet(id,'courses',{coche:!c.coche});renderCourses()}
-      else if(el.dataset.act==='suppr'){supprimerObjet(id);renderCourses()}
+      if(el.dataset.act==='cocher'){enregistrerObjet(id,'courses',{coche:!c.coche});render()}
+      else if(el.dataset.act==='suppr'){supprimerObjet(id);render()}
     });
   });
   const fin=document.getElementById('courses-terminees');
@@ -3682,6 +3735,7 @@ function ongletsMem(){
     <button class="${ongletMem==='gens'?'actif':''}" data-om="gens">🧑 Les gens</button>
     <button class="${ongletMem==='envies'?'actif':''}" data-om="envies">✨ Les envies</button>
     <button class="${ongletMem==='cadeaux'?'actif':''}" data-om="cadeaux">🎁 Les cadeaux</button>
+    <button class="${ongletMem==='recettes'?'actif':''}" data-om="recettes">📖 Recettes</button>
   </div>`;
 }
 function brancherOngletsMem(zone){
@@ -3902,6 +3956,7 @@ function renderMemoire(){
   if(rangementOuvert){renderRangement(zone);return}
   if(ongletMem==='envies'){renderEnvies(zone);return}
   if(ongletMem==='cadeaux'){renderCadeaux(zone);return}
+  if(ongletMem==='recettes'){renderRecettes();return}
   const visibles=notesVisibles();
   const parPers={};visibles.forEach(n=>{(parPers[n.personne_id]=parPers[n.personne_id]||[]).push(n)});
   const tous=[...CACHE.personnes].sort((a,b)=>a.nom.localeCompare(b.nom));
@@ -4299,92 +4354,13 @@ function brancherJournee(zone){
       ev.stopPropagation();
       const q=el.dataset.jr;
       if(q==='jour'){ouvrirJour(new Date());return}
-      if(q==='cal'){setSection('cal');return}
+      if(q==='cal'){vuePlanning='mois';setSection('planning');return}
       if(q==='todo'){setSection('todo');return}
     };
   });
 }
-function renderAccueil(){
-  const zone=document.getElementById('vueAccueil');
-  const auj=new Date();const sAuj=iso(auj);
-  const prochain=lesEvts().filter(e=>e.debut>=sAuj).sort((a,b)=>a.debut<b.debut?-1:1)[0];
-  const y=auj.getFullYear(),m=auj.getMonth()+1;
-  const enRetard=tachesQuiTePressent().length;
-  const aFaire=tachesDuMois(y,m).filter(t=>!estFaite(t.id)).length;
-  const nbCourses=CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length;
-  const nbCaddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche).length;
-  const nAlertes=alertesSante()+prisesEnRetard().length;
-  const nbIdees=cadeauxVisibles().filter(c=>!c.offert).length;
-  zone.innerHTML=`
-  <h2 class="ps-titre" style="margin-bottom:2px">Bonjour ${echap(UTILISATEUR||'')} 👋</h2>
-  ${blocJournee()}
-  <div class="chatline" id="clZone">
-    <span>🪄</span>
-    <input type="text" id="magie-accueil" placeholder="Dis-moi tout…">
-    <button class="cl-go" id="magie-btn" title="Envoyer">↑</button>
-  </div>
-  <div class="tuiles">
-    <button class="tuile" data-sec="cal"><div class="tu-ico">📅</div><div class="tu-nom">Calendrier</div></button>
-    <button class="tuile" data-sec="todo">${enRetard?`<span class="tu-nb">${enRetard}</span>`:''}
-      <div class="tu-ico">✅</div><div class="tu-nom">To-do</div></button>
-    <button class="tuile" data-sec="courses">${nbCourses?'<span class="tu-pt"></span>':''}
-      <div class="tu-ico">🛒</div><div class="tu-nom">Courses</div></button>
-    <button class="tuile" data-sec="memoire"><div class="tu-ico">🧠</div><div class="tu-nom">Mémoire</div></button>
-    <button class="tuile" data-sec="sante">${nAlertes?`<span class="tu-nb">${nAlertes}</span>`:''}
-      <div class="tu-ico">🩺</div><div class="tu-nom">Santé</div></button>
-    <button class="tuile bientot" id="carteMaison"><div class="tu-ico">🏠</div><div class="tu-nom">Maison</div></button>
-  </div>
-  <div style="display:flex;justify-content:center;margin-top:20px">
-    <button class="btn primaire" id="btnAjouterAccueil" style="padding:15px 46px;font-size:1.05rem;border-radius:18px">＋ Ajouter</button>
-  </div>
-`;
-  brancherJournee(zone);
-  zone.querySelectorAll('.tuile[data-sec]').forEach(c=>{c.onclick=()=>setSection(c.dataset.sec)});
-  const lancerMagie=()=>{const ch=document.getElementById('magie-accueil');const v=ch.value.trim();ch.value='';formMagie(v)};
-  document.getElementById('magie-btn').onclick=lancerMagie;
-  document.getElementById('magie-accueil').addEventListener('keydown',e=>{if(e.key==='Enter')lancerMagie()});
-  document.getElementById('clZone').onclick=(e)=>{if(e.target.id!=='magie-btn')document.getElementById('magie-accueil').focus()};
-  document.getElementById('btnAjouterAccueil').onclick=()=>ouvrirAjout(null);
-  const bientotToast=()=>toast('Bientôt 🙂 — c\'est dans la roadmap !');
-  document.getElementById('carteMaison').onclick=bientotToast;
-  majCloche();
-}
-async function majReglagesNotifs(){
-  const el=document.getElementById('p-notif-etat'),btn=document.getElementById('p-notif-btn');
-  if(!el||!btn)return;
-  const e=await etatPush();
-  btn.style.display='none';
-  // Un test qui ne passe PAS par le serveur : si celui-ci s'affiche et que
-  // les vrais rappels non, le problème est dans la livraison, pas dans le
-  // téléphone. S'il ne s'affiche pas non plus, c'est un réglage iOS.
-  const bTest=document.getElementById('p-notif-test');
-  const diag=document.getElementById('p-notif-diag');
-  if(bTest){
-    bTest.style.display=(e==='active')?'':'none';
-    bTest.onclick=async()=>{
-      diag.textContent='';
-      try{
-        const reg=await navigator.serviceWorker.getRegistration();
-        if(!reg){diag.textContent='⚠️ Pas de service worker sur cet appareil.';return}
-        await reg.showNotification('🏡 Famille',{body:'Si tu vois ceci, ton téléphone sait afficher mes notifications.',icon:'icon-192.png',badge:'icon-192.png'});
-        diag.textContent='Envoyée. Si rien ne s\'affiche : Réglages iOS → Notifications → Famille.';
-      }catch(err){diag.textContent='⚠️ '+(err.message||err)}
-    };
-  }
-  if(e==='active'){
-    el.textContent='Activées sur cet appareil ✓ — tu es prévenu·e le matin et quand quelqu\'un ajoute un événement.';
-    btn.style.display='';btn.textContent='🔕 Couper sur cet appareil';
-    btn.onclick=async()=>{await desactiverPush();majReglagesNotifs()};
-  }else if(e==='refuse'){
-    el.textContent='Bloquées dans les réglages du téléphone (Notifications > Famille). Autorise-les là-bas, puis reviens ici.';
-  }else if(e==='inactive'){
-    el.textContent='Coupées sur cet appareil.';
-    btn.style.display='';btn.textContent='🔔 Activer les notifications';
-    btn.onclick=async()=>{await activerPush();majReglagesNotifs()};
-  }else{
-    el.textContent='Indisponibles ici — installe d\'abord l\'app sur l\'écran d\'accueil.';
-  }
-}
+/* L'accueil a disparu : il n'affichait que des raccourcis vers les onglets,
+   et la barre du bas fait ça mieux. Le code est retiré. */
 function majReglagesFoyer(){
   const zone=document.getElementById('p-foyer');
   if(!zone)return;
@@ -4460,31 +4436,461 @@ function formParams(){
   };
 }
 
+
+/* ================== 🏠 MAISON ================== */
+/*  Ce qui s'entretient, ce qui se prélève.
+    La règle de l'onglet : pour un contrat, la date qui compte n'est pas
+    celle du renouvellement mais celle AVANT LAQUELLE il faut agir.      */
+let vueMaison='entretien';    // 'entretien' | 'abonnements'
+let maisonOuvert=null;        // la fiche ouverte : {genre,id}
+
+function moisPlus(sDate,n){
+  if(!sDate||!n)return null;
+  const d=deIso(sDate);
+  const j=d.getDate();
+  d.setDate(1);d.setMonth(d.getMonth()+n);
+  const dernier=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  d.setDate(Math.min(j,dernier));
+  return iso(d);
+}
+function joursAvant(sDate){
+  if(!sDate)return null;
+  return Math.round((deIso(sDate)-deIso(iso(new Date())))/86400000);
+}
+function delaiFr(n){
+  if(n===null)return '';
+  if(n<0){const j=-n;
+    return j<31?`en retard de ${j} jour${j>1?'s':''}`
+      :`dépassé de ${Math.round(j/30)} mois`;}
+  if(n===0)return "aujourd'hui";
+  if(n===1)return 'demain';
+  if(n<31)return `dans ${n} jours`;
+  if(n<365)return `dans ${Math.round(n/30)} mois`;
+  return `dans ${Math.round(n/365)} an${n>=730?'s':''}`;
+}
+/* L'échéance d'un entretien, et la date où l'on veut être prévenu */
+function echeanceEntretien(e){
+  const du=moisPlus(e.derniere_fois,e.tous_les_mois);
+  return {du,prevenir:du?iso(new Date(deIso(du).getTime()-(e.prevenir_avant_jours||30)*86400000)):null};
+}
+/* Pour un abonnement : la date limite de résiliation, celle qui compte */
+function limiteAbo(a){
+  if(!a.echeance||!a.reconduction_tacite)return null;
+  return iso(new Date(deIso(a.echeance).getTime()-(a.resilier_avant_jours||30)*86400000));
+}
+/* Ce que la maison réclame : sert ici et sur le planning */
+function maisonReclame(){
+  const out=[];
+  (CACHE.entretiens||[]).forEach(e=>{
+    const {du,prevenir}=echeanceEntretien(e);
+    if(!du||!prevenir)return;
+    const j=joursAvant(prevenir);
+    if(j<=0)out.push({genre:'entretien',id:e.id,nom:e.nom,emoji:e.emoji||'🔧',
+      quand:du,jours:joursAvant(du),tel:e.contact_tel,montant:null});
+  });
+  (CACHE.abonnements||[]).forEach(a=>{
+    const lim=limiteAbo(a);
+    if(!lim)return;
+    const j=joursAvant(lim);
+    if(j<=45)out.push({genre:'abonnement',id:a.id,nom:a.nom,emoji:a.emoji||'💳',
+      quand:lim,jours:j,tel:a.contact_tel,montant:a.montant_mois});
+  });
+  return out.sort((x,y)=>x.jours-y.jours);
+}
+function totalAbos(){
+  return (CACHE.abonnements||[]).reduce((t,a)=>t+(Number(a.montant_mois)||0),0);
+}
+function euros(n){
+  return (Math.round(n*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+' €';
+}
+function vuesMaison(){
+  const n=maisonReclame().length;
+  return barreVues([['entretien','🔧 Entretien'],['abonnements','💳 Abonnements',n||'']],vueMaison,'maison');
+}
+function setVueMaison(v){vueMaison=v;maisonOuvert=null;render()}
+
+function renderMaison(){
+  const zone=document.getElementById('vueMaison');
+  if(maisonOuvert)return renderMaisonFiche(zone);
+  if(vueMaison==='abonnements')return renderAbonnements(zone);
+  return renderEntretiens(zone);
+}
+
+function renderEntretiens(zone){
+  const tout=(CACHE.entretiens||[]).map(e=>({e,...echeanceEntretien(e)}))
+    .sort((a,b)=>(a.du||'9999')<(b.du||'9999')?-1:1);
+  const urgent=tout.filter(x=>x.prevenir&&joursAvant(x.prevenir)<=0);
+  const calme =tout.filter(x=>!urgent.includes(x));
+  let h=`${vuesMaison()}<h2 class="ps-titre">🔧 L'entretien</h2>
+    <p class="discret2">Tu notes la dernière fois, je calcule la prochaine.</p>`;
+  const ligne=(x)=>{
+    const j=x.du?joursAvant(x.du):null;
+    const tard=j!==null&&j<0;
+    const bouts=[];
+    if(x.du)bouts.push(`<span style="${tard?'color:var(--alert);font-weight:700':''}">${echap(delaiFr(j))}</span>`);
+    if(x.e.derniere_fois)bouts.push('fait le '+deIso(x.e.derniere_fois).getDate()+' '+MFR[deIso(x.e.derniere_fois).getMonth()].toLowerCase()+' '+deIso(x.e.derniere_fois).getFullYear());
+    if(x.e.tous_les_mois)bouts.push(x.e.tous_les_mois===12?'annuel':`tous les ${x.e.tous_les_mois} mois`);
+    return `<div class="todo-item" data-mai="entretien|${x.e.id}" style="cursor:pointer">
+      <div style="flex-shrink:0;font-size:1.15rem">${x.e.emoji||'🔧'}</div>
+      <div class="todo-corps"><div class="todo-text">${echap(x.e.nom)}</div>
+        <div class="todo-date">${bouts.join(' · ')}</div></div>
+      ${x.e.contact_tel?`<a class="todo-act" href="tel:${attr(x.e.contact_tel)}" title="Appeler ${echap(x.e.contact_nom||'')}" onclick="event.stopPropagation()">☎️</a>`:''}
+      <div style="color:var(--ink-3)">›</div></div>`;
+  };
+  if(urgent.length){
+    h+=`<div class="td-sect" style="color:var(--alert)">Ça approche<span class="n">${urgent.length}</span></div>`;
+    h+=urgent.map(ligne).join('');
+  }
+  if(calme.length){
+    h+=`<div class="td-sect">Le reste<span class="n">${calme.length}</span></div>`;
+    h+=calme.map(ligne).join('');
+  }
+  if(!tout.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">
+    Rien à entretenir pour l'instant.<br>Commence par la chaudière ou la voiture 🙂</div>`;
+  h+=`<button class="btn primaire" id="ma-new" style="width:100%;margin-top:14px">＋ Quelque chose à entretenir</button>`;
+  zone.innerHTML=h;
+  brancherVues(zone,setVueMaison);
+  brancherMaison(zone);
+  document.getElementById('ma-new').onclick=()=>formEntretien(null);
+}
+
+function renderAbonnements(zone){
+  const tout=(CACHE.abonnements||[]).slice()
+    .sort((a,b)=>(limiteAbo(a)||'9999')<(limiteAbo(b)||'9999')?-1:1);
+  const total=totalAbos();
+  const aDecider=tout.filter(a=>{const l=limiteAbo(a);return l&&joursAvant(l)<=45});
+  const reste=tout.filter(a=>!aDecider.includes(a));
+  let h=`${vuesMaison()}<h2 class="ps-titre">💳 Les abonnements</h2>`;
+  h+=`<div class="carte-solo" style="background:var(--ink);color:#fff;border-color:var(--ink)">
+    <div style="font-size:.62rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;opacity:.6">
+      Ce qui part chaque mois</div>
+    <div style="font-size:1.65rem;font-weight:700;letter-spacing:-.02em;line-height:1.2">${euros(total)}</div>
+    <div style="font-size:.74rem;opacity:.62">soit ${euros(total*12)} par an · ${tout.length} abonnement${tout.length>1?'s':''}</div>
+  </div>`;
+  const ligne=(a)=>{
+    const lim=limiteAbo(a),j=lim?joursAvant(lim):null;
+    const presse=j!==null&&j<=45;
+    const bouts=[];
+    if(lim)bouts.push(`<span style="${presse?'color:var(--alert);font-weight:700':''}">résiliable ${echap(delaiFr(j))}</span>`);
+    if(a.montant_mois)bouts.push(euros(a.montant_mois)+'/mois');
+    if(a.fournisseur)bouts.push(echap(a.fournisseur));
+    return `<div class="todo-item" data-mai="abonnement|${a.id}" style="cursor:pointer">
+      <div style="flex-shrink:0;font-size:1.15rem">${a.emoji||'💳'}</div>
+      <div class="todo-corps"><div class="todo-text">${echap(a.nom)}</div>
+        <div class="todo-date">${bouts.join(' · ')}</div></div>
+      <div style="color:var(--ink-3)">›</div></div>`;
+  };
+  if(aDecider.length){
+    h+=`<div class="td-sect" style="color:var(--alert)">À décider avant<span class="n">${aDecider.length}</span></div>`;
+    h+=aDecider.map(ligne).join('');
+  }
+  if(reste.length){
+    h+=`<div class="td-sect">Tout le reste<span class="n">${reste.length}</span></div>`;
+    h+=reste.map(ligne).join('');
+  }
+  if(!tout.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">
+    Aucun abonnement noté.<br>Commence par les assurances : c'est là qu'on perd le plus 🙂</div>`;
+  h+=`<button class="btn primaire" id="ab-new" style="width:100%;margin-top:14px">＋ Un abonnement</button>`;
+  zone.innerHTML=h;
+  brancherVues(zone,setVueMaison);
+  brancherMaison(zone);
+  document.getElementById('ab-new').onclick=()=>formAbonnement(null);
+}
+function brancherMaison(zone){
+  zone.querySelectorAll('[data-mai]').forEach(el=>{
+    el.onclick=()=>{const [g,id]=el.dataset.mai.split('|');maisonOuvert={genre:g,id};render()};
+  });
+}
+
+
+/* La fiche d'une ligne de la maison. Pour un contrat, la fenêtre de
+   résiliation est ce qu'on vient y chercher : elle est en haut, en rouge. */
+function renderMaisonFiche(zone){
+  const {genre,id}=maisonOuvert;
+  if(genre==='entretien'){
+    const e=(CACHE.entretiens||[]).find(x=>x.id===id);
+    if(!e){maisonOuvert=null;return render()}
+    const {du}=echeanceEntretien(e);
+    const j=du?joursAvant(du):null;
+    let h=`<button class="btn mini" id="ma-retour" style="margin-bottom:12px">‹ L'entretien</button>
+      <h2 class="ps-titre">${e.emoji||'🔧'} ${echap(e.nom)}</h2>`;
+    if(du){
+      const tard=j<0;
+      h+=`<div class="carte-solo" ${tard?'style="border-color:#f3c9c9;background:#fdf5f5"':''}>
+        <div style="font-size:.62rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+          color:${tard?'var(--alert)':'var(--ink-3)'}">À refaire ${echap(delaiFr(j))}</div>
+        <div style="font-size:.86rem;color:var(--ink-2);margin-top:3px">
+          Échéance le ${deIso(du).getDate()} ${MFR[deIso(du).getMonth()].toLowerCase()} ${deIso(du).getFullYear()}.</div>
+        <button class="btn primaire mini" id="ma-fait" style="width:100%;margin-top:9px">✅ Je viens de le faire</button>
+      </div>`;
+    }
+    h+=`<div class="carte-solo">
+      <div class="td-sect" style="margin-top:0">Le suivi</div>
+      ${e.derniere_fois?`<div class="todo-item"><div class="todo-corps"><div class="todo-text">Dernière fois</div>
+        <div class="todo-date">${deIso(e.derniere_fois).getDate()} ${MFR[deIso(e.derniere_fois).getMonth()].toLowerCase()} ${deIso(e.derniere_fois).getFullYear()}</div></div></div>`:''}
+      ${e.tous_les_mois?`<div class="todo-item"><div class="todo-corps"><div class="todo-text">Tous les</div>
+        <div class="todo-date">${e.tous_les_mois===12?'12 mois (annuel)':e.tous_les_mois+' mois'}</div></div></div>`:''}
+      <div class="todo-item"><div class="todo-corps"><div class="todo-text">Prévenu</div>
+        <div class="todo-date">${e.prevenir_avant_jours||30} jours avant</div></div></div>
+    </div>`;
+    if(e.contact_nom||e.contact_tel){
+      h+=`<div class="carte-solo"><div class="td-sect" style="margin-top:0">Qui appeler</div>
+        <div class="todo-item"><div class="todo-corps"><div class="todo-text">${echap(e.contact_nom||'Le pro')}</div>
+        <div class="todo-date">${echap(e.contact_tel||'')}</div></div>
+        ${e.contact_tel?`<a class="todo-act" href="tel:${attr(e.contact_tel)}">☎️</a>`:''}</div></div>`;
+    }
+    if(e.note)h+=`<p class="discret2">${echap(e.note)}</p>`;
+    h+=`<button class="btn" id="ma-edit" style="width:100%;margin-top:12px">✏️ Modifier</button>`;
+    zone.innerHTML=h;
+    document.getElementById('ma-retour').onclick=()=>{maisonOuvert=null;render()};
+    document.getElementById('ma-edit').onclick=()=>formEntretien(e.id);
+    const f=document.getElementById('ma-fait');
+    if(f)f.onclick=()=>{
+      enregistrerObjet(e.id,'entretiens',{derniere_fois:iso(new Date())});
+      toast('C\'est noté — prochaine fois dans '+(e.tous_les_mois||12)+' mois ✔');
+      render();
+    };
+    return;
+  }
+  const a=(CACHE.abonnements||[]).find(x=>x.id===id);
+  if(!a){maisonOuvert=null;return render()}
+  const lim=limiteAbo(a),j=lim?joursAvant(lim):null;
+  let h=`<button class="btn mini" id="ma-retour" style="margin-bottom:12px">‹ Les abonnements</button>
+    <h2 class="ps-titre">${a.emoji||'💳'} ${echap(a.nom)}</h2>
+    <p class="discret2" style="margin:-2px 0 10px">${[a.fournisseur,a.reference].filter(Boolean).map(echap).join(' · ')}</p>`;
+  if(lim){
+    const presse=j<=45;
+    h+=`<div class="carte-solo" ${presse?'style="border-color:#f3c9c9;background:#fdf5f5"':''}>
+      <div style="font-size:.62rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+        color:${presse?'var(--alert)':'var(--ink-3)'}">À faire avant le ${deIso(lim).getDate()} ${MFR[deIso(lim).getMonth()].toLowerCase()}</div>
+      <div style="font-size:.86rem;color:var(--ink-2);margin-top:3px">
+        Passé cette date, le contrat se reconduit tout seul.
+        ${j>=0?`Il reste <b style="color:${presse?'var(--alert)':'var(--ink)'}">${j} jour${j>1?'s':''}</b> pour renégocier ou partir.`
+              :`C'est passé — la reconduction a eu lieu.`}</div>
+      <button class="btn primaire mini" id="ab-tache" style="width:100%;margin-top:9px">✅ En faire une tâche</button>
+    </div>`;
+  }
+  h+=`<div class="carte-solo"><div class="td-sect" style="margin-top:0">Le contrat</div>
+    ${a.montant_mois?`<div class="todo-item"><div class="todo-corps"><div class="todo-text">${euros(a.montant_mois)} par mois</div>
+      <div class="todo-date">${euros(a.montant_mois*12)} par an</div></div></div>`:''}
+    ${a.depuis?`<div class="todo-item"><div class="todo-corps"><div class="todo-text">Depuis ${MFR[deIso(a.depuis).getMonth()].toLowerCase()} ${deIso(a.depuis).getFullYear()}</div>
+      <div class="todo-date">${Math.max(1,new Date().getFullYear()-deIso(a.depuis).getFullYear())} an(s)</div></div></div>`:''}
+    ${a.echeance?`<div class="todo-item"><div class="todo-corps"><div class="todo-text">Échéance</div>
+      <div class="todo-date">${deIso(a.echeance).getDate()} ${MFR[deIso(a.echeance).getMonth()].toLowerCase()}, chaque année</div></div></div>`:''}
+  </div>`;
+  if(a.contact_nom||a.contact_tel){
+    h+=`<div class="carte-solo"><div class="td-sect" style="margin-top:0">Qui appeler</div>
+      <div class="todo-item"><div class="todo-corps"><div class="todo-text">${echap(a.contact_nom||'Le service client')}</div>
+      <div class="todo-date">${echap(a.contact_tel||'')}</div></div>
+      ${a.contact_tel?`<a class="todo-act" href="tel:${attr(a.contact_tel)}">☎️</a>`:''}</div></div>`;
+  }
+  if(a.note)h+=`<p class="discret2">${echap(a.note)}</p>`;
+  h+=`<button class="btn" id="ma-edit" style="width:100%;margin-top:12px">✏️ Modifier</button>`;
+  zone.innerHTML=h;
+  document.getElementById('ma-retour').onclick=()=>{maisonOuvert=null;render()};
+  document.getElementById('ma-edit').onclick=()=>formAbonnement(a.id);
+  const bt=document.getElementById('ab-tache');
+  if(bt)bt.onclick=()=>{
+    const base=deIso(lim);
+    enregistrerObjet(null,'taches',{texte:'Décider pour '+a.nom+(a.montant_mois?' ('+euros(a.montant_mois)+'/mois)':''),
+      cat:'admin',qui:'',ech:lim,
+      dateTexte:'Avant le '+base.getDate()+' '+MFR[base.getMonth()].toLowerCase(),
+      persistante:false,lien:'',y:base.getFullYear(),m:base.getMonth()+1});
+    toast('Dans la to do ✔');
+    render();
+  };
+}
+
+const EMOJIS_ENTRETIEN=['🔧','🔥','🧹','🔔','💧','🚗','🛢️','🪟','🌿','🧯','🔌','🚿'];
+function formEntretien(id){
+  const e=id?(CACHE.entretiens||[]).find(x=>x.id===id):null;
+  ouvrirTiroirBrut(e?echap(e.nom):'Quelque chose à entretenir');
+  let emoji=e&&e.emoji?e.emoji:'🔧';
+  document.getElementById('dbd').innerHTML=`
+    <label class="lbl">Quoi</label>
+    <input type="text" id="en-nom" value="${e?attr(e.nom):''}" placeholder="Entretien de la chaudière">
+    <label class="lbl">Son icône</label>
+    <div class="mg-chips" id="en-emos">${EMOJIS_ENTRETIEN.map(x=>`<button type="button" class="mg-chip ${emoji===x?'actif':''}" data-e="${x}" style="font-size:1.1rem">${x}</button>`).join('')}</div>
+    <label class="lbl">La dernière fois</label>
+    <input type="date" id="en-der" value="${e&&e.derniere_fois?e.derniere_fois:''}">
+    <label class="lbl">À refaire tous les combien</label>
+    <select id="en-freq">
+      ${[[3,'3 mois'],[6,'6 mois'],[12,'un an'],[24,'deux ans'],[60,'cinq ans']].map(([v,l])=>
+        `<option value="${v}" ${e&&e.tous_les_mois===v?'selected':''}>${l}</option>`).join('')}
+    </select>
+    <label class="lbl">Préviens-moi <span class="discret2">combien de jours avant</span></label>
+    <input type="number" id="en-prev" value="${e?(e.prevenir_avant_jours||30):30}" min="1" max="365">
+    <label class="lbl">Le pro <span class="discret2">(facultatif)</span></label>
+    <input type="text" id="en-cn" value="${e?attr(e.contact_nom||''):''}" placeholder="Son nom">
+    <input type="tel" id="en-ct" value="${e?attr(e.contact_tel||''):''}" placeholder="Son téléphone" style="margin-top:8px">
+    <label class="lbl">Une note <span class="discret2">(facultatif)</span></label>
+    <textarea id="en-note" style="min-height:60px">${e?echap(e.note||''):''}</textarea>
+    <button class="btn primaire" id="en-ok" style="width:100%;margin-top:14px">${e?'Enregistrer':'Ajouter'}</button>
+    ${e?`<button class="btn danger" id="en-suppr" style="width:100%;margin-top:8px">Supprimer</button>`:''}`;
+  document.querySelectorAll('#en-emos [data-e]').forEach(b=>{b.onclick=()=>{
+    emoji=b.dataset.e;
+    document.querySelectorAll('#en-emos .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+  }});
+  document.getElementById('en-ok').onclick=()=>{
+    const nom=document.getElementById('en-nom').value.trim();
+    if(!nom){toast('Il faut un nom');return}
+    const l={nom,emoji,categorie:'maison',
+      derniere_fois:document.getElementById('en-der').value||null,
+      tous_les_mois:Number(document.getElementById('en-freq').value)||12,
+      prevenir_avant_jours:Number(document.getElementById('en-prev').value)||30,
+      contact_nom:document.getElementById('en-cn').value.trim()||null,
+      contact_tel:document.getElementById('en-ct').value.trim()||null,
+      note:document.getElementById('en-note').value.trim()||null};
+    if(!e)l.id=genId();
+    enregistrerObjet(id,'entretiens',l);
+    fermerTiroir();toast(e?'C\'est noté ✔':'Ajouté 🔧');render();
+  };
+  const sup=document.getElementById('en-suppr');
+  if(sup)sup.onclick=()=>{
+    if(!confirm('Supprimer « '+e.nom+' » ?'))return;
+    supprimerObjet(e.id);maisonOuvert=null;fermerTiroir();render();
+  };
+}
+
+const EMOJIS_ABO=['💳','🚗','🏠','⚡','📶','📱','📺','🎵','🛡️','💧','🏥','🎮'];
+function formAbonnement(id){
+  const a=id?(CACHE.abonnements||[]).find(x=>x.id===id):null;
+  ouvrirTiroirBrut(a?echap(a.nom):'Un abonnement');
+  let emoji=a&&a.emoji?a.emoji:'💳';
+  document.getElementById('dbd').innerHTML=`
+    <label class="lbl">Quoi</label>
+    <input type="text" id="ab-nom" value="${a?attr(a.nom):''}" placeholder="Assurance auto">
+    <label class="lbl">Son icône</label>
+    <div class="mg-chips" id="ab-emos">${EMOJIS_ABO.map(x=>`<button type="button" class="mg-chip ${emoji===x?'actif':''}" data-e="${x}" style="font-size:1.1rem">${x}</button>`).join('')}</div>
+    <label class="lbl">Chez qui <span class="discret2">(facultatif)</span></label>
+    <input type="text" id="ab-four" value="${a?attr(a.fournisseur||''):''}" placeholder="AXA">
+    <label class="lbl">Combien par mois</label>
+    <input type="number" id="ab-mnt" value="${a&&a.montant_mois!=null?a.montant_mois:''}" step="0.01" placeholder="68">
+    <p class="discret2" style="margin-top:4px">Si c'est annuel, divise par douze : le total du haut n'a de sens que ramené au mois.</p>
+    <label class="lbl">Quand ça se renouvelle</label>
+    <input type="date" id="ab-ech" value="${a&&a.echeance?a.echeance:''}">
+    <label class="lbl">Reconduction tacite</label>
+    <div class="mg-chips" id="ab-tac">
+      <button type="button" class="mg-chip ${!a||a.reconduction_tacite?'actif':''}" data-t="1">Oui — surveille-la</button>
+      <button type="button" class="mg-chip ${a&&!a.reconduction_tacite?'actif':''}" data-t="0">Non — résiliable quand je veux</button>
+    </div>
+    <label class="lbl">À résilier <span class="discret2">combien de jours avant l'échéance</span></label>
+    <input type="number" id="ab-res" value="${a?(a.resilier_avant_jours||30):30}" min="1" max="365">
+    <p class="discret2" style="margin-top:4px">Souvent 30 jours, parfois 60 pour les assurances — c'est écrit dans le contrat.</p>
+    <label class="lbl">Qui appeler <span class="discret2">(facultatif)</span></label>
+    <input type="text" id="ab-cn" value="${a?attr(a.contact_nom||''):''}" placeholder="Agence, conseiller…">
+    <input type="tel" id="ab-ct" value="${a?attr(a.contact_tel||''):''}" placeholder="Son téléphone" style="margin-top:8px">
+    <label class="lbl">N° de contrat <span class="discret2">(facultatif)</span></label>
+    <input type="text" id="ab-ref" value="${a?attr(a.reference||''):''}">
+    <button class="btn primaire" id="ab-ok" style="width:100%;margin-top:14px">${a?'Enregistrer':'Ajouter'}</button>
+    ${a?`<button class="btn danger" id="ab-suppr" style="width:100%;margin-top:8px">Supprimer</button>`:''}`;
+  let tacite=!a||a.reconduction_tacite;
+  document.querySelectorAll('#ab-emos [data-e]').forEach(b=>{b.onclick=()=>{
+    emoji=b.dataset.e;
+    document.querySelectorAll('#ab-emos .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+  }});
+  document.querySelectorAll('#ab-tac [data-t]').forEach(b=>{b.onclick=()=>{
+    tacite=b.dataset.t==='1';
+    document.querySelectorAll('#ab-tac .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+  }});
+  document.getElementById('ab-ok').onclick=()=>{
+    const nom=document.getElementById('ab-nom').value.trim();
+    if(!nom){toast('Il faut un nom');return}
+    const l={nom,emoji,
+      fournisseur:document.getElementById('ab-four').value.trim()||null,
+      montant_mois:document.getElementById('ab-mnt').value?Number(document.getElementById('ab-mnt').value):null,
+      echeance:document.getElementById('ab-ech').value||null,
+      reconduction_tacite:tacite,
+      resilier_avant_jours:Number(document.getElementById('ab-res').value)||30,
+      contact_nom:document.getElementById('ab-cn').value.trim()||null,
+      contact_tel:document.getElementById('ab-ct').value.trim()||null,
+      reference:document.getElementById('ab-ref').value.trim()||null};
+    if(!a)l.id=genId();
+    enregistrerObjet(id,'abonnements',l);
+    fermerTiroir();toast(a?'C\'est noté ✔':'Ajouté 💳');render();
+  };
+  const sup=document.getElementById('ab-suppr');
+  if(sup)sup.onclick=()=>{
+    if(!confirm('Supprimer « '+a.nom+' » ?'))return;
+    supprimerObjet(a.id);maisonOuvert=null;fermerTiroir();render();
+  };
+}
+
 /* ================== NAVIGATION & VUES ================== */
-let section='cal';
+/*  Cinq onglets en bas. Chacun porte ses vues, et chaque vue garde sa
+    propre présentation — c'est la règle qui court partout :
+      Planning : aujourd'hui · le mois · les repas
+      To do    : toi · les autres · les courses
+      Mémoire  : les gens · envies · cadeaux · recettes
+      Santé    : les fiches, inchangées
+      Maison   : entretien · abonnements                                  */
+let section='planning';
+let vuePlanning='jour';       // 'jour' | 'mois' | 'repas'
 let UTILISATEUR=null;let EMAIL_CONNECTE='';
+
+const ONGLETS=['planning','todo','memoire','sante','maison'];
+
 function fabAction(){
-  if(section==='todo'){formTache(null);return}
+  if(section==='todo')return formTache(null);
+  if(section==='memoire')return formPersonne(null);
+  if(section==='sante')return formTraitement(null);
   ouvrirAjout(null);
 }
+
+/* Les pastilles de vues d'un onglet : `defs` = [[clé, libellé, compteur], …] */
+function barreVues(defs,actuelle,attr){
+  return `<div class="vues" data-vues="${attr}">`+defs.map(([k,l,n])=>
+    `<button class="${k===actuelle?'actif':''}" data-v="${k}">${l}${n?`<span class="n">${n}</span>`:''}</button>`
+  ).join('')+`</div>`;
+}
+function brancherVues(zone,poser){
+  const b=zone.querySelector('[data-vues]');
+  if(!b)return;
+  b.querySelectorAll('[data-v]').forEach(el=>{el.onclick=()=>poser(el.dataset.v)});
+}
+
+function setVuePlanning(v){
+  vuePlanning=v;
+  if(v==='mois')vue='mois';
+  render();
+}
+
+/* Les pastilles de la barre : un point rouge quand quelque chose presse. */
+function majBarreBas(){
+  const b=document.getElementById('barreBas');if(!b)return;
+  const marques={todo:(typeof tachesEnRetard==='function'?tachesEnRetard().length:0),
+                 maison:maisonReclame().filter(x=>x.jours<=30).length};
+  b.querySelectorAll('[data-sec]').forEach(el=>{
+    el.querySelectorAll('.bb-pt,.bb-nb').forEach(x=>x.remove());
+    const n=marques[el.dataset.sec]||0;
+    if(!n)return;
+    const p=document.createElement('span');
+    p.className=n>1?'bb-nb':'bb-pt';
+    if(n>1)p.textContent=n>9?'9+':n;
+    el.appendChild(p);
+  });
+}
 function setSection(s){
+  if(!ONGLETS.includes(s))s='planning';
   section=s;
-  document.querySelectorAll('#mainNav .view-btn').forEach(b=>b.classList.toggle('active',b.dataset.sec===s));
-  document.querySelector('.main-layout').classList.toggle('mode-todo',s==='todo');
-  document.querySelector('.main-layout').classList.toggle('mode-cal',s==='cal');
-  document.querySelector('.cal-area').style.display=s==='cal'?'':'none';
-  document.getElementById('todoPanel').style.display=(s==='cal'&&vue!=='annee')||s==='todo'?'block':'none';
-  document.getElementById('vueCourses').style.display=s==='courses'?'block':'none';
+  document.querySelectorAll('#barreBas [data-sec]').forEach(b=>b.classList.toggle('actif',b.dataset.sec===s));
+
+  const surCal=(s==='planning'&&vuePlanning==='mois');
+  const layout=document.querySelector('.main-layout');
+  layout.classList.toggle('mode-todo',s==='todo');
+  layout.classList.toggle('mode-cal',surCal);
+  document.querySelector('.cal-area').style.display=surCal?'':'none';
+  document.getElementById('todoPanel').style.display=(s==='todo'||surCal)?'block':'none';
+  document.getElementById('vueCourses').style.display=(s==='planning'&&vuePlanning!=='mois')?'block':'none';
   document.getElementById('vueMemoire').style.display=s==='memoire'?'block':'none';
   document.getElementById('vueSante').style.display=s==='sante'?'block':'none';
-  document.getElementById('vueAccueil').style.display=s==='accueil'?'grid':'none';
-  document.getElementById('navBar').style.visibility=s==='cal'?'visible':'hidden';
-  document.getElementById('navOutils').style.visibility=(s==='cal'&&vue!=='annee')?'visible':'hidden';
-  document.querySelector('.fab').style.display=(s==='cal'||s==='todo')?'':'none';
-  document.getElementById('mainNav').style.visibility=s==='accueil'?'hidden':'visible';
-  document.getElementById('btnAccueil').style.visibility=s==='accueil'?'hidden':'visible';
-  document.getElementById('btnParams').style.visibility=s==='accueil'?'visible':'hidden';
+  document.getElementById('vueMaison').style.display=s==='maison'?'block':'none';
+  document.getElementById('vueAccueil').style.display='none';
+  document.getElementById('navBar').style.visibility=surCal?'visible':'hidden';
+  document.getElementById('navOutils').style.visibility=surCal?'visible':'hidden';
+  document.querySelector('.fab').style.display=(s==='maison')?'none':'';
   majCloche();
+  majBarreBas();
   render();
 }
 function navMois(dir){
@@ -4495,8 +4901,7 @@ function navMois(dir){
 function allerAujourdhui(){cur=new Date();render()}
 function setVue(v){
   vue=v;
-  document.querySelectorAll('#viewBar .view-btn').forEach(b=>b.classList.toggle('active',b.dataset.vue===v));
-  document.getElementById('navOutils').style.visibility=(v==='annee'||v==='agenda')?'hidden':'visible';
+  document.getElementById('navOutils').style.visibility=(v==='annee')?'hidden':'visible';
   document.getElementById('monthView').style.display=v==='mois'?'block':'none';
   document.getElementById('weekView').style.display=v==='semaine'?'block':'none';
   document.getElementById('agendaView').style.display=v==='agenda'?'flex':'none';
@@ -4508,16 +4913,52 @@ function setVue(v){
 }
 function render(){
   if(typeof montrerPriseSiBesoin==='function')montrerPriseSiBesoin();
-  if(section==='accueil'){renderAccueil();return}
-  if(section==='courses'){renderCourses();return}
   if(section==='memoire'){renderMemoire();return}
   if(section==='sante'){renderSante();return}
+  if(section==='maison'){renderMaison();return}
   if(section==='todo'){projetOuvert?renderProjet():renderTodo();return}
-  if(vue==='mois')renderMois();
-  else if(vue==='semaine')renderSemaine();
-  else if(vue==='agenda')renderAgenda();
-  else renderAnnee();
-  renderTodo();
+  // ---- Planning ----
+  if(vuePlanning==='mois'){
+    if(vue==='annee')renderAnnee();else renderMois();
+    renderTodo();
+    return;
+  }
+  if(vuePlanning==='repas'){renderRepas(document.getElementById('vueCourses'));return}
+  renderAujourdhui();
+}
+
+/* ☀️ Aujourd'hui — la chronologie du jour, en pleine page.
+   Même corps que le tiroir : on n'entretient qu'une seule version. */
+function renderAujourdhui(){
+  const zone=document.getElementById('vueCourses');
+  const auj=new Date();
+  const v=enVacances(auj),f=ferie(auj);
+  const sous=[f?'🇫🇷 '+f:'',v?v.nom:''].filter(Boolean).join(' · ');
+  const rec=maisonReclame().filter(x=>x.jours<=30);
+  let bas='';
+  if(rec.length){
+    bas=`<div class="tj-sect" style="color:var(--alert)">🏠 La maison réclame<span class="tj-n">${rec.length}</span></div>`
+      +rec.map(x=>`<div class="todo-item" data-recl="${x.genre}|${x.id}" style="cursor:pointer">
+        <div style="flex-shrink:0;font-size:1.1rem">${x.emoji}</div>
+        <div class="todo-corps"><div class="todo-text">${echap(x.nom)}</div>
+        <div class="todo-date"><span style="color:var(--alert);font-weight:700">${echap(delaiFr(x.jours))}</span>${x.montant?' · '+euros(x.montant)+'/mois':''}</div></div>
+        <div style="color:var(--ink-3)">›</div></div>`).join('');
+  }
+  zone.innerHTML=vuesPlanning()
+    +`<h2 class="ps-titre">${DFR[jSem(auj)-1]} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}</h2>`
+    +(sous?`<p class="discret2" style="margin:-2px 0 8px">${echap(sous)}</p>`:'')
+    +corpsJournee(auj,true)+bas;
+  brancherVues(zone,setVuePlanning);
+  brancherJournee2(zone,auj,()=>{render()});
+  zone.querySelectorAll('[data-recl]').forEach(el=>{
+    el.onclick=()=>{const [g,id]=el.dataset.recl.split('|');
+      maisonOuvert={genre:g,id};setSection('maison')};
+  });
+}
+function vuesPlanning(){
+  const auj=new Date();
+  const nRepas=(CACHE.menus||[]).filter(m=>m.jour>=iso(lundiDe(auj))).length;
+  return barreVues([['jour',"Aujourd'hui"],['mois','Mois'],['repas','🍽️ Repas']],vuePlanning,'planning');
 }
 
 /* ================== POPOVER (sélecteur de mois) ================== */
@@ -4546,11 +4987,10 @@ document.addEventListener('click',(e)=>{
 });
 
 /* ================== INIT ================== */
-document.querySelectorAll('#viewBar .view-btn').forEach(b=>{b.onclick=()=>setVue(b.dataset.vue)});
-document.querySelectorAll('#mainNav .view-btn').forEach(b=>{b.onclick=()=>setSection(b.dataset.sec)});
-document.getElementById('titreAccueil').onclick=()=>setSection('accueil');
-document.getElementById('btnAccueil').onclick=()=>setSection('accueil');
+document.querySelectorAll('#barreBas [data-sec]').forEach(b=>{b.onclick=()=>setSection(b.dataset.sec)});
+document.getElementById('titreAccueil').onclick=()=>{vuePlanning='jour';setSection('planning')};
 document.getElementById('btnParams').onclick=formParams;
+document.body.classList.add('a-barre');
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){fermerTiroir();fermerPopovers()}});
 let _rT=null;
 window.addEventListener('resize',()=>{clearTimeout(_rT);_rT=setTimeout(render,200)});
@@ -4568,7 +5008,7 @@ document.addEventListener('visibilitychange',async()=>{
   if(!s.session||!s.role){window.location.replace('index.html');return}
   UTILISATEUR=s.nom||s.session.user.email;
   EMAIL_CONNECTE=(s.session.user.email||'').toLowerCase();
-  if(await chargerTout()){setVue(vue);setSection('accueil');montrerPriseSiBesoin()}
+  if(await chargerTout()){setVue('mois');setSection('planning');montrerPriseSiBesoin()}
 })();
 
 </script>
