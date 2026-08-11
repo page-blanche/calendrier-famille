@@ -4494,6 +4494,42 @@ function brancherJournee(zone){
 }
 /* L'accueil a disparu : il n'affichait que des raccourcis vers les onglets,
    et la barre du bas fait ça mieux. Le code est retiré. */
+async function majReglagesNotifs(){
+  const el=document.getElementById('p-notif-etat'),btn=document.getElementById('p-notif-btn');
+  if(!el||!btn)return;
+  const e=await etatPush();
+  btn.style.display='none';
+  // Un test qui ne passe PAS par le serveur : si celui-ci s'affiche et que
+  // les vrais rappels non, le problème est dans la livraison, pas dans le
+  // téléphone. S'il ne s'affiche pas non plus, c'est un réglage iOS.
+  const bTest=document.getElementById('p-notif-test');
+  const diag=document.getElementById('p-notif-diag');
+  if(bTest){
+    bTest.style.display=(e==='active')?'':'none';
+    bTest.onclick=async()=>{
+      diag.textContent='';
+      try{
+        const reg=await navigator.serviceWorker.getRegistration();
+        if(!reg){diag.textContent='⚠️ Pas de service worker sur cet appareil.';return}
+        await reg.showNotification('🏡 Famille',{body:'Si tu vois ceci, ton téléphone sait afficher mes notifications.',icon:'icon-192.png',badge:'icon-192.png'});
+        diag.textContent='Envoyée. Si rien ne s\'affiche : Réglages iOS → Notifications → Famille.';
+      }catch(err){diag.textContent='⚠️ '+(err.message||err)}
+    };
+  }
+  if(e==='active'){
+    el.textContent='Activées sur cet appareil ✓ — tu es prévenu·e le matin et quand quelqu\'un ajoute un événement.';
+    btn.style.display='';btn.textContent='🔕 Couper sur cet appareil';
+    btn.onclick=async()=>{await desactiverPush();majReglagesNotifs()};
+  }else if(e==='refuse'){
+    el.textContent='Bloquées dans les réglages du téléphone (Notifications > Famille). Autorise-les là-bas, puis reviens ici.';
+  }else if(e==='inactive'){
+    el.textContent='Coupées sur cet appareil.';
+    btn.style.display='';btn.textContent='🔔 Activer les notifications';
+    btn.onclick=async()=>{await activerPush();majReglagesNotifs()};
+  }else{
+    el.textContent='Indisponibles ici — installe d\'abord l\'app sur l\'écran d\'accueil.';
+  }
+}
 function majReglagesFoyer(){
   const zone=document.getElementById('p-foyer');
   if(!zone)return;
