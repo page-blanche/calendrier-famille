@@ -566,14 +566,14 @@ const FER={
    envoyée à la base (avec rechargement en cas d'erreur). */
 let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],personnes:[],notes:[],envies:[],membres:[],etatsAuto:{},
   medecins:[],traitements:[],prises:[],suivis:[],accomp:[],projets:[],recettes:[],menus:[],
-  entretiens:[],abonnements:[]};
+  entretiens:[],abonnements:[],tgliens:[]};
 const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux',personnes:'personnes',notes:'notes_personnes',envies:'envies',
   medecins:'sante_medecins',traitements:'sante_traitements',prises:'sante_prises',suivis:'sante_suivis',
   accomp:'accompagnements',projets:'projets',recettes:'recettes',menus:'menus',
-  entretiens:'entretiens',abonnements:'abonnements'};
+  entretiens:'entretiens',abonnements:'abonnements',tgliens:'telegram_liens'};
 
 async function chargerTout(){
-  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su,ac,pj,re,me,ent,abo]=await Promise.all([
+  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su,ac,pj,re,me,ent,abo,tgl]=await Promise.all([
     sb.from('evenements').select('*'),
     sb.from('vacances').select('*'),
     sb.from('anniversaires').select('*'),
@@ -596,6 +596,7 @@ async function chargerTout(){
     sb.from('menus').select('*'),
     sb.from('entretiens').select('*'),
     sb.from('abonnements').select('*'),
+    sb.from('telegram_liens').select('*'),
   ]);
   const err=[e,v,b,a,t,s].find(r=>r.error);
   if(err){toast('⚠️ Erreur de chargement : '+err.error.message);return false}
@@ -624,6 +625,7 @@ async function chargerTout(){
   CACHE.menus=me.error?[]:me.data;
   CACHE.entretiens=ent.error?[]:ent.data;
   CACHE.abonnements=abo.error?[]:abo.data;
+  CACHE.tgliens=tgl.error?[]:tgl.data;
   return true;
 }
 const lesEvts=()=>CACHE.evts;
@@ -3392,11 +3394,11 @@ function chatVide(){
   return `<div class="chat-vide">
     <div class="cv-e">🪄</div>
     <div class="cv-t">Dis-moi tout</div>
-    <div class="cv-s">Ce que tu me dis, je le range. Ce que tu me demandes, je le cherche.
-      Écris, ou appuie sur le micro et parle.</div>
+    <div class="cv-s">Moi c'est ${PIA}. Ce que tu me dis, je le range ; ce que tu me demandes,
+      je le cherche. Écris, ou appuie sur le micro et parle.</div>
     <div class="cv-p">${CHAT_EXEMPLES.map(([e,t])=>
       `<button data-ex="${attr(t)}">${e} « ${echap(t)} »</button>`).join('')}</div>
-    <div class="cv-tg">Bientôt : tu pourras aussi m'écrire sur Telegram —<br>ce sera la même conversation.</div>
+    <div class="cv-tg">Tu peux aussi m'écrire sur Telegram —<br>c'est la même conversation.</div>
   </div>`;
 }
 
@@ -4554,12 +4556,19 @@ function formParams(){
       <div id="p-foyer-ajout" style="margin-top:8px"></div>
     </div>
     <div class="carte-solo">
+      <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">💬 Pia sur Telegram</div>
+      <p class="discret2" style="margin:0 0 8px">Pour recevoir le briefing et les rappels dans sa messagerie,
+        et pouvoir répondre — sans jamais ouvrir l'app.</p>
+      <div id="p-tg"></div>
+    </div>
+    <div class="carte-solo">
       <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🔧 Bientôt ici</div>
       <p class="discret2" style="margin:0">L'heure du briefing du matin · les préférences de rappels · le partage de l'app à d'autres familles…</p>
     </div>
     <button class="btn" id="p-deco" style="width:100%;margin-top:8px;color:var(--alert)">Se déconnecter</button>`;
   majReglagesNotifs();
   majReglagesFoyer();
+  majReglagesTelegram();
   document.getElementById('p-deco').onclick=async()=>{
     if(!confirm('Se déconnecter ?'))return;
     await sb.auth.signOut();
@@ -4944,6 +4953,81 @@ function formAbonnement(id){
   if(sup)sup.onclick=()=>{
     if(!confirm('Supprimer « '+a.nom+' » ?'))return;
     supprimerObjet(a.id);maisonOuvert=null;fermerTiroir();render();
+  };
+}
+
+
+/* ================== L'ASSISTANT SUR TELEGRAM ==================
+   On ne peut pas écrire à quelqu'un sur Telegram tant qu'il ne nous a
+   pas parlé. D'où le lien d'invitation : il contient un code à usage
+   unique, la personne appuie sur « Démarrer », et le bot sait qui elle
+   est. Une fois fait, plus jamais rien à faire.                       */
+const BOT_TG=(typeof BOT_TELEGRAM!=='undefined'&&BOT_TELEGRAM)?BOT_TELEGRAM:'';
+/* Le prénom de l'assistant — le même des deux côtés, app et Telegram. */
+const PIA='Pia';
+
+function lienTg(personne){return (CACHE.tgliens||[]).find(x=>
+  String(x.personne||'').toLowerCase()===String(personne||'').toLowerCase())||null}
+
+/* Un code court, sans lettres qui se confondent — on le lit parfois à voix haute. */
+function codeTg(){
+  const abc='abcdefghjkmnpqrstuvwxyz23456789';
+  let c='';for(let i=0;i<8;i++)c+=abc[Math.floor(Math.random()*abc.length)];
+  return c;
+}
+
+async function inviterSurTelegram(personne,nom){
+  if(!BOT_TG){
+    toast('Il manque le nom du bot dans config.js');
+    return;
+  }
+  const code=codeTg();
+  const {error}=await sb.from('telegram_invitations')
+    .insert({code,personne,cree_par:EMAIL_CONNECTE});
+  if(error){toast('⚠️ '+error.message);return}
+  const lien=`https://t.me/${BOT_TG}?start=${code}`;
+  const txt=`${nom||'Coucou'} ! Ouvre ce lien et appuie sur « Démarrer » : `
+    +`${PIA} te dira ta journée chaque matin, et tu pourras lui répondre `
+    +`directement — sans jamais ouvrir l'app.\n\n${lien}`;
+  partager(txt,'Inviter sur Telegram');
+}
+
+function majReglagesTelegram(){
+  const zone=document.getElementById('p-tg');
+  if(!zone)return;
+  if(!BOT_TG){
+    zone.innerHTML=`<p class="discret2" style="margin:0">Pas encore configuré.
+      Il faut ajouter le nom du bot dans <code>config.js</code> :
+      <code>const BOT_TELEGRAM='mon_bot';</code></p>`;
+    return;
+  }
+  // L'app ne connaît pas l'adresse email des autres membres (elle ne stocke
+  // que leur prénom). On propose donc soi-même, plus tous ceux déjà branchés,
+  // et « inviter quelqu'un d'autre » pour le reste.
+  const moi={nom:UTILISATEUR||'Toi',personne:EMAIL_CONNECTE};
+  const tous=[moi];
+  (CACHE.tgliens||[]).forEach(l=>{
+    if(String(l.personne).toLowerCase()!==EMAIL_CONNECTE)
+      tous.push({nom:l.nom||l.personne,personne:l.personne});
+  });
+  zone.innerHTML=tous.map(x=>{
+    const l=lienTg(x.personne);
+    const etat=l&&l.actif?`<span style="color:var(--ok,#2f9e44);font-weight:700;font-size:.76rem">Telegram ✓</span>`
+      :l?`<span class="discret2" style="font-size:.76rem">en pause</span>`
+      :`<button class="btn mini" data-tginv="${attr(x.personne)}" data-tgnom="${attr(x.nom)}">Inviter →</button>`;
+    return `<div class="todo-item"><div class="todo-corps">
+      <div class="todo-text">${echap(x.nom)}</div>
+      <div class="todo-date">${l?(l.vu_le?'vu '+dateNoteFr(l.vu_le):'branché'):'pas encore branché'}</div></div>
+      ${etat}</div>`;
+  }).join('')
+  +`<button class="btn mini" id="p-tg-autre" style="width:100%;margin-top:8px">＋ Inviter quelqu'un d'autre</button>`;
+  zone.querySelectorAll('[data-tginv]').forEach(b=>{
+    b.onclick=()=>inviterSurTelegram(b.dataset.tginv,b.dataset.tgnom);
+  });
+  document.getElementById('p-tg-autre').onclick=()=>{
+    const email=prompt("L'adresse du compte de la personne à inviter :");
+    if(!email||!email.includes('@'))return;
+    inviterSurTelegram(email.trim().toLowerCase(),'');
   };
 }
 
