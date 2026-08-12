@@ -912,12 +912,18 @@ function emojisJour(d){
   brut.forEach(e=>{if(!uniques.includes(e))uniques.push(e)});
   return {uniques,total:brut.length};
 }
-function pastilles(d){
+/* Un séjour, c'est un événement qui dure. Sur le mois il ne s'écrit plus
+   dans une case mais en travers de la semaine : le nom d'un côté, la durée
+   sous les yeux. */
+function estSejour(e){return !!(e.fin&&e.fin!==e.debut)}
+
+function pastilles(d,sansSejours){
   const out=[];
   if(visible('bday'))bdaysDuJour(d).forEach(b=>out.push({titre:b.titre,c:coul('bday')}));
   evtsDuJour(d).forEach(e=>{
     if(!visible(e.cat))return;
-    const multi=e.fin&&e.fin!==e.debut;
+    const multi=estSejour(e);
+    if(multi&&sansSejours)return;                 // il a sa barre, plus haut
     if(multi&&iso(d)!==e.debut&&jSem(d)!==1){out.push({barre:true,c:coulEvt(e)});return}
     out.push({titre:e.titre,c:coulEvt(e)});
   });
@@ -943,51 +949,111 @@ function renderMois(){
   const decal=(new Date(y,m,1).getDay()+6)%7;
   const debut=new Date(y,m,1-decal);
   const auj=iso(new Date());
-  for(let i=0;i<42;i++){
-    const d=new Date(debut);d.setDate(d.getDate()+i);
-    const hors=d.getMonth()!==m,v=enVacances(d),f=ferie(d);
-    const we=d.getDay()===0||d.getDay()===6;
-    const estRentree=lesEvts().some(e=>e.cat==='rentree'&&iso(d)===e.debut);
-    const enVoyage=visible('voyage')&&evtsDuJour(d).some(e=>e.cat==='voyage');
-    const cls=['day-cell'];
-    if(hors)cls.push('other-month');
-    if(iso(d)===auj)cls.push('today');
-    if(estRentree)cls.push('rentree');else if(enVoyage)cls.push('voyage');
-    else if(v&&visible('vacances'))cls.push('vacation');else if(we)cls.push('weekend');
-    if(estMobile&&iso(d)===jourSel)cls.push('sel');
-    const c=document.createElement('div');c.className=cls.join(' ');
-    const dd=new Date(d);
-    c.onclick=()=>{if(estMobile){jourSel=iso(dd);if(dd.getMonth()!==m)cur=new Date(dd.getFullYear(),dd.getMonth(),1);renderMois()}else ouvrirJour(dd)};
-    const mobile=window.innerWidth<700;
-    let h=`<div class="day-num${f?' ferie':''}">${d.getDate()}</div>`;
-    // Le ＋ n'existe plus sur mobile : le doigt l'attrapait sans le vouloir.
-    if(!mobile)h+=`<button class="cell-add" title="Ajouter ce jour-là">＋</button>`;
-    const pil=pastilles(d);
-    if(mobile){
-      // Mobile : l'emoji de ce qui se passe — un point de couleur ne dit rien
-      const {uniques,total}=emojisJour(d);
-      if(total){
-        const montres=uniques.slice(0,2);
-        const reste=total-montres.length;
-        h+=`<div class="emo-jour${montres.length>1?' duo':''}">`
-          +montres.map(e=>`<span class="emo">${e}</span>`).join('')+'</div>'
-          +(reste>0?`<div class="emo-plus">+${reste}</div>`:'');
+
+  /* Les six semaines, une par rangée. C'est la rangée qui sert de repère
+     aux barres : sans elle, une case ne sait rien de sa voisine. */
+  for(let sem=0;sem<6;sem++){
+    const jours=[];
+    for(let k=0;k<7;k++){const d=new Date(debut);d.setDate(d.getDate()+sem*7+k);jours.push(d)}
+    const lundi=iso(jours[0]),dimanche=iso(jours[6]);
+
+    /* Ce qui traverse cette semaine. Sur mobile la case fait 48 px : une
+       barre n'y tiendrait pas, on garde les emojis. */
+    const sejours=estMobile?[]:lesEvts()
+      .filter(e=>estSejour(e)&&visible(e.cat)&&e.debut<=dimanche&&(e.fin||e.debut)>=lundi)
+      .sort((a,b)=>a.debut.localeCompare(b.debut)||String(b.fin).localeCompare(String(a.fin)));
+
+    /* Les étiquettes vacances / férié ne tombent pas le même jour partout.
+       On leur réserve la même hauteur dans toute la rangée, sinon les barres
+       se décalent d'une case à l'autre. */
+    const nbTags=(d)=>{
+      if(estMobile||d.getMonth()!==m)return 0;
+      const v=enVacances(d);let n=0;
+      if(v&&visible('vacances')&&(iso(d)===v.debut||jSem(d)===1))n++;
+      if(ferie(d))n++;
+      return n;
+    };
+    const tagMax=Math.max(0,...jours.map(nbTags));
+    const HT=15;                                   // hauteur d'une étiquette
+    const HV=21;                                   // hauteur d'une voie de barre
+
+    const row=document.createElement('div');row.className='sem-row';
+    jours.forEach(d=>{
+      const hors=d.getMonth()!==m,v=enVacances(d),f=ferie(d);
+      const we=d.getDay()===0||d.getDay()===6;
+      const estRentree=lesEvts().some(e=>e.cat==='rentree'&&iso(d)===e.debut);
+      const enVoyage=visible('voyage')&&evtsDuJour(d).some(e=>e.cat==='voyage');
+      const cls=['day-cell'];
+      if(hors)cls.push('other-month');
+      if(iso(d)===auj)cls.push('today');
+      if(estRentree)cls.push('rentree');else if(enVoyage)cls.push('voyage');
+      else if(v&&visible('vacances'))cls.push('vacation');else if(we)cls.push('weekend');
+      if(estMobile&&iso(d)===jourSel)cls.push('sel');
+      const c=document.createElement('div');c.className=cls.join(' ');
+      const dd=new Date(d);
+      c.onclick=()=>{if(estMobile){jourSel=iso(dd);if(dd.getMonth()!==m)cur=new Date(dd.getFullYear(),dd.getMonth(),1);renderMois()}else ouvrirJour(dd)};
+      let h=`<div class="day-num${f?' ferie':''}">${d.getDate()}</div>`;
+      if(!estMobile)h+=`<button class="cell-add" title="Ajouter ce jour-là">＋</button>`;
+      if(estMobile){
+        const {uniques,total}=emojisJour(d);
+        if(total){
+          const montres=uniques.slice(0,2);
+          const reste=total-montres.length;
+          h+=`<div class="emo-jour${montres.length>1?' duo':''}">`
+            +montres.map(e=>`<span class="emo">${e}</span>`).join('')+'</div>'
+            +(reste>0?`<div class="emo-plus">+${reste}</div>`:'');
+        }
+      }else{
+        if(tagMax){
+          let t='';
+          if(v&&!hors&&visible('vacances')&&(iso(d)===v.debut||jSem(d)===1))t+=`<div class="vac-tag">☀️ ${echap(v.nom)}</div>`;
+          if(f&&!hors)t+=`<div class="vac-tag" style="color:#b34508">🇫🇷 ${echap(f)}</div>`;
+          h+=`<div class="zone-tag" style="height:${tagMax*HT}px">${t}</div>`;
+        }
+        if(sejours.length)h+=`<div class="zone-voies" style="height:${sejours.length*HV}px"></div>`;
+        const pil=pastilles(d,true);
+        pil.slice(0,3).forEach(p=>{
+          if(p.barre){h+=`<div class="pill-cont" style="background:${p.c}"></div>`;return}
+          h+=p.contour
+            ?`<div class="pill contour" style="border:1.5px dashed ${p.c};color:${p.c};background:transparent">${echap(p.titre.substring(0,26))}</div>`
+            :`<div class="pill" style="background:${p.c}">${echap(p.titre.substring(0,26))}</div>`;
+        });
+        if(pil.length>3)h+=`<div class="plus">+${pil.length-3} autres</div>`;
       }
-    }else{
-      if(v&&!hors&&visible('vacances')&&(iso(d)===v.debut||jSem(d)===1))h+=`<div class="vac-tag">☀️ ${echap(v.nom)}</div>`;
-      if(f&&!hors)h+=`<div class="vac-tag" style="color:#b34508">🇫🇷 ${echap(f)}</div>`;
-      pil.slice(0,3).forEach(p=>{
-        if(p.barre){h+=`<div class="pill-cont" style="background:${p.c}"></div>`;return}
-        h+=p.contour
-          ?`<div class="pill contour" style="border:1.5px dashed ${p.c};color:${p.c};background:transparent">${echap(p.titre.substring(0,26))}</div>`
-          :`<div class="pill" style="background:${p.c}">${echap(p.titre.substring(0,26))}</div>`;
+      c.innerHTML=h;
+      const bAdd=c.querySelector('.cell-add');
+      if(bAdd)bAdd.onclick=(ev)=>{ev.stopPropagation();ouvrirAjout(iso(dd))};
+      row.appendChild(c);
+    });
+
+    /* Les barres, posées par-dessus la rangée. 6 px de marge de chaque côté :
+       elles restent dans la case sans mordre l'arrondi, et franchissent
+       l'espace de 4 px entre deux jours sans qu'on les voie faire. */
+    if(sejours.length){
+      const voie=document.createElement('div');voie.className='voie';
+      voie.style.top=(30+tagMax*HT)+'px';
+      const M=6;
+      sejours.forEach((e,i)=>{
+        const fin=e.fin||e.debut;
+        const g0=e.debut<lundi?0:jours.findIndex(d=>iso(d)===e.debut);
+        const g1=fin>dimanche?6:jours.findIndex(d=>iso(d)===fin);
+        if(g0<0||g1<0)return;
+        const suiteG=e.debut<lundi,suiteD=fin>dimanche;
+        const b=document.createElement('div');
+        b.className='barre-sejour'+(suiteG?' suite-g':'')+(suiteD?' suite-d':'');
+        b.style.background=coulEvt(e);
+        b.style.left=`calc(${g0} * (100% + 4px) / 7 + ${M}px)`;
+        b.style.width=`calc(${g1-g0+1} * (100% + 4px) / 7 - ${2*M+4}px)`;
+        b.style.top=(i*HV)+'px';
+        b.textContent=e.titre;
+        b.title=e.titre;
+        const jour=new Date(jours[g0]);
+        b.onclick=(ev)=>{ev.stopPropagation();ouvrirJour(jour)};
+        voie.appendChild(b);
       });
-      if(pil.length>3)h+=`<div class="plus">+${pil.length-3} autres</div>`;
+      row.appendChild(voie);
     }
-    c.innerHTML=h;
-    const bAdd=c.querySelector('.cell-add');
-    if(bAdd)bAdd.onclick=(ev)=>{ev.stopPropagation();ouvrirAjout(iso(dd))};
-    g.appendChild(c);
+    g.appendChild(row);
   }
   renderJourDetail();
 }
