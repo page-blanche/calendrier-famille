@@ -546,11 +546,6 @@ function membresOptions(v){
   if(v&&!liste.includes(v))liste.splice(1,0,v);
   return liste.map(x=>`<option value="${x.replace(/"/g,'&quot;')}" ${x===(v||'')?'selected':''}>${x||'—'}</option>`).join('');
 }
-function quiOptions(v){
-  const liste=['','Toute la famille','Mandana','Didier','Darya','Kyan','Cyrus'];
-  if(v&&!liste.includes(v))liste.splice(1,0,v);
-  return liste.map(x=>`<option value="${x.replace(/"/g,'&quot;')}" ${x===(v||'')?'selected':''}>${x||'—'}</option>`).join('');
-}
 
 /* Jours fériés (fixes, officiels — pas en base) */
 const FER={
@@ -2090,25 +2085,58 @@ function lierDates(idDeb,idFin){
 }
 
 /* ---------- Formulaire événement ---------- */
+/* Qui est concerné : une liste, pas une personne. Un événement de famille
+   en réunit plusieurs, et c'est justement ce qui décide de la suite —
+   si ce ne sont que des enfants, quelqu'un doit les y emmener. */
+function listeQui(e){
+  const foyer=(CACHE.personnes||[]).filter(p=>p.foyer).map(p=>p.nom);
+  if(Array.isArray(e?.qui_liste)&&e.qui_liste.length)return e.qui_liste.filter(n=>foyer.includes(n));
+  const v=String(e?.qui||'').trim();
+  if(!v)return [];
+  if(/^toute la famille$/i.test(v))return foyer;
+  // Les anciennes valeurs sont du texte libre : on récupère ce qu'on reconnaît.
+  return v.split(/[,+]/).map(x=>x.trim()).filter(n=>foyer.includes(n));
+}
+
 function formEvt(id,datePre){
   const e=id?trouverParId(id):null;
   ouvrirTiroirBrut(e?'Modifier l\'événement':'Nouvel événement');
   const corps=document.getElementById('dbd');
   const cats=[['event','📌 Événement'],['voyage','✈️ Voyage'],['pro','💼 Absence / déplacement'],['rentree','🎒 Rentrée']];
+  const rang=n=>{const i=(CACHE.membres||[]).indexOf(n);return i<0?99:i};
+  const foyer=(CACHE.personnes||[]).filter(p=>p.foyer).sort((a,b)=>rang(a.nom)-rang(b.nom));
+  const quiSel=new Set(listeQui(e));
+  let accomp=e?.accompagne||'',accompR=e?.accompagne_retour||'';
+  const acc=accompagnateurs();
   const b=boutonsForm(()=>{
     const titre=document.getElementById('f-titre').value.trim();
     const debut=document.getElementById('f-debut').value;
     if(!titre||!debut){toast('Titre et date obligatoires');return}
     let detail=document.getElementById('f-detail').value.trim();
     if(detail&&!/<a /.test(detail))detail=detail.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>');
+    const liste=foyer.map(p=>p.nom).filter(n=>quiSel.has(n));   // toujours dans l'ordre de la maison
+    // `qui` reste lisible pour tout ce qui l'affiche déjà ; `qui_liste` est
+    // la vérité, celle sur laquelle on raisonne.
+    const tous=foyer.length>0&&liste.length===foyer.length;
     enregistrerObjet(id,'evts',{
       titre,cat:document.getElementById('f-cat').value,debut,
       fin:document.getElementById('f-fin').value||'',
       heure:document.getElementById('f-heure').value.trim()||'',
-      qui:document.getElementById('f-qui').value.trim()||'',
+      qui:tous?'Toute la famille':liste.join(', '),
+      qui_liste:liste.length?liste:null,
+      accompagne:enfantsSeuls()?(accomp||null):null,
+      accompagne_retour:enfantsSeuls()?(accompR||null):null,
       detail:detail||''});
     apresEnregistrement(e?'Événement modifié':'Événement ajouté');
   });
+  const pastilles=(idp,val)=>
+    acc.chips.map(p=>`<button type="button" class="mg-chip ${val===p.nom?'actif':''}" data-${idp}="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')+
+    `<button type="button" class="mg-chip ${val?'':'actif'}" data-${idp}="">on verra</button>`;
+  const menu=(idsel,val)=>acc.menu.length?`<select id="${idsel}" style="margin-top:7px">
+      <option value="">Quelqu'un d'autre…</option>
+      ${acc.menu.map(p=>`<option value="${attr(p.nom)}" ${val===p.nom?'selected':''}>${echap(p.nom)}${roleAffiche(p)?' · '+echap(roleAffiche(p)):''}</option>`).join('')}
+    </select>`:'';
+
   corps.innerHTML=`
     <label>Titre</label><input type="text" id="f-titre" value="${attr(e?.titre)}" placeholder="🎉 Fête de l'école">
     <label>Type</label><select id="f-cat">${cats.map(c=>`<option value="${c[0]}" ${e?.cat===c[0]?'selected':''}>${c[1]}</option>`).join('')}</select>
@@ -2116,13 +2144,70 @@ function formEvt(id,datePre){
       <div><label>Date de début</label><input type="date" id="f-debut" value="${e?e.debut:(datePre||'')}"></div>
       <div><label>Date de fin (si plusieurs jours)</label><input type="date" id="f-fin" value="${e?.fin||''}"></div>
     </div>
-    <div class="grille-form">
-      <div><label>Heure (optionnel)</label><input type="text" id="f-heure" value="${attr(e?.heure)}" placeholder="14:30"></div>
-      <div><label>Qui ? (optionnel — donne sa couleur)</label><select id="f-qui">${quiOptions(e?.qui)}</select></div>
+    <label>Heure (optionnel)</label><input type="text" id="f-heure" value="${attr(e?.heure)}" placeholder="14:30">
+    <label class="lbl">Qui est concerné ? <span class="discret2">(plusieurs possibles)</span></label>
+    <div class="mg-chips" id="f-qui">
+      <button type="button" class="mg-chip" data-tous="1">👪 Toute la famille</button>
+      ${foyer.map(p=>`<button type="button" class="mg-chip" data-q="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')}
+    </div>
+    <div id="f-logi" style="display:none">
+      <label class="lbl">Qui les emmène ? <span class="discret2">(personne d'adulte n'est concerné par cet événement)</span></label>
+      <div class="mg-chips" id="f-acc">${pastilles('a',accomp)}</div>
+      ${menu('f-acc-autre',accomp)}
+      <div id="f-retour-lien" style="margin-top:7px"><button type="button" class="fp-changer" id="f-retour-ouvre">et au retour, c'est quelqu'un d'autre ?</button></div>
+      <div id="f-retour" style="display:none">
+        <label class="lbl">Qui les récupère ?</label>
+        <div class="mg-chips" id="f-accr">${pastilles('r',accompR)}</div>
+        ${menu('f-accr-autre',accompR)}
+      </div>
     </div>
     <label>Détails (optionnel — les liens deviennent cliquables)</label>
     <textarea id="f-detail">${echap(e?.detail??'')}</textarea>
     ${b.html}`;
+
+  function enfantsSeuls(){
+    if(!quiSel.size)return false;
+    return [...quiSel].every(n=>{const p=foyer.find(x=>x.nom===n);return p&&!estAdulte(p)});
+  }
+  function majQui(){
+    const tous=foyer.length>0&&foyer.every(p=>quiSel.has(p.nom));
+    document.querySelectorAll('#f-qui [data-q]').forEach(x=>x.classList.toggle('actif',quiSel.has(x.dataset.q)));
+    document.querySelector('#f-qui [data-tous]').classList.toggle('actif',tous);
+    document.getElementById('f-logi').style.display=enfantsSeuls()?'':'none';
+  }
+  document.querySelectorAll('#f-qui [data-q]').forEach(bt=>{bt.onclick=()=>{
+    if(quiSel.has(bt.dataset.q))quiSel.delete(bt.dataset.q);else quiSel.add(bt.dataset.q);
+    majQui();
+  }});
+  document.querySelector('#f-qui [data-tous]').onclick=()=>{
+    const tous=foyer.every(p=>quiSel.has(p.nom));
+    quiSel.clear();
+    if(!tous)foyer.forEach(p=>quiSel.add(p.nom));   // retaper dessus décoche tout
+    majQui();
+  };
+  // Les deux sélecteurs d'accompagnateur se câblent pareil : pastilles et menu
+  // se désignent l'un l'autre, pour qu'un seul choix soit visible à la fois.
+  const brancher=(zone,idsel,lire,ecrire)=>{
+    const ch=document.getElementById(idsel);
+    document.querySelectorAll(`#${zone} [data-${lire}]`).forEach(bt=>{bt.onclick=()=>{
+      ecrire(bt.dataset[lire]);
+      document.querySelectorAll(`#${zone} .mg-chip`).forEach(x=>x.classList.toggle('actif',x===bt));
+      if(ch)ch.value='';
+    }});
+    if(ch)ch.onchange=()=>{
+      if(!ch.value)return;
+      ecrire(ch.value);
+      document.querySelectorAll(`#${zone} .mg-chip`).forEach(x=>x.classList.remove('actif'));
+    };
+  };
+  brancher('f-acc','f-acc-autre','a',v=>{accomp=v});
+  brancher('f-accr','f-accr-autre','r',v=>{accompR=v});
+  document.getElementById('f-retour-ouvre').onclick=()=>{
+    document.getElementById('f-retour').style.display='';
+    document.getElementById('f-retour-lien').style.display='none';
+  };
+  if(accompR)document.getElementById('f-retour-ouvre').onclick();
+  majQui();
   b.wire();
   lierDates('f-debut','f-fin');
 }
@@ -3801,10 +3886,21 @@ function magiEnregistrer(actions){
 function magiCorriger(a){
   const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v};
   const coche=(id,v)=>{const el=document.getElementById(id);if(el)el.checked=!!v};
+  /* « Qui » n'est plus un menu mais des pastilles : on appuie dessus pour elle,
+     ce qui laisse le formulaire dans le même état que si elle l'avait fait. */
+  const cocheQui=(v)=>{
+    const s=String(v||'').trim();if(!s)return;
+    if(/^toute la famille$/i.test(s)){document.querySelector('#f-qui [data-tous]')?.click();return}
+    s.split(/[,+]/).map(x=>x.trim()).filter(Boolean).forEach(n=>{
+      const bt=[...document.querySelectorAll('#f-qui [data-q]')].find(x=>x.dataset.q===n);
+      if(bt&&!bt.classList.contains('actif'))bt.click();
+    });
+  };
   if(a.type==='evenement'){
     formEvt(null,a.debut||null);
     setTimeout(()=>{set('f-titre',a.titre);set('f-cat',['event','voyage','pro','rentree'].includes(a.cat)?a.cat:'event');
-      set('f-debut',a.debut);set('f-fin',a.fin||a.debut);set('f-heure',a.heure||'');set('f-qui',a.qui||'');set('f-detail',a.detail||'')},60);
+      set('f-debut',a.debut);set('f-fin',a.fin||a.debut);set('f-heure',a.heure||'');
+      cocheQui(a.qui||'');set('f-detail',a.detail||'')},60);
   }else if(a.type==='tache'){
     formTache(null);
     setTimeout(()=>{set('f-texte',a.texte);set('f-ech',a.ech||'');set('f-qui',a.qui||'');set('f-cat',GROUPES[a.cat]?a.cat:'other')},60);
