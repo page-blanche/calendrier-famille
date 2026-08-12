@@ -1738,6 +1738,10 @@ function renderTodo(){
   h+=`<button class="btn" style="width:100%;margin-top:14px" id="td-ajout">＋ Ajouter une tâche</button>`;
   p.innerHTML=h;
 
+  // Les puces « À faire / Courses » sont redessinées à chaque rendu : sans
+  // ce branchement, celle des courses est là mais ne répond pas. La liste
+  // des courses, elle, le faisait déjà — d'où un aller sans retour.
+  brancherVues(p,setVueTodo);
   p.querySelectorAll('.td-ong button').forEach(b=>{b.onclick=()=>{ongletTodo=b.dataset.o;renderTodo()}});
   p.querySelectorAll('[data-plier]').forEach(b=>{b.onclick=()=>{
     todoPlie[b.dataset.plier]=!todoPlie[b.dataset.plier];renderTodo();
