@@ -175,7 +175,34 @@ button{font-family:inherit}
   display:grid;grid-template-columns:repeat(7,1fr);text-align:center;
   font-size:.7rem;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;padding:8px 0 6px;
 }
-.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+/* Six rangées de sept, et non plus 42 cases en vrac : c'est la rangée qui
+   sert de repère aux séjours, posés en travers de la semaine. */
+.month-grid{display:flex;flex-direction:column;gap:4px}
+.sem-row{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;position:relative}
+.zone-tag,.zone-voies{pointer-events:none}
+.voie{position:absolute;left:0;right:0;pointer-events:none}
+.barre-sejour{
+  position:absolute;height:18px;border-radius:9px;color:#fff;
+  font-size:.62rem;font-weight:600;line-height:18px;padding:0 9px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  pointer-events:auto;cursor:pointer;
+}
+/* Un séjour qui déborde de la semaine ne se coupe pas net contre la bordure :
+   il s'estompe. Le regard comprend « ça continue » sans qu'on lui colle un signe. */
+.barre-sejour.suite-g{
+  border-top-left-radius:0;border-bottom-left-radius:0;padding-left:16px;
+  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 14px);
+          mask-image:linear-gradient(to right,transparent 0,#000 14px);
+}
+.barre-sejour.suite-d{
+  border-top-right-radius:0;border-bottom-right-radius:0;padding-right:16px;
+  -webkit-mask-image:linear-gradient(to left,transparent 0,#000 14px);
+          mask-image:linear-gradient(to left,transparent 0,#000 14px);
+}
+.barre-sejour.suite-g.suite-d{
+  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);
+}
 .day-cell{
   background:var(--surface);min-height:96px;border-radius:var(--radius-s);
   padding:5px;cursor:pointer;transition:border-color .15s,box-shadow .15s;
