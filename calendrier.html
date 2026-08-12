@@ -2197,6 +2197,7 @@ function formPersonne(id,datePre){
   ouvrirTiroirBrut(p?echap(p.nom):'Ajouter quelqu\'un');
   const dPre=datePre?deIso(datePre):null;
   let emoji=p&&p.emoji?p.emoji:'';
+  let genre=p&&p.genre?String(p.genre):'';
   let categorie=p&&p.categorie?String(p.categorie):'';
   let catManuel=!!(p&&p.categorie);   // un choix existant ne se fait pas écraser par une devinette
   let chipsOuverts=false;
@@ -2205,6 +2206,11 @@ function formPersonne(id,datePre){
   document.getElementById('dbd').innerHTML=`
     <label class="lbl">Prénom</label>
     <input type="text" id="fp-nom" value="${p?echap(p.nom):''}" placeholder="Caro">
+    <label class="lbl">On en parle comment ? <span class="discret2">(pour que Pia écrive « elle sera absente » sans se tromper)</span></label>
+    <div class="mg-chips" id="fp-genres">
+      <button class="mg-chip ${genre==='f'?'actif':''}" data-g="f">elle</button>
+      <button class="mg-chip ${genre==='m'?'actif':''}" data-g="m">il</button>
+    </div>
     <label class="lbl">Qui c'est pour toi ? <span class="discret2">(facultatif — « nounou », « pédiatre », « ma sœur »…)</span></label>
     <input type="text" id="fp-role" value="${p?echap(p.role||''):''}" placeholder="ma sœur">
     <div class="fp-echo" id="fp-echo"></div>
@@ -2266,6 +2272,11 @@ function formPersonne(id,datePre){
     emoji=(emoji===b.dataset.emo)?'':b.dataset.emo;
     document.querySelectorAll('#fp-emos .mg-chip').forEach(x=>x.classList.toggle('actif',x.dataset.emo===emoji));
   }});
+  // Retaper sur le choix actif l'annule : on peut ne pas savoir, ou ne pas vouloir dire.
+  document.querySelectorAll('#fp-genres [data-g]').forEach(b=>{b.onclick=()=>{
+    genre=(genre===b.dataset.g)?'':b.dataset.g;
+    document.querySelectorAll('#fp-genres .mg-chip').forEach(x=>x.classList.toggle('actif',x.dataset.g===genre));
+  }});
   document.getElementById('fp-ok').onclick=()=>{
     const nom=document.getElementById('fp-nom').value.trim();
     if(!nom){toast('Il faut un prénom');return}
@@ -2279,6 +2290,7 @@ function formPersonne(id,datePre){
     const an=parseInt(document.getElementById('fp-annee').value)||null;
     const role=document.getElementById('fp-role').value.trim()||null;
     const l={nom,emoji:emoji||null,
+      genre:genre||null,
       categorie:rangerCategorie(categorie),
       role,
       naiss_jour:(j&&m)?j:null,naiss_mois:(j&&m)?m:null,naiss_annee:(j&&m)?an:null,
