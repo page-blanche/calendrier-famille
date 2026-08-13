@@ -2662,8 +2662,13 @@ function formTache(id,lienPre,projetPre,ctx){
     if(!texte){toast('Le texte est obligatoire');return}
     const persistante=document.getElementById('f-persist').checked;
     const ech=document.getElementById('f-ech').value||null;
-    let dateTexte=document.getElementById('f-datetexte').value.trim();
-    if(!dateTexte&&ech)dateTexte='Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase();
+    // La ligne grise sous une tâche. On ne la demande plus : elle se calcule
+    // à partir de la date. Les tâches fabriquées par l'app gardent la leur,
+    // qui dit autre chose qu'une date — « 2 jours avant le départ ».
+    let dateTexte=t?.dateTexte||'';
+    const auto=t&&String(t.id||'').startsWith('auto-');
+    if(!auto&&ech)dateTexte='Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase();
+    else if(!auto&&!ech)dateTexte='';
     const donnees={texte,cat:document.getElementById('f-cat').value,
       qui:document.getElementById('f-qui').value.trim()||'',ech,dateTexte,persistante,lien:lien||'',projet_id:projId};
     if(persistante){
@@ -2689,8 +2694,6 @@ function formTache(id,lienPre,projetPre,ctx){
       <div><label>Échéance (optionnel)</label><input type="date" id="f-ech" value="${t?.ech||''}"></div>
       <div><label>Qui s'en occupe ?</label><select id="f-qui">${membresOptions(t?.qui)}</select></div>
     </div>
-    <label>Échéance en toutes lettres (optionnel)</label>
-    <input type="text" id="f-datetexte" value="${attr(t?.dateTexte)}" placeholder="Avant le 15">
     ${(!t&&c0.cat)
       ? `<input type="hidden" id="f-cat" value="${attr(c0.cat)}">
          <p class="discret2" style="margin:2px 0 12px">Rangée dans ${echap(GROUPES[c0.cat]||'')} — parce qu'on est parti de là.</p>`
