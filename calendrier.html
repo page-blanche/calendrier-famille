@@ -582,7 +582,7 @@ async function chargerTout(){
     sb.from('personnes').select('*'),
     sb.from('notes_personnes').select('*'),
     sb.from('envies').select('*'),
-    sb.from('app_users').select('nom'),
+    sb.from('app_users').select('nom,email'),
     sb.from('sante_medecins').select('*'),
     sb.from('sante_traitements').select('*'),
     sb.from('sante_prises').select('*'),
@@ -607,6 +607,9 @@ async function chargerTout(){
   CACHE.notes=no.error?[]:no.data;
   CACHE.envies=en.error?[]:en.data;
   const comptes=us.error?[]:us.data.map(x=>x.nom).filter(Boolean);
+  // On garde aussi les adresses : sans elles, inviter quelqu'un obligeait à
+  // taper son e-mail de mémoire dans une boîte de dialogue.
+  CACHE.utilisateurs=us.error?[]:us.data;
   // Le foyer, c'est le registre. Tant qu'il est vide (avant migration), on
   // retombe sur les comptes pour ne rien casser.
   CACHE.comptes=comptes;
@@ -5582,20 +5585,28 @@ function majReglagesTelegram(){
   // L'app ne connaît pas l'adresse email des autres membres (elle ne stocke
   // que leur prénom). On propose donc soi-même, plus tous ceux déjà branchés,
   // et « inviter quelqu'un d'autre » pour le reste.
-  const moi={nom:UTILISATEUR||'Toi',personne:EMAIL_CONNECTE};
-  const tous=[moi];
-  (CACHE.tgliens||[]).forEach(l=>{
-    if(String(l.personne).toLowerCase()!==EMAIL_CONNECTE)
-      tous.push({nom:l.nom||l.personne,personne:l.personne});
-  });
+  // Tous les comptes de la maison, branchés ou non. Avant, seuls les gens
+  // déjà branchés apparaissaient : pour inviter Didier il fallait connaître
+  // et retaper son adresse dans une boîte de dialogue, ce que personne ne
+  // fait. Celui qu'on veut inviter est justement celui qui manque.
+  const vus=new Set();
+  const tous=[];
+  const pousserQqun=(nom,personne)=>{
+    const k=String(personne||'').toLowerCase();
+    if(!k||vus.has(k))return;
+    vus.add(k);tous.push({nom:nom||personne,personne:k});
+  };
+  pousserQqun(UTILISATEUR||'Toi',EMAIL_CONNECTE);
+  (CACHE.utilisateurs||[]).forEach(u=>pousserQqun(u.nom,u.email));
+  (CACHE.tgliens||[]).forEach(l=>pousserQqun(l.nom,l.personne));
   zone.innerHTML=tous.map(x=>{
     const l=lienTg(x.personne);
     const etat=l&&l.actif?`<span style="color:#2f9e44;font-weight:700;font-size:.76rem">✓ branché</span>`
       :l?`<span class="discret2" style="font-size:.76rem">en pause</span>`
-      :`<button class="btn mini" data-tginv="${attr(x.personne)}" data-tgnom="${attr(x.nom)}">Envoyer le lien</button>`;
+      :`<button class="btn mini" data-tginv="${attr(x.personne)}" data-tgnom="${attr(x.nom)}">Inviter →</button>`;
     return `<div class="todo-item"><div class="todo-corps">
       <div class="todo-text">${echap(x.nom)}</div>
-      <div class="todo-date">${l?(l.vu_le?'a parlé à Pia '+dateNoteFr(l.vu_le):'reçoit les messages de Pia'):'ne reçoit encore rien'}</div></div>
+      <div class="todo-date">${l?(l.vu_le?'a parlé à Pia '+dateNoteFr(l.vu_le):'reçoit les messages de Pia'):'pas encore branché'}</div></div>
       ${etat}</div>`;
   }).join('')
   +`<button class="btn mini" id="p-tg-autre" style="width:100%;margin-top:8px">＋ Brancher quelqu'un d'autre</button>`
@@ -5836,4 +5847,3 @@ document.addEventListener('visibilitychange',async()=>{
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');</script>
 </body>
 </html>
-
