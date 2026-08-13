@@ -425,3 +425,5 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
   font-size:.63rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
   color:var(--ink-3);margin:12px 0 4px;
 }
+.fusion{font-size:.68rem;font-weight:700;color:var(--ink-3);background:#f2f1ee;
+  border-radius:99px;padding:1px 6px;margin-left:5px;vertical-align:1px}
