@@ -5063,8 +5063,13 @@ function formParams(){
   /* Trois volets repliés. Un panneau de réglages se parcourt des yeux avant
      de se modifier : chaque volet annonce son état sur sa ligne, pour qu'on
      sache s'il faut l'ouvrir sans avoir à l'ouvrir. */
+  /* La largeur est posée en ligne, pas dans la feuille de style : une règle
+     input[type=number]{width:100%} pèse plus lourd qu'une classe, et le champ
+     s'étirait en écrasant son libellé à un mot par ligne. Un style en ligne
+     ne peut pas être doublé. */
+  const LARG='width:62px;flex:0 0 62px;text-align:center;padding:5px 6px;font-weight:600';
   const nb=(id,val,min,max)=>`<input type="number" id="${id}" value="${val}" min="${min}" max="${max}"
-    class="pm-nb">`;
+    class="pm-nb" style="${LARG}">`;
   const volet=(id,titre,resume,dedans,ouvert)=>`
     <details class="pm-volet" id="${id}" ${ouvert?'open':''}>
       <summary><span class="pm-vt">${titre}</span><span class="pm-vr">${resume}</span></summary>
@@ -5089,7 +5094,8 @@ function formParams(){
       `${REGLAGES.heure_briefing}h · rappels ${INSC[REGLAGES.rappels_insistance]||''}`,`
       <div class="pm-l"><div class="pm-n">Le message du matin
         <small>l'heure à laquelle Pia te dit ta journée</small></div>
-        <input type="number" id="pm-heure" value="${REGLAGES.heure_briefing}" min="0" max="23" class="pm-nb"> h</div>
+        <input type="number" id="pm-heure" value="${REGLAGES.heure_briefing}" min="0" max="23"
+          class="pm-nb" style="${LARG}"> h</div>
       <div class="pm-l"><div class="pm-n">Acheter un cadeau d'anniversaire
         <small>combien de jours avant — le temps de commander</small></div>
         ${nb('pm-cadeau',REGLAGES.cadeau_avant_jours,1,60)} j</div>
