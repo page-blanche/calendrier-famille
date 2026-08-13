@@ -4136,6 +4136,12 @@ function magiResume(a){
     case 'emmene':return {ico:'🚗',type:'Qui emmène',titre:(a.qui||'Personne')+' emmène — '+(a.activite||''),
       det:a.toujours?'à partir de maintenant, c\'est l\'habitude':(a.jour?'seulement le '+dfr(a.jour):'seulement cette fois')};
     case 'course':return {ico:'🛒',type:'Courses',titre:a.texte,det:'ajouté à la liste partagée'};
+    case 'maison':{
+      const det=a.genre==='abonnement'
+        ?['reconduction '+dfr(a.echeance),(a.resilier_avant_jours??30)+' j de préavis',a.montant_mois?a.montant_mois+' €/mois':null].filter(Boolean).join(' · ')
+        :['tous les '+a.tous_les_mois+' mois','dernière fois '+dfr(a.derniere_fois)].filter(Boolean).join(' · ');
+      return {ico:'🏠',type:a.id?'Maison — correction':(a.genre==='abonnement'?'Abonnement':'Entretien'),titre:a.nom,det};
+    }
     case 'dose':{
       const t=(CACHE.traitements||[]).find(x=>x.id===a.id);
       return {ico:'💊',type:a.faite===false?'Prise annulée':'Prise',
@@ -4209,6 +4215,16 @@ function magiEnregistrer(actions){
           y:base.getFullYear(),m:base.getMonth()+1});n++;
       }
       render();
+    }else if(a.type==='maison'&&a.nom&&a.genre){
+      const coll=a.genre==='abonnement'?'abonnements':'entretiens';
+      const l={nom:a.nom};
+      const garde=k=>{if(a[k]!==undefined&&a[k]!==null)l[k]=a[k]};
+      ['emoji','contact_nom','contact_tel','note'].forEach(garde);
+      if(a.genre==='abonnement')['fournisseur','echeance','resilier_avant_jours','reconduction_tacite','montant_mois','reference','depuis'].forEach(garde);
+      else ['derniere_fois','tous_les_mois','prevenir_avant_jours','categorie'].forEach(garde);
+      if(a.id)enregistrerObjet(a.id,coll,l);
+      else{l.id=genId();enregistrerObjet(null,coll,l)}
+      n++;
     }else if(a.type==='dose'&&a.id&&a.moment){
       const jour=a.jour||iso(new Date());
       const id=a.id+'-'+jour+'-'+a.moment;
