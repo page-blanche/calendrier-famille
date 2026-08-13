@@ -4136,6 +4136,12 @@ function magiResume(a){
     case 'emmene':return {ico:'🚗',type:'Qui emmène',titre:(a.qui||'Personne')+' emmène — '+(a.activite||''),
       det:a.toujours?'à partir de maintenant, c\'est l\'habitude':(a.jour?'seulement le '+dfr(a.jour):'seulement cette fois')};
     case 'course':return {ico:'🛒',type:'Courses',titre:a.texte,det:'ajouté à la liste partagée'};
+    case 'repas':{
+      const r=a.recette?(CACHE.recettes||[]).find(x=>x.nom.trim().toLowerCase()===String(a.recette).trim().toLowerCase()):null;
+      const n=r?(r.ingredients||[]).length:0;
+      return {ico:'🍽️',type:'Repas',titre:r?r.nom:(a.texte||a.recette||'?'),
+        det:[dfr(a.jour),n?n+' ingrédient'+(n>1?'s':'')+' dans les courses':'sans recette notée'].filter(Boolean).join(' · ')};
+    }
     case 'cadeau':return {ico:'🎁',type:'Idée cadeau',titre:a.idee,det:'pour '+(a.personne||'?')+' · '+badge(a.partagee)};
     case 'note':return {ico:'🧠',type:'Note',titre:a.texte,det:'sur '+(a.personne||'?')+(a.categorie&&!CACHE.personnes.some(x=>x.nom.trim().toLowerCase()===String(a.personne||'').trim().toLowerCase())?' · '+emojiCat(a.categorie)+' '+a.categorie:'')+' · '+badge(a.partagee)};
     case 'envie':return {ico:'✨',type:'Envie',titre:a.titre,det:(ENV_CATS.find(c=>c[0]===a.categorie)||[,'','Autre'])[2]+' · '+badge(a.partagee)};
@@ -4197,6 +4203,11 @@ function magiEnregistrer(actions){
           y:base.getFullYear(),m:base.getMonth()+1});n++;
       }
       render();
+    }else if(a.type==='repas'&&a.jour){
+      // Le tri « je l'ai déjà » se fait dans l'écran des repas ; ici on pose
+      // le menu complet, comme Pia le fait avant de proposer le tri.
+      const r=a.recette?(CACHE.recettes||[]).find(x=>x.nom.trim().toLowerCase()===String(a.recette).trim().toLowerCase()):null;
+      poserMenu(a.jour,r?r.id:null,r?null:(a.texte||a.recette||''));n++;
     }else if(a.type==='envie'&&a.titre){
       enregistrerObjet(null,'envies',{categorie:ENV_CATS.some(c=>c[0]===a.categorie)?a.categorie:'autre',titre:a.titre,
         detail:a.detail||null,faite:false,partagee:!!a.partagee,email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});n++;
