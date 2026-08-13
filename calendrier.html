@@ -747,28 +747,35 @@ function tachesAuto(){
   const out=[];
   lesBdays().forEach(b=>{
     if(b.type==='evenement')return;
-    [2026,2027].forEach(y=>{
+    // Les années étaient écrites en dur : en janvier 2028, plus aucun
+    // anniversaire n'aurait été rappelé, sans le moindre message. On les
+    // calcule maintenant autour d'aujourd'hui.
+    const anCourant=new Date().getFullYear();
+    [anCourant,anCourant+1].forEach(y=>{
       const ech=y+'-'+p2(b.mois)+'-'+p2(b.jour);
-      if(ech<'2026-03-01'||ech>'2027-12-31')return;
+      const bas=iso(new Date(Date.now()-120*864e5));
+      if(ech<bas||ech>(anCourant+1)+'-12-31')return;
       const age=b.annee?y-b.annee:null;
       out.push({id:'auto-souhait-'+b.id+'-'+y,auto:true,lien:b.id,cat:'family',
         texte:'🎂 Souhaiter l\'anniversaire de '+b.nom+(age?' ('+age+' ans)':''),
         dateTexte:'le '+b.jour+' '+MFR[b.mois-1].toLowerCase(),ech,y,m:b.mois});
       if(b.cadeau){
-        const d=deIso(ech);d.setDate(d.getDate()-7);
+        const av=Number(REGLAGES.cadeau_avant_jours)||7;
+        const d=deIso(ech);d.setDate(d.getDate()-av);
         out.push({id:'auto-cadeau-'+b.id+'-'+y,auto:true,lien:b.id,cat:'family',
           texte:'🎁 Acheter le cadeau de '+b.nom,
-          dateTexte:'une semaine avant ('+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()+')',
+          dateTexte:av+' jours avant ('+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()+')',
           ech:iso(d),y:d.getFullYear(),m:d.getMonth()+1});
       }
     });
   });
   lesEvts().forEach(e=>{
     if(e.cat!=='voyage'||!e.fin||e.fin===e.debut)return;
-    const d=deIso(e.debut);d.setDate(d.getDate()-2);
+    const av=Number(REGLAGES.valises_avant_jours)||2;
+    const d=deIso(e.debut);d.setDate(d.getDate()-av);
     out.push({id:'auto-valises-'+e.id,auto:true,lien:e.id,cat:'family',
       texte:'🧳 Préparer les valises — '+e.titre.replace(/^\S+\s/,''),
-      dateTexte:'2 jours avant le départ',ech:iso(d),y:d.getFullYear(),m:d.getMonth()+1});
+      dateTexte:av+' jour'+(av>1?'s':'')+' avant le départ',ech:iso(d),y:d.getFullYear(),m:d.getMonth()+1});
   });
   return out.filter(t=>!(CACHE.etatsAuto[t.id]&&CACHE.etatsAuto[t.id].supprimee));
 }
@@ -5050,42 +5057,103 @@ function majReglagesFoyer(){
 function formParams(){
   ouvrirTiroirBrut('⚙️ Réglages');
   const corps=document.getElementById('dbd');
+  /* Trois volets repliés. Un panneau de réglages se parcourt des yeux avant
+     de se modifier : chaque volet annonce son état sur sa ligne, pour qu'on
+     sache s'il faut l'ouvrir sans avoir à l'ouvrir. */
+  const nb=(id,val,min,max)=>`<input type="number" id="${id}" value="${val}" min="${min}" max="${max}"
+    class="pm-nb">`;
+  const volet=(id,titre,resume,dedans,ouvert)=>`
+    <details class="pm-volet" id="${id}" ${ouvert?'open':''}>
+      <summary><span class="pm-vt">${titre}</span><span class="pm-vr">${resume}</span></summary>
+      <div class="pm-vd">${dedans}</div>
+    </details>`;
+
+  const INS={discret:'deux rappels, puis on te laisse',
+             normal:'quatre rappels espacés d\'une demi-heure',
+             insistant:'six rappels — pour ce qu\'on ne peut pas oublier'};
+  const INSC={discret:'discrets',normal:'normaux',insistant:'insistants'};
+  const foyer=(CACHE.personnes||[]).filter(p=>p.foyer);
+  const branches=(CACHE.tgliens||[]).filter(t=>t.actif).length;
+  const comptes=(CACHE.membres||[]).length;
+
   corps.innerHTML=`
-    <p class="discret2">Connecté·e en tant que <strong>${echap(UTILISATEUR||'')}</strong> (${echap(EMAIL_CONNECTE)})</p>
-    <div class="carte-solo">
-      <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🔔 Notifications</div>
-      <p class="discret2" id="p-notif-etat" style="margin:0 0 8px">…</p>
-      <button class="btn" id="p-notif-btn" style="width:100%;display:none"></button>
-      <button class="btn mini" id="p-notif-test" style="width:100%;margin-top:8px;display:none">🧪 M'envoyer une notification maintenant</button>
-      <p class="discret2" id="p-notif-diag" style="margin:8px 0 0"></p>
+    <div class="pm-moi">
+      <div class="pm-rond">${echap((UTILISATEUR||'?').slice(0,1).toUpperCase())}</div>
+      <div><b>${echap(UTILISATEUR||'')}</b><span>${echap(EMAIL_CONNECTE)}</span></div>
     </div>
-    <div class="carte-solo">
-      <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🏠 Qui vit à la maison</div>
-      <p class="discret2" style="margin:0 0 4px">Les adultes peuvent se voir confier une tâche ou emmener quelqu'un. Tout le monde a un carnet de santé.</p>
-      <div id="p-foyer"></div>
-      <div id="p-foyer-ajout" style="margin-top:8px"></div>
-    </div>
-    <div class="carte-solo">
-      <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">💬 Qui parle avec Pia</div>
-      <p class="discret2" style="margin:0 0 8px">Chacun reçoit son briefing et ses rappels dans sa messagerie,
-        et peut lui répondre — sans jamais ouvrir l'app. Une conversation par personne.</p>
-      <div id="p-tg"></div>
-    </div>
-    <div class="carte-solo">
-      <div style="font-weight:700;font-size:.9rem;margin-bottom:4px">🔧 Bientôt ici</div>
-      <p class="discret2" style="margin:0">L'heure du briefing du matin · les préférences de rappels · le partage de l'app à d'autres familles…</p>
-    </div>
-    <button class="btn" id="p-deco" style="width:100%;margin-top:8px;color:var(--alert)">Se déconnecter</button>`;
-  majReglagesNotifs();
+
+    ${volet('pm-v-quand','⏰ Quand te prévenir',
+      `${REGLAGES.heure_briefing}h · rappels ${INSC[REGLAGES.rappels_insistance]||''}`,`
+      <div class="pm-l"><div class="pm-n">Le message du matin
+        <small>l'heure à laquelle Pia te dit ta journée</small></div>
+        <input type="number" id="pm-heure" value="${REGLAGES.heure_briefing}" min="0" max="23" class="pm-nb"> h</div>
+      <div class="pm-l"><div class="pm-n">Acheter un cadeau d'anniversaire
+        <small>combien de jours avant — le temps de commander</small></div>
+        ${nb('pm-cadeau',REGLAGES.cadeau_avant_jours,1,60)} j</div>
+      <div class="pm-l"><div class="pm-n">Préparer les valises
+        <small>avant le départ d'un voyage</small></div>
+        ${nb('pm-valises',REGLAGES.valises_avant_jours,1,30)} j</div>
+      <div class="pm-l"><div class="pm-n">Les échéances de la maison
+        <small>le second rappel avant la date butoir</small></div>
+        ${nb('pm-maison',REGLAGES.maison_avant_jours,1,60)} j</div>
+      <div class="pm-l pm-bloc"><div class="pm-n" style="flex:none">Les rappels de médicament
+        <small id="pm-ins-s"></small></div>
+        <div class="mg-chips" id="pm-ins" style="margin:8px 0 0">
+          ${Object.keys(INS).map(k=>`<button type="button" class="mg-chip ${REGLAGES.rappels_insistance===k?'actif':''}" data-ins="${k}">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}
+        </div></div>`)}
+
+    ${volet('pm-v-tg','💬 Qui parle avec Pia',
+      `${branches} sur ${comptes||'?'}`,
+      `<p class="discret2" style="margin:0 0 8px">Une conversation par personne — chacun reçoit ce qui le concerne, et rien d'autre.</p>
+       <div id="p-tg"></div>`)}
+
+    ${volet('pm-v-fam','🏠 La famille',
+      `${foyer.length} personne${foyer.length>1?'s':''}`,
+      `<p class="discret2" style="margin:0 0 4px">Les adultes peuvent se voir confier une tâche ou emmener quelqu'un. Tout le monde a un carnet de santé.</p>
+       <div id="p-foyer"></div>
+       <div id="p-foyer-ajout" style="margin-top:8px"></div>`)}
+
+    <button class="btn" id="p-deco" style="width:100%;margin-top:16px;color:var(--alert)">Se déconnecter</button>`;
+
   majReglagesFoyer();
   majReglagesTelegram();
+
+  const resume=(id,txt)=>{const e=document.querySelector('#'+id+' .pm-vr');if(e)e.textContent=txt};
+  const majIns=()=>{
+    document.getElementById('pm-ins-s').textContent=INS[REGLAGES.rappels_insistance]||'';
+    resume('pm-v-quand',`${REGLAGES.heure_briefing}h · rappels ${INSC[REGLAGES.rappels_insistance]||''}`);
+  };
+  majIns();
+  document.querySelectorAll('#pm-ins [data-ins]').forEach(b=>{b.onclick=()=>{
+    poserReglage('rappels_insistance',b.dataset.ins);
+    document.querySelectorAll('#pm-ins .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+    majIns();
+  }});
+  /* On enregistre en quittant le champ, pas à chaque frappe : sinon taper
+     « 14 » écrit d'abord « 1 » et la tâche saute d'une journée. */
+  [['pm-heure','heure_briefing',0,23],['pm-cadeau','cadeau_avant_jours',1,60],
+   ['pm-valises','valises_avant_jours',1,30],['pm-maison','maison_avant_jours',1,60]]
+  .forEach(([id,champ,min,max])=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.onchange=()=>{
+      let v=parseInt(el.value,10);
+      if(!isFinite(v))v=REGLAGES[champ];
+      v=Math.max(min,Math.min(max,v));
+      el.value=v;
+      poserReglage(champ,v);
+      majIns();
+      render();                       // les tâches automatiques bougent avec
+      toast('C\'est noté ✔');
+    };
+  });
+
   document.getElementById('p-deco').onclick=async()=>{
     if(!confirm('Se déconnecter ?'))return;
     await sb.auth.signOut();
     window.location.replace('index.html');
   };
 }
-
 
 /* ================== 🏠 MAISON ================== */
 /*  Ce qui s'entretient, ce qui se prélève.
@@ -5554,6 +5622,21 @@ function majReglagesTelegram(){
 let section='planning';
 let vuePlanning='jour';       // 'jour' | 'mois' | 'repas'
 let UTILISATEUR=null;let EMAIL_CONNECTE='';
+/* Les réglages de la personne connectée. Les valeurs par défaut sont celles
+   qui étaient écrites en dur avant : rien ne change tant qu'on n'y touche pas. */
+let REGLAGES={cadeau_avant_jours:7,valises_avant_jours:2,maison_avant_jours:7,
+  rappels_insistance:'normal',heure_briefing:8};
+async function chargerReglages(){
+  if(!EMAIL_CONNECTE)return;
+  const {data}=await sb.from('app_users')
+    .select('cadeau_avant_jours,valises_avant_jours,maison_avant_jours,rappels_insistance,heure_briefing')
+    .ilike('email',EMAIL_CONNECTE).maybeSingle();
+  if(data)REGLAGES={...REGLAGES,...Object.fromEntries(Object.entries(data).filter(([,v])=>v!=null))};
+}
+function poserReglage(champ,valeur){
+  REGLAGES[champ]=valeur;
+  pousser(sb.from('app_users').update({[champ]:valeur}).ilike('email',EMAIL_CONNECTE));
+}
 
 const ONGLETS=['planning','todo','memoire','sante','maison'];
 
@@ -5745,6 +5828,7 @@ document.addEventListener('visibilitychange',async()=>{
   if(!s.session||!s.role){window.location.replace('index.html');return}
   UTILISATEUR=s.nom||s.session.user.email;
   EMAIL_CONNECTE=(s.session.user.email||'').toLowerCase();
+  await chargerReglages();
   if(await chargerTout()){setVue('mois');setSection('planning');majHautChat();montrerPriseSiBesoin()}
 })();
 
