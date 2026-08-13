@@ -2729,7 +2729,11 @@ function lundiDe(d){
 function menuDuJour(sJour){return (CACHE.menus||[]).find(m=>m.jour===sJour)||null}
 function recetteDe(id){return (CACHE.recettes||[]).find(r=>r.id===id)||null}
 /* Poser un repas : les ingrédients rejoignent la liste, en gardant d'où ils viennent. */
-function poserMenu(sJour,recetteId,texte){
+/* `garder` : les lignes d'ingrédients qu'on veut vraiment acheter. Absent =
+   tout. C'est ce qui permet de dire « le beurre, je l'ai » sans toucher à la
+   recette : elle garde ses ingrédients, c'est la liste qui n'en prend que
+   ce qui manque. */
+function poserMenu(sJour,recetteId,texte,garder){
   const id='menu-'+sJour;
   const avant=menuDuJour(sJour);
   if(avant)retirerIngredients(sJour);
@@ -2738,13 +2742,13 @@ function poserMenu(sJour,recetteId,texte){
   if(i>=0){CACHE.menus[i]={...CACHE.menus[i],...l};pousser(sb.from('menus').update(l).eq('id',id))}
   else{CACHE.menus.push(l);pousser(sb.from('menus').insert(l))}
   const r=recetteId?recetteDe(recetteId):null;
-  if(r)(r.ingredients||[]).forEach(ing=>{
-    const t=String(ing||'').trim();
-    if(!t)return;
+  const retenus=(r?(r.ingredients||[]):[]).map(x=>String(x||'').trim()).filter(Boolean)
+    .filter((t,i)=>!garder||garder.includes(i));
+  retenus.forEach(t=>{
     enregistrerObjet(null,'courses',{texte:t,coche:false,achete_le:null,
       recette_id:r.id,pour_le:sJour});
   });
-  return r?(r.ingredients||[]).filter(x=>String(x).trim()).length:0;
+  return retenus.length;
 }
 /* Enlever un repas : on ne retire QUE ce qui n'a pas encore été acheté ni coché. */
 function retirerIngredients(sJour){
@@ -2812,36 +2816,70 @@ function formMenu(sJour){
       ${['Restes','Au resto','Chez des amis','Pâtes','Improvisation'].map(x=>`<button type="button" class="mg-chip ${m&&m.texte===x?'actif':''}" data-l="${attr(x)}">${echap(x)}</button>`).join('')}
     </div>
     <input type="text" id="mn-texte" value="${m&&m.texte?attr(m.texte):''}" placeholder="ou écris ce que tu veux…" style="margin-top:8px">
+    <div id="mn-ing" style="display:none"></div>
     <button class="btn primaire" id="mn-ok" style="width:100%;margin-top:16px">C'est noté</button>
     ${m?`<button class="btn danger" id="mn-vide" style="width:100%;margin-top:8px">Rien de prévu finalement</button>`:''}
     <button class="btn mini" id="mn-new" style="width:100%;margin-top:14px">＋ Nouvelle recette</button>`;
   let choix=m&&m.recette_id?m.recette_id:null;
+  let ecartes=new Set();          // les indices qu'on n'achète pas
+
+  /* Une recette demande, le frigo répond. On montre ce qui partirait dans
+     les courses et on laisse décocher — la recette n'est pas modifiée, elle
+     reste complète pour la prochaine fois. */
+  function majIngredients(){
+    const z=document.getElementById('mn-ing');
+    const r=choix?recetteDe(choix):null;
+    const ing=(r?(r.ingredients||[]):[]).map(x=>String(x||'').trim()).filter(Boolean);
+    if(!ing.length){z.style.display='none';z.innerHTML='';return}
+    z.style.display='';
+    const n=ing.length-ecartes.size;
+    z.innerHTML=`<label class="lbl" style="margin-top:14px">Ce qui part dans les courses
+        <span class="discret2">(décoche ce que tu as déjà)</span></label>
+      <div class="mg-chips" id="mn-ing-chips">
+        ${ing.map((t,i)=>`<button type="button" class="mg-chip ${ecartes.has(i)?'':'actif'}" data-i="${i}">${echap(t)}</button>`).join('')}
+      </div>
+      <p class="discret2" style="margin:6px 0 0">${n?n+' article'+(n>1?'s':'')+' à acheter':'Rien à acheter — tu as tout 🌿'}</p>`;
+    z.querySelectorAll('[data-i]').forEach(b=>{b.onclick=()=>{
+      const i=Number(b.dataset.i);
+      if(ecartes.has(i))ecartes.delete(i);else ecartes.add(i);
+      majIngredients();
+    }});
+  }
+
   document.querySelectorAll('#mn-recs [data-r]').forEach(b=>{b.onclick=()=>{
     choix=b.dataset.r;
+    ecartes=new Set();            // nouvelle recette, on repart de tout coché
     document.getElementById('mn-texte').value='';
     document.querySelectorAll('#mn-recs .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
     document.querySelectorAll('#mn-libres .mg-chip').forEach(x=>x.classList.remove('actif'));
+    majIngredients();
   }});
   document.querySelectorAll('#mn-libres [data-l]').forEach(b=>{b.onclick=()=>{
     choix=null;
     document.getElementById('mn-texte').value=b.dataset.l;
     document.querySelectorAll('#mn-libres .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
     document.querySelectorAll('#mn-recs .mg-chip').forEach(x=>x.classList.remove('actif'));
+    majIngredients();
   }});
   document.getElementById('mn-texte').addEventListener('input',()=>{
     if(document.getElementById('mn-texte').value.trim()){
       choix=null;
       document.querySelectorAll('#mn-recs .mg-chip,#mn-libres .mg-chip').forEach(x=>x.classList.remove('actif'));
+      majIngredients();
     }
   });
   document.getElementById('mn-ok').onclick=()=>{
     const txt=document.getElementById('mn-texte').value.trim();
     if(!choix&&!txt){toast('Choisis une recette ou écris un mot');return}
-    const n=poserMenu(sJour,choix,choix?null:txt);
+    const r=choix?recetteDe(choix):null;
+    const total=(r?(r.ingredients||[]):[]).map(x=>String(x||'').trim()).filter(Boolean).length;
+    const garder=choix?[...Array(total).keys()].filter(i=>!ecartes.has(i)):null;
+    const n=poserMenu(sJour,choix,choix?null:txt,garder);
     fermerTiroir();
     toast(n?n+' ingrédient'+(n>1?'s':'')+' dans les courses 🛒':'C\'est noté ✔');
     renderCourses();
   };
+  majIngredients();
   const bv=document.getElementById('mn-vide');
   if(bv)bv.onclick=()=>{
     const n=enleverMenu(sJour);
@@ -3021,7 +3059,7 @@ function grouperCourses(l){
     // combien il en faut : on montre le nom, et les sources disent le reste.
     const texte=somme===null?nom
       :(u?`${fmtQuantite(somme)} ${unitePluriel(u,somme)} ${deDevant(nom)}`:`${fmtQuantite(somme)} ${nom}`);
-    return {items:g.map(x=>x.c),texte,urgent:g.some(x=>x.c.urgent),fusion:g.length};
+    return {items:g.map(x=>x.c),texte,urgent:g.some(x=>x.c.urgent)};
   });
 }
 /* D'où viennent ces lignes : « pour 🥧 Quiche · mardi + 🍰 Gâteau · jeudi ». */
@@ -3047,7 +3085,7 @@ function ligneCourse(g,faite){
   return `<div class="todo-item${faite?' done':''}${g.urgent&&!faite?' urgent':''}" data-ids="${attr(ids)}">
     <div class="todo-check" data-act="cocher"></div>
     <div class="todo-corps" data-act="cocher">
-      <div class="todo-text">${g.urgent&&!faite?'⚡ ':''}${echap(g.texte)}${g.fusion?` <span class="fusion">×${g.fusion}</span>`:''}</div>
+      <div class="todo-text">${g.urgent&&!faite?'⚡ ':''}${echap(g.texte)}</div>
       ${sourcesCourses(g.items)}</div>
     <div class="todo-actions">
       <button class="todo-act" data-act="urgent" title="${g.urgent?'Ce n\'est plus urgent':'C\'est urgent'}">⚡</button>
