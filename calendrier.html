@@ -4136,6 +4136,12 @@ function magiResume(a){
     case 'emmene':return {ico:'🚗',type:'Qui emmène',titre:(a.qui||'Personne')+' emmène — '+(a.activite||''),
       det:a.toujours?'à partir de maintenant, c\'est l\'habitude':(a.jour?'seulement le '+dfr(a.jour):'seulement cette fois')};
     case 'course':return {ico:'🛒',type:'Courses',titre:a.texte,det:'ajouté à la liste partagée'};
+    case 'dose':{
+      const t=(CACHE.traitements||[]).find(x=>x.id===a.id);
+      return {ico:'💊',type:a.faite===false?'Prise annulée':'Prise',
+        titre:a.texte||(t?t.medicament:'la prise'),
+        det:[a.moment,dfr(a.jour||iso(new Date())),t&&t.dose?t.dose:null].filter(Boolean).join(' · ')};
+    }
     case 'repas':{
       const r=a.recette?(CACHE.recettes||[]).find(x=>x.nom.trim().toLowerCase()===String(a.recette).trim().toLowerCase()):null;
       const n=r?(r.ingredients||[]).length:0;
@@ -4203,6 +4209,17 @@ function magiEnregistrer(actions){
           y:base.getFullYear(),m:base.getMonth()+1});n++;
       }
       render();
+    }else if(a.type==='dose'&&a.id&&a.moment){
+      const jour=a.jour||iso(new Date());
+      const id=a.id+'-'+jour+'-'+a.moment;
+      const i=CACHE.prises.findIndex(x=>x.id===id);
+      if(a.faite===false){
+        if(i>=0){CACHE.prises.splice(i,1);pousser(sb.from('sante_prises').delete().eq('id',id))}
+      }else if(i<0){
+        const l={id,traitement_id:a.id,jour,moment:a.moment,par:UTILISATEUR||null};
+        CACHE.prises.push(l);pousser(sb.from('sante_prises').insert(l));
+      }
+      n++;
     }else if(a.type==='repas'&&a.jour){
       // Le tri « je l'ai déjà » se fait dans l'écran des repas ; ici on pose
       // le menu complet, comme Pia le fait avant de proposer le tri.
