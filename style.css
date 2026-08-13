@@ -454,4 +454,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
 .pm-vr{margin-left:auto;font-weight:600;font-size:.78rem;color:var(--ink-3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm-vd{padding:0 15px 14px;border-top:1px solid var(--border);margin-top:2px;padding-top:10px}
-.pm-nb{width:62px;text-align:center;padding:5px 6px;font-weight:600}
+/* `input[type=number]` porte un width:100% et pèse plus lourd qu'une simple
+   classe : sans sélecteur plus fort, le champ s'étirait et le libellé se
+   retrouvait à un mot par ligne. */
+.pm-l input.pm-nb{width:62px;flex:0 0 62px;text-align:center;padding:5px 6px;font-weight:600}
+.pm-n{min-width:0}
