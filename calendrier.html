@@ -1949,7 +1949,15 @@ function corpsJournee(d,pleinePage){
   const vus=new Set();
   const taches=[];
   toutesTaches().forEach(t=>{if(t.ech===sJ&&!vus.has(t.id)){vus.add(t.id);taches.push(t)}});
-  items.forEach(it=>tachesLiees(it.id).forEach(t=>{if(!vus.has(t.id)){vus.add(t.id);taches.push(t)}}));
+  /* Les tâches rattachées à un élément du jour — « acheter le cadeau » sur un
+     anniversaire — méritent d'apparaître même si leur échéance est passée.
+     Mais pas celles qui visent l'an prochain : un anniversaire porte aussi la
+     tâche de l'année suivante, et on voyait « (11 ans) » et « (12 ans) » l'un
+     sous l'autre le même jour. */
+  items.forEach(it=>tachesLiees(it.id).forEach(t=>{
+    if(t.ech&&t.ech>sJ)return;
+    if(!vus.has(t.id)){vus.add(t.id);taches.push(t)}
+  }));
   if(taches.length){
     const moi=String(UTILISATEUR||'').trim().toLowerCase();
     const membres=(CACHE.membres||[]).slice()
@@ -5802,8 +5810,8 @@ function render(){
 function renderAujourdhui(){
   const zone=document.getElementById('vueCourses');
   const auj=deIso(jourVu);
-  const v=enVacances(auj),f=ferie(auj);
-  const sous=[f?'🇫🇷 '+f:'',v?v.nom:''].filter(Boolean).join(' · ');
+  // Le contexte (férié, vacances) est déjà écrit par corpsJournee : le
+  // répéter ici donnait deux lignes presque identiques l'une sous l'autre.
   const rec=maisonReclame().filter(x=>x.jours<=30);
   let bas='';
   if(rec.length){
@@ -5816,7 +5824,6 @@ function renderAujourdhui(){
   }
   // La date est déjà écrite dans la barre de période, juste au-dessus.
   zone.innerHTML=`<h2 class="ps-titre">${jourVu===iso(new Date())?'Ma journée':'Cette journée'}</h2>`
-    +(sous?`<p class="discret2" style="margin:-2px 0 8px">${echap(sous)}</p>`:'')
     +corpsJournee(auj,true)+bas;
   brancherJournee2(zone,auj,()=>{render()});
   zone.querySelectorAll('[data-recl]').forEach(el=>{
