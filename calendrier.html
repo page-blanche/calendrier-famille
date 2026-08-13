@@ -955,6 +955,9 @@ function pastilles(d,sansSejours){
 
 /* ================== VUE MOIS ================== */
 let jourSel=null;
+/* Le jour que regarde « Ma journée ». Il était figé sur new Date() : on ne
+   pouvait ni préparer demain ni revoir hier. */
+let jourVu=iso(new Date());
 function renderMois(){
   const y=cur.getFullYear(),m=cur.getMonth();
   const estMobile=window.innerWidth<700;
@@ -1658,10 +1661,6 @@ function formProjet(id){
 /* Les vues de la To do : toi, les autres, puis les courses — même onglet,
    écrans séparés, pour rester lisible d'une main dans un magasin. */
 let vueTodo='taches';         // 'taches' | 'courses'
-function vuesTodo(){
-  const n=CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length;
-  return barreVues([['taches','✅ À faire'],['courses','🛒 Courses',n]],vueTodo,'todo');
-}
 function setVueTodo(v){vueTodo=v;render()}
 
 function renderTodo(){
@@ -1676,7 +1675,7 @@ function renderTodo(){
   // soixante-six choses et n'en montre six
   const nMoi=miennes.concat(libres).filter(dansLHorizon).length;
 
-  let h=vuesTodo();
+  let h='';
   if(autres.length){
     h+=`<div class="td-ong">
       <button class="${ongletTodo==='moi'?'on':''}" data-o="moi">Toi <span class="n">${nMoi}</span></button>
@@ -2777,12 +2776,7 @@ function renderRepas(zone){
   const lundi=lundiDe(new Date());
   lundi.setDate(lundi.getDate()+semaineRepas*7);
   const sAuj=iso(new Date());
-  let h=`<h2 class="ps-titre">🍽️ Les repas de la semaine</h2>
-  <div class="rp-nav">
-    <button class="btn mini" data-sem="-1">‹</button>
-    <span>${semaineRepas===0?'Cette semaine':semaineRepas===1?'La semaine prochaine':'Semaine du '+lundi.getDate()+' '+MFR[lundi.getMonth()].toLowerCase()}</span>
-    <button class="btn mini" data-sem="1">›</button>
-  </div>`;
+  let h=`<h2 class="ps-titre">🍽️ Les repas de la semaine</h2>`;
   for(let i=0;i<7;i++){
     const d=new Date(lundi);d.setDate(d.getDate()+i);
     const sJ=iso(d);
@@ -2903,8 +2897,7 @@ let recettesOuvertes=false;
 function renderRecettes(){
   const zone=document.getElementById('vueMemoire');
   const recs=(CACHE.recettes||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
-  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>${ongletsMem()}
-  <h2 class="ps-titre" style="font-size:1.05rem">📖 Tes recettes</h2>
+  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>  <h2 class="ps-titre" style="font-size:1.05rem">📖 Tes recettes</h2>
   <p class="discret2">Le socle de la maison. Une recette, c'est un nom et des ingrédients — écris-les comme tu les dirais.</p>`;
   if(!recs.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">Aucune recette pour l'instant.<br>Commence par celle que tu fais le plus souvent 🙂</div>`;
   recs.forEach(r=>{
@@ -2958,12 +2951,6 @@ function formRecette(id,pourJour){
     if(!confirm('Supprimer « '+r.nom+' » ?'))return;
     supprimerObjet(id);fermerTiroir();toast('Supprimée');renderCourses();
   };
-}
-function ongletsCourses(){
-  return `<div class="onglets-todo" style="margin-bottom:12px">
-    <button class="${ongletCourses==='liste'?'actif':''}" data-oc="liste">🛒 La liste</button>
-    <button class="${ongletCourses==='repas'?'actif':''}" data-oc="repas">🍽️ Les repas</button>
-  </div>`;
 }
 function brancherOngletsCourses(zone){
   zone.querySelectorAll('[data-oc]').forEach(b=>{b.onclick=()=>{ongletCourses=b.dataset.oc;recettesOuvertes=false;render()}});
@@ -3152,7 +3139,7 @@ function renderCourses(){
   const ailleurs=trierCourses(ouvertes.filter(c=>c.ailleurs));
   const nUrgent=ouvertes.filter(c=>c.urgent).length;
 
-  let h=`${vuesTodo()}<h2 class="ps-titre">🛒 La liste de courses</h2>
+  let h=`<h2 class="ps-titre">🛒 La liste de courses</h2>
   <p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>
   <div class="ps-ajout"><input type="text" id="course-texte" placeholder="Lait, piles, T-shirts pour Darya…">
   <button class="btn primaire" id="course-ajouter">Ajouter</button></div>
@@ -3254,8 +3241,7 @@ function renderCadeaux(zone){
   const visibles=cadeauxVisibles();
   const noms=[...new Set([...lesBdays().filter(b=>b.type!=='evenement').map(b=>b.nom),...CACHE.personnes.map(p=>p.nom)])];
   let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
-  ${ongletsMem()}
-  <p class="discret2">Notez une idée dès qu'elle passe. 🔒 Privée par défaut — parfait pour préparer une surprise à quelqu'un de la famille 🤫. Cochez 👥 pour les idées à coordonner à deux.</p>
+    <p class="discret2">Notez une idée dès qu'elle passe. 🔒 Privée par défaut — parfait pour préparer une surprise à quelqu'un de la famille 🤫. Cochez 👥 pour les idées à coordonner à deux.</p>
   <div class="carte-solo">
     <div class="grille-form">
       <div><label>Pour qui ?</label>
@@ -4347,14 +4333,7 @@ function notesVisibles(){return CACHE.notes.filter(n=>n.partagee||((n.email_aute
 function enviesVisibles(){return CACHE.envies.filter(n=>n.partagee||((n.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
 function cadeauxVisibles(){return CACHE.cadeaux.filter(c=>c.partagee||((c.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
 const ENV_CATS=[['lire','📚','À lire'],['regarder','🎬','À regarder'],['resto','🍽️','Restos'],['sortie','🏛️','Sorties & lieux'],['autre','💡','Autre']];
-function ongletsMem(){
-  return `<div class="onglets-todo" style="margin-bottom:12px">
-    <button class="${ongletMem==='gens'?'actif':''}" data-om="gens">🧑 Les gens</button>
-    <button class="${ongletMem==='envies'?'actif':''}" data-om="envies">✨ Les envies</button>
-    <button class="${ongletMem==='cadeaux'?'actif':''}" data-om="cadeaux">🎁 Les cadeaux</button>
-    <button class="${ongletMem==='recettes'?'actif':''}" data-om="recettes">📖 Recettes</button>
-  </div>`;
-}
+function setOngletMem(v){ongletMem=v;render()}
 function brancherOngletsMem(zone){
   zone.querySelectorAll('[data-om]').forEach(b=>{
     b.onclick=()=>{ongletMem=b.dataset.om;persOuverte=null;rangementOuvert=false;renderMemoire()};
@@ -4596,8 +4575,7 @@ function renderMemoire(){
   };
 
   let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
-  ${ongletsMem()}
-  <p class="discret2">Ce que tu veux garder sur les gens. 🔒 Ce que tu écris reste pour toi — sauf si tu le partages.</p>
+    <p class="discret2">Ce que tu veux garder sur les gens. 🔒 Ce que tu écris reste pour toi — sauf si tu le partages.</p>
   <div class="ps-ajout">
     ${CACHE.personnes.length>6?`<input type="text" id="mem-recherche" placeholder="🔍 Chercher quelqu'un…" value="${attr(rechercheMem)}">`:''}
     <button class="btn primaire" id="mem-ajouter" style="${CACHE.personnes.length>6?'':'width:100%'}">+ Ajouter</button>
@@ -4679,8 +4657,7 @@ function renderEnvies(zone){
   const actives=visibles.filter(e=>!e.faite);
   const faites=visibles.filter(e=>e.faite);
   let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
-  ${ongletsMem()}
-  <p class="discret2">Le livre dont on t'a parlé, ce resto, cette expo… Dépose-le ici avant d'oublier. 🔒 Privé par défaut.</p>
+    <p class="discret2">Le livre dont on t'a parlé, ce resto, cette expo… Dépose-le ici avant d'oublier. 🔒 Privé par défaut.</p>
   <div class="carte-solo">
     <div class="grille-form">
       <div><label>Quoi ?</label><input type="text" id="env-titre" placeholder="Le resto Chez Georges, le dernier Ferrante…"></div>
@@ -5230,10 +5207,6 @@ function totalAbos(){
 function euros(n){
   return (Math.round(n*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+' €';
 }
-function vuesMaison(){
-  const n=maisonReclame().length;
-  return barreVues([['entretien','🔧 Entretien'],['abonnements','💳 Abonnements',n||'']],vueMaison,'maison');
-}
 function setVueMaison(v){vueMaison=v;maisonOuvert=null;render()}
 
 function renderMaison(){
@@ -5248,7 +5221,7 @@ function renderEntretiens(zone){
     .sort((a,b)=>(a.du||'9999')<(b.du||'9999')?-1:1);
   const urgent=tout.filter(x=>x.prevenir&&joursAvant(x.prevenir)<=0);
   const calme =tout.filter(x=>!urgent.includes(x));
-  let h=`${vuesMaison()}<h2 class="ps-titre">🔧 L'entretien</h2>
+  let h=`<h2 class="ps-titre">🔧 L'entretien</h2>
     <p class="discret2">Tu notes la dernière fois, je calcule la prochaine.</p>`;
   const ligne=(x)=>{
     const j=x.du?joursAvant(x.du):null;
@@ -5287,7 +5260,7 @@ function renderAbonnements(zone){
   const total=totalAbos();
   const aDecider=tout.filter(a=>{const l=limiteAbo(a);return l&&joursAvant(l)<=45});
   const reste=tout.filter(a=>!aDecider.includes(a));
-  let h=`${vuesMaison()}<h2 class="ps-titre">💳 Les abonnements</h2>`;
+  let h=`<h2 class="ps-titre">💳 Les abonnements</h2>`;
   h+=`<div class="carte-solo" style="background:var(--ink);color:#fff;border-color:var(--ink)">
     <div style="font-size:.62rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;opacity:.6">
       Ce qui part chaque mois</div>
@@ -5670,6 +5643,48 @@ function barreVues(defs,actuelle,attr){
     `<button class="${k===actuelle?'actif':''}" data-v="${k}">${l}${n?`<span class="n">${n}</span>`:''}</button>`
   ).join('')+`</div>`;
 }
+/* La barre de période. Elle était à trois niveaux : le mois dans l'en-tête
+   de l'app, la semaine des repas à l'intérieur de la page, et la journée
+   nulle part — elle était figée sur aujourd'hui. Une seule barre, toujours
+   sous les onglets, donc sous ce qu'elle commande. */
+function majNavPeriode(){
+  const z=document.getElementById('navPeriode');
+  if(!z)return;
+  if(section!=='planning'){z.innerHTML='';return}
+  let quoi='',ici=false;
+  if(vuePlanning==='mois'){
+    quoi=MFR[cur.getMonth()]+' '+cur.getFullYear();
+    const n=new Date();ici=cur.getFullYear()===n.getFullYear()&&cur.getMonth()===n.getMonth();
+  }else if(vuePlanning==='repas'){
+    const l=lundiDe(new Date());l.setDate(l.getDate()+semaineRepas*7);
+    quoi=semaineRepas===0?'Cette semaine':semaineRepas===1?'La semaine prochaine'
+        :'Semaine du '+l.getDate()+' '+MFR[l.getMonth()].toLowerCase();
+    ici=semaineRepas===0;
+  }else{
+    const d=deIso(jourVu);
+    quoi=DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase();
+    ici=jourVu===iso(new Date());
+  }
+  z.innerHTML=`<div class="nav-periode">
+    <button class="np-f" data-np="-1" title="Précédent">‹</button>
+    <span class="np-q">${echap(quoi.charAt(0).toUpperCase()+quoi.slice(1))}</span>
+    <button class="np-f" data-np="1" title="Suivant">›</button>
+    ${ici?'':`<button class="np-auj" data-np="0">${vuePlanning==='repas'?'Cette semaine':"Aujourd'hui"}</button>`}
+  </div>`;
+  z.querySelectorAll('[data-np]').forEach(b=>{b.onclick=()=>navPeriode(Number(b.dataset.np))});
+}
+function navPeriode(dir){
+  if(vuePlanning==='mois'){
+    if(dir===0)cur=new Date();else cur=new Date(cur.getFullYear(),cur.getMonth()+dir,1);
+  }else if(vuePlanning==='repas'){
+    semaineRepas=dir===0?0:semaineRepas+dir;
+  }else{
+    if(dir===0)jourVu=iso(new Date());
+    else{const d=deIso(jourVu);d.setDate(d.getDate()+dir);jourVu=iso(d)}
+  }
+  render();majNavPeriode();
+}
+
 function brancherVues(zone,poser){
   const b=zone.querySelector('[data-vues]');
   if(!b)return;
@@ -5720,14 +5735,30 @@ function setSection(s){
   document.getElementById('navBar').style.visibility=surCal?'visible':'hidden';
   document.getElementById('navOutils').style.visibility=surCal?'visible':'hidden';
   document.querySelector('.fab').style.display=(s==='maison')?'none':'';
-  // Les pastilles de vues vivent au-dessus des conteneurs, pas dedans :
-  // sinon elles disparaissent avec la page qu'on quitte.
+  /* Les sous-vues vivent toutes ici, au-dessus des conteneurs. Avant, il y
+     avait trois traitements : Planning au-dessus, To do et Maison à
+     l'intérieur de leur panneau, Mémoire dans un composant différent posé
+     sous le titre de la carte. Trois réponses à la même question. */
   const bv=document.getElementById('barreVues');
-  if(s==='planning'){
-    bv.innerHTML=barreVues([['jour',"Aujourd'hui"],['mois','Mois'],['repas','🍽️ Repas']],
-      vuePlanning,'planning');
-    brancherVues(bv,setVuePlanning);
+  const SOUS_VUES={
+    planning:{defs:()=>[['jour','Ma journée'],['mois','Mois'],['repas','🍽️ Repas']],
+              val:()=>vuePlanning,poser:setVuePlanning},
+    todo:{defs:()=>[['taches','✅ À faire'],
+                    ['courses','🛒 Courses',CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length]],
+          val:()=>vueTodo,poser:setVueTodo},
+    memoire:{defs:()=>[['gens','🧑 Les gens'],['envies','✨ Les envies'],
+                       ['cadeaux','🎁 Les cadeaux'],['recettes','📖 Recettes']],
+             val:()=>ongletMem,poser:setOngletMem},
+    maison:{defs:()=>[['entretien','🔧 Entretien'],
+                      ['abonnements','💳 Abonnements',maisonReclame().length||'']],
+            val:()=>vueMaison,poser:setVueMaison},
+  };
+  const sv=SOUS_VUES[s];
+  if(sv){
+    bv.innerHTML=barreVues(sv.defs(),sv.val(),s)+'<div id="navPeriode"></div>';
+    brancherVues(bv,sv.poser);
   }else{bv.innerHTML=''}
+  majNavPeriode();
   majCloche();
   majBarreBas();
   render();
@@ -5770,7 +5801,7 @@ function render(){
    Même corps que le tiroir : on n'entretient qu'une seule version. */
 function renderAujourdhui(){
   const zone=document.getElementById('vueCourses');
-  const auj=new Date();
+  const auj=deIso(jourVu);
   const v=enVacances(auj),f=ferie(auj);
   const sous=[f?'🇫🇷 '+f:'',v?v.nom:''].filter(Boolean).join(' · ');
   const rec=maisonReclame().filter(x=>x.jours<=30);
@@ -5783,7 +5814,8 @@ function renderAujourdhui(){
         <div class="todo-date"><span style="color:var(--alert);font-weight:700">${echap(delaiFr(x.jours))}</span>${x.montant?' · '+euros(x.montant)+'/mois':''}</div></div>
         <div style="color:var(--ink-3)">›</div></div>`).join('');
   }
-  zone.innerHTML=`<h2 class="ps-titre">${DFR[jSem(auj)-1]} ${auj.getDate()} ${MFR[auj.getMonth()].toLowerCase()}</h2>`
+  // La date est déjà écrite dans la barre de période, juste au-dessus.
+  zone.innerHTML=`<h2 class="ps-titre">${jourVu===iso(new Date())?'Ma journée':'Cette journée'}</h2>`
     +(sous?`<p class="discret2" style="margin:-2px 0 8px">${echap(sous)}</p>`:'')
     +corpsJournee(auj,true)+bas;
   brancherJournee2(zone,auj,()=>{render()});
