@@ -2643,9 +2643,13 @@ function formCadeau(){
 }
 
 /* ---------- Formulaire tâche ---------- */
-function formTache(id,lienPre,projetPre){
+/* `ctx` sert quand la tâche naît ailleurs que dans la to do : depuis la
+   fiche santé de quelqu'un, « Acheter le cadeau de… » en exemple et un
+   menu de catégories n'ont aucun sens — on sait déjà où on est. */
+function formTache(id,lienPre,projetPre,ctx){
+  const c0=ctx||{};
   const t=id?trouverParId(id):null;
-  ouvrirTiroirBrut(t?'Modifier la tâche':'Nouvelle tâche');
+  ouvrirTiroirBrut(t?'Modifier la tâche':(c0.titre||'Nouvelle tâche'));
   const corps=document.getElementById('dbd');
   const reel=new Date();
   const finMois=t?.persistante?t.finY+'-'+String(t.finM).padStart(2,'0'):'';
@@ -2680,15 +2684,18 @@ function formTache(id,lienPre,projetPre){
     ${proj?`<p style="font-size:.82rem;color:var(--ink-2)">${proj.emoji||'✨'} Étape de <strong>${echap(proj.nom)}</strong></p>`:''}
     ${infoLiee?`<p style="font-size:.82rem;color:var(--ink-2)">🔗 Action liée à <strong>${echap(infoLiee.titre||infoLiee.nom)}</strong> — elle apparaîtra chez elle et dans la to-do.</p>`:''}
     <label>Qu'est-ce qu'il faut faire ?</label>
-    <input type="text" id="f-texte" value="${attr(t?.texte)}" placeholder="🎁 Acheter le cadeau de…">
+    <input type="text" id="f-texte" value="${attr(t?.texte)}" placeholder="${attr(c0.exemple||'🎁 Acheter le cadeau de…')}">
     <div class="grille-form">
       <div><label>Échéance (optionnel)</label><input type="date" id="f-ech" value="${t?.ech||''}"></div>
       <div><label>Qui s'en occupe ?</label><select id="f-qui">${membresOptions(t?.qui)}</select></div>
     </div>
     <label>Échéance en toutes lettres (optionnel)</label>
     <input type="text" id="f-datetexte" value="${attr(t?.dateTexte)}" placeholder="Avant le 15">
-    <label>Catégorie</label>
-    <select id="f-cat">${Object.entries(GROUPES).map(([k,v])=>`<option value="${k}" ${t?.cat===k?'selected':''}>${v}</option>`).join('')}</select>
+    ${(!t&&c0.cat)
+      ? `<input type="hidden" id="f-cat" value="${attr(c0.cat)}">
+         <p class="discret2" style="margin:2px 0 12px">Rangée dans ${echap(GROUPES[c0.cat]||'')} — parce qu'on est parti de là.</p>`
+      : `<label>Catégorie</label>
+         <select id="f-cat">${Object.entries(GROUPES).map(([k,v])=>`<option value="${k}" ${t?.cat===k?'selected':''}>${v}</option>`).join('')}</select>`}
     <label class="check-ligne"><input type="checkbox" id="f-persist" ${t?.persistante?'checked':''}> Reporter chaque mois tant que ce n'est pas fait</label>
     <div id="f-zone-fin" style="display:${t?.persistante?'block':'none'}">
       <label>Jusqu'à quel mois ? (date limite)</label>
@@ -3395,10 +3402,11 @@ function renderSanteFiche(zone){
   document.getElementById('sa-retour').onclick=()=>{santeFiche=null;renderSante()};
   document.getElementById('sa-edit').onclick=()=>formSanteInfos(p.id);
   document.getElementById('sa-new-suivi').onclick=()=>formSuivi(null,p.id);
-  document.getElementById('sa-new-tache').onclick=()=>{
-    formTache(null,p.id);
-    setTimeout(()=>{const c=document.getElementById('f-cat');if(c)c.value='sante'},60);
-  };
+  document.getElementById('sa-new-tache').onclick=()=>formTache(null,p.id,null,{
+    titre:'Nouvelle action santé',
+    exemple:'🩺 Prendre rendez-vous chez le dentiste',
+    cat:'sante',
+  });
   zone.querySelectorAll('[data-fait-tache]').forEach(el=>{el.onclick=()=>{
     basculerFaite(el.dataset.faitTache);renderSante();
   }});
