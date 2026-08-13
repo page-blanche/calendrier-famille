@@ -3771,36 +3771,11 @@ let MAGIE_HISTO=[];     // le fil de la conversation, envoyé à l'IA pour qu'el
 let MAGIE_PROPS=null;   // cartes en attente de validation
 let MAGIE_TEXTE='';     // dernier texte analysé (pour les corrections)
 let MAGIE_ATTENTE=null; // question « qui ? » en cours
-function donneesPourIA(){
-  const auj=iso(new Date());
-  return {
-    evenements:CACHE.evts.filter(e=>(e.fin||e.debut)>=auj).map(e=>({titre:e.titre,debut:e.debut,fin:e.fin||undefined,heure:e.heure||undefined,qui:e.qui||undefined})),
-    vacances_scolaires:CACHE.vac.map(v=>({nom:v.nom,debut:v.debut,fin:v.fin})),
-    anniversaires:CACHE.bdays.map(b=>({nom:b.nom,jour:b.jour,mois:b.mois,annee:b.annee||undefined})),
-    activites_hebdo:CACHE.acts.map(a=>({id:a.id,titre:a.titre,jours_semaine:a.jours,debut:a.hd,fin:a.hf||undefined,
-      qui:a.qui||undefined,emmene_dhabitude:a.accompagne||undefined})),
-    taches_a_faire:toutesTaches().filter(t=>!estFaite(t.id)).map(t=>({id:t.id,texte:t.texte,echeance:t.ech||undefined,qui:t.qui||undefined})),
-    taches_faites_recemment:toutesTaches().filter(t=>estFaite(t.id)&&t.ech&&t.ech>=iso(new Date(Date.now()-7*864e5))).map(t=>({id:t.id,texte:t.texte})),
-    liste_courses:CACHE.courses.filter(c=>!c.achete_le&&!c.coche).map(c=>({id:c.id,texte:c.texte})),
-    categories_utilisees:categoriesUtilisees().map(c=>c.nom),
-    gens:CACHE.personnes.map(p=>({nom:p.nom,role:p.role||undefined,
-      categorie:p.categorie||undefined,
-      foyer:p.foyer||undefined,anniversaire:p.naiss_jour?p.naiss_jour+'/'+p.naiss_mois:undefined,
-      notes:notesVisibles().filter(n=>n.personne_id===p.id).map(n=>({date:(n.cree_le||'').slice(0,10),texte:n.texte})),
-      idees_cadeaux:cadeauxVisibles().filter(c=>!c.offert&&(c.personne||'').trim().toLowerCase()===p.nom.trim().toLowerCase()).map(c=>c.idee)})),
-    idees_cadeaux_autres:cadeauxVisibles().filter(c=>!c.offert&&!CACHE.personnes.some(p=>p.nom.trim().toLowerCase()===(c.personne||'').trim().toLowerCase())).map(c=>({pour:c.personne,idee:c.idee})),
-    envies:enviesVisibles().filter(e=>!e.faite).map(e=>({categorie:e.categorie,titre:e.titre})),
-  };
-}
-/* ================== LE MODE PARLER ==================
-   Le chat n'est plus un tiroir : c'est un lieu, avec son fil gardé en
-   base. La même conversation qu'on retrouvera sur Telegram — d'où le
-   champ `source` sur chaque message.                                   */
-let MODE='famille';           // 'parler' | 'famille'
-let CONV_CHARGEE=false;
-
-/* Écrire un message dans la conversation. Silencieux si ça rate :
-   perdre une ligne d'historique ne doit jamais casser l'échange. */
+/* Ce que Pia a sous les yeux n'est plus construit ici. L'app et Telegram en
+   avaient chacun leur version, et elles ont dérivé sans qu'on le décide :
+   Telegram voyait l'urgence des courses, l'app non. Une phrase marchait d'un
+   côté et pas de l'autre. C'est le cerveau qui regarde maintenant, pour les
+   deux ; on ne lui envoie plus que notre identité. */
 function noterMessage(role,texte,source,actions){
   if(!texte||!EMAIL_CONNECTE)return;
   const l={personne:EMAIL_CONNECTE,role,texte:String(texte).slice(0,4000),
@@ -3938,7 +3913,8 @@ async function mgEnvoyer(){
     const body={texte:enCorrection?MAGIE_TEXTE:texte,
       contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom),
         moi:UTILISATEUR||'',adultes:accompagnateurs().chips.concat(accompagnateurs().menu).map(p=>p.nom)},
-      donnees:donneesPourIA(),historique:MAGIE_HISTO.slice(-12)};
+      personne:EMAIL_CONNECTE||'',moi:UTILISATEUR||'',
+      historique:MAGIE_HISTO.slice(-12)};
     if(enCorrection){body.correction=texte;body.precedent=MAGIE_PROPS}
     const r=await sb.functions.invoke('saisie-magique',{body});
     data=r.data;error=r.error;
