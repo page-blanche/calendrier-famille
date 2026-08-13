@@ -815,7 +815,16 @@ async function partager(texte,titre){
 function texteCourses(){
   const l=CACHE.courses.filter(c=>!c.achete_le&&!c.coche);
   if(!l.length)return '';
-  return '🛒 La liste de courses\n'+l.map(c=>'· '+c.texte+(c.recette_id?' ('+((recetteDe(c.recette_id)||{}).nom||'')+')':'')).join('\n');
+  // Partagée, la liste garde ses deux tas et ses urgences : sinon celui qui
+  // la reçoit ne sait pas ce qui presse ni où ça s'achète.
+  const ligne=c=>'· '+(c.urgent?'⚡ ':'')+c.texte
+    +(c.recette_id?' ('+((recetteDe(c.recette_id)||{}).nom||'')+')':'')
+    +(c.magasin?' — '+c.magasin:'');
+  const sup=l.filter(c=>!c.ailleurs),ail=l.filter(c=>c.ailleurs);
+  const bouts=[];
+  if(sup.length)bouts.push('🛒 Au supermarché\n'+sup.map(ligne).join('\n'));
+  if(ail.length)bouts.push('🛍️ Ailleurs\n'+ail.map(ligne).join('\n'));
+  return 'La liste de courses\n\n'+bouts.join('\n\n');
 }
 function texteProjet(id){
   const p=(CACHE.projets||[]).find(x=>x.id===id);
@@ -2902,46 +2911,148 @@ function brancherOngletsCourses(zone){
   zone.querySelectorAll('[data-oc]').forEach(b=>{b.onclick=()=>{ongletCourses=b.dataset.oc;recettesOuvertes=false;render()}});
 }
 
+/* Deux listes, un drapeau. « Du lait » et « des T-shirts pour Darya » ne
+   s'achètent pas au même endroit. L'urgence, elle, ne dit pas OÙ mais QUAND :
+   elle traverse les deux listes, donc l'article reste chez lui — simplement
+   tout en haut. En faire un troisième tas le ferait disparaître du magasin
+   où il faut justement l'acheter. */
+let courseOu='super';        // 'super' | 'ailleurs' — où va ce qu'on tape
+let courseUrgent=false;
+let courseMagasin='';
+
+function trierCourses(l){
+  return l.slice().sort((a,b)=>
+    (b.urgent?1:0)-(a.urgent?1:0) || String(a.cree_le||'').localeCompare(String(b.cree_le||'')));
+}
+function ligneCourse(c,faite){
+  return `<div class="todo-item${faite?' done':''}${c.urgent&&!faite?' urgent':''}" data-id="${c.id}">
+    <div class="todo-check" data-act="cocher"></div>
+    <div class="todo-corps" data-act="cocher">
+      <div class="todo-text">${c.urgent&&!faite?'⚡ ':''}${echap(c.texte)}</div>
+      ${provenanceCourse(c)}</div>
+    <div class="todo-actions">
+      <button class="todo-act" data-act="urgent" title="${c.urgent?'Ce n\'est plus urgent':'C\'est urgent'}">${c.urgent?'⚡':'⚡'}</button>
+      <button class="todo-act" data-act="editer" title="Modifier">✏️</button>
+      <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
+    </div></div>`;
+}
+
+/* Le petit formulaire d'un article : changer de liste, nommer le magasin,
+   lever ou poser le drapeau. On y arrive par le crayon. */
+function formCourse(id){
+  const c=CACHE.courses.find(x=>x.id===id);
+  if(!c)return;
+  ouvrirTiroirBrut(echap(c.texte));
+  let ailleurs=!!c.ailleurs,urgent=!!c.urgent;
+  document.getElementById('dbd').innerHTML=`
+    <label class="lbl">L'article</label>
+    <input type="text" id="fc-texte" value="${attr(c.texte)}">
+    <label class="lbl">Où on l'achète</label>
+    <div class="mg-chips" id="fc-ou">
+      <button type="button" class="mg-chip ${ailleurs?'':'actif'}" data-ou="super">🛒 Au supermarché</button>
+      <button type="button" class="mg-chip ${ailleurs?'actif':''}" data-ou="ailleurs">🛍️ Ailleurs</button>
+    </div>
+    <div id="fc-mag" style="display:${ailleurs?'':'none'}">
+      <label class="lbl">Le magasin <span class="discret2">(facultatif — les articles d'un même magasin se regroupent)</span></label>
+      <input type="text" id="fc-magasin" value="${attr(c.magasin||'')}" placeholder="Decathlon, pharmacie, en ligne…">
+    </div>
+    <label class="check-ligne"><input type="checkbox" id="fc-urgent" ${urgent?'checked':''}> ⚡ Urgent — il faut y aller, ça ne peut pas attendre</label>
+    <button class="btn primaire" id="fc-ok" style="width:100%;margin-top:14px">Enregistrer</button>
+    <button class="btn danger" id="fc-suppr" style="width:100%;margin-top:8px">Supprimer</button>`;
+  document.querySelectorAll('#fc-ou [data-ou]').forEach(b=>{b.onclick=()=>{
+    ailleurs=b.dataset.ou==='ailleurs';
+    document.querySelectorAll('#fc-ou .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+    document.getElementById('fc-mag').style.display=ailleurs?'':'none';
+  }});
+  document.getElementById('fc-ok').onclick=()=>{
+    const texte=document.getElementById('fc-texte').value.trim();
+    if(!texte){toast('Il faut un nom');return}
+    enregistrerObjet(id,'courses',{texte,ailleurs,
+      magasin:ailleurs?(document.getElementById('fc-magasin').value.trim()||null):null,
+      urgent:document.getElementById('fc-urgent').checked});
+    fermerTiroir();renderCourses();
+  };
+  document.getElementById('fc-suppr').onclick=()=>{
+    supprimerObjet(id);fermerTiroir();renderCourses();
+  };
+}
+
 function renderCourses(){
   const zone=document.getElementById('todoPanel');
-  const aAcheter=CACHE.courses.filter(c=>!c.achete_le&&!c.coche);
+  const ouvertes=CACHE.courses.filter(c=>!c.achete_le&&!c.coche);
   const caddie=CACHE.courses.filter(c=>!c.achete_le&&c.coche);
+  const superm=trierCourses(ouvertes.filter(c=>!c.ailleurs));
+  const ailleurs=trierCourses(ouvertes.filter(c=>c.ailleurs));
+  const nUrgent=ouvertes.filter(c=>c.urgent).length;
+
   let h=`${vuesTodo()}<h2 class="ps-titre">🛒 La liste de courses</h2>
   <p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>
-  <div class="ps-ajout"><input type="text" id="course-texte" placeholder="Lait, piles, sac de sport…">
-  <button class="btn primaire" id="course-ajouter">Ajouter</button></div>`;
-  if(!aAcheter.length&&!caddie.length)h+=`<div class="todo-empty" style="text-align:center;padding:26px 0">Liste vide 🌿</div>`;
-  if(aAcheter.length){
-    h+=`<div class="todo-section"><div class="todo-section-title">À acheter (${aAcheter.length})</div>`;
-    aAcheter.sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?-1:1).forEach(c=>{
-      h+=`<div class="todo-item" data-id="${c.id}">
-        <div class="todo-check" data-act="cocher"></div>
-        <div class="todo-corps" data-act="cocher"><div class="todo-text">${echap(c.texte)}</div>
-          ${provenanceCourse(c)}</div>
-        <div class="todo-actions"><button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div></div>`;
+  <div class="ps-ajout"><input type="text" id="course-texte" placeholder="Lait, piles, T-shirts pour Darya…">
+  <button class="btn primaire" id="course-ajouter">Ajouter</button></div>
+  <div class="mg-chips" id="course-ou" style="margin:-8px 0 4px">
+    <button type="button" class="mg-chip ${courseOu==='super'?'actif':''}" data-ou="super">🛒 Au supermarché</button>
+    <button type="button" class="mg-chip ${courseOu==='ailleurs'?'actif':''}" data-ou="ailleurs">🛍️ Ailleurs</button>
+    <button type="button" class="mg-chip ${courseUrgent?'actif':''}" data-urg="1">⚡ Urgent</button>
+  </div>
+  <div id="course-mag" style="display:${courseOu==='ailleurs'?'':'none'};margin-bottom:10px">
+    <input type="text" id="course-magasin" value="${attr(courseMagasin)}" placeholder="Le magasin, si tu le sais — Decathlon, pharmacie…">
+  </div>`;
+
+  if(nUrgent)h+=`<div class="bandeau-urgent">⚡ ${nUrgent} chose${nUrgent>1?'s':''} qui ne peu${nUrgent>1?'vent':'t'} pas attendre</div>`;
+  if(!ouvertes.length&&!caddie.length)h+=`<div class="todo-empty" style="text-align:center;padding:26px 0">Liste vide 🌿</div>`;
+
+  if(superm.length){
+    h+=`<div class="todo-section"><div class="todo-section-title">🛒 Au supermarché (${superm.length})</div>`;
+    superm.forEach(c=>{h+=ligneCourse(c,false)});
+    h+='</div>';
+  }
+  if(ailleurs.length){
+    h+=`<div class="todo-section"><div class="todo-section-title">🛍️ Ailleurs (${ailleurs.length})</div>`;
+    // Ceux dont on connaît le magasin se regroupent ; les autres suivent en vrac.
+    const mags=[...new Set(ailleurs.filter(c=>c.magasin).map(c=>c.magasin.trim()))]
+      .sort((a,b)=>a.localeCompare(b));
+    mags.forEach(m=>{
+      h+=`<div class="sous-magasin">${echap(m)}</div>`;
+      trierCourses(ailleurs.filter(c=>(c.magasin||'').trim()===m)).forEach(c=>{h+=ligneCourse(c,false)});
     });
+    const sansMag=trierCourses(ailleurs.filter(c=>!c.magasin));
+    if(sansMag.length){
+      if(mags.length)h+=`<div class="sous-magasin">Sans magasin précis</div>`;
+      sansMag.forEach(c=>{h+=ligneCourse(c,false)});
+    }
     h+='</div>';
   }
   if(caddie.length){
     h+=`<div class="todo-section"><div class="todo-section-title">Dans le caddie (${caddie.length}) — clic pour remettre</div>`;
-    caddie.forEach(c=>{
-      h+=`<div class="todo-item done" data-id="${c.id}">
-        <div class="todo-check" data-act="cocher"></div>
-        <div class="todo-corps" data-act="cocher"><div class="todo-text">${echap(c.texte)}</div>
-          ${provenanceCourse(c)}</div>
-        <div class="todo-actions"><button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div></div>`;
-    });
+    caddie.forEach(c=>{h+=ligneCourse(c,true)});
     h+=`</div><button class="btn primaire" style="width:100%;margin-top:8px" id="courses-terminees">✔ Courses terminées — archiver le caddie</button>`;
   }
-  if(aAcheter.length||caddie.length)h+=`<div style="margin-top:12px">${boutonPartage('course-part','Envoyer la liste')}</div>`;
+  if(ouvertes.length||caddie.length)h+=`<div style="margin-top:12px">${boutonPartage('course-part','Envoyer la liste')}</div>`;
   zone.innerHTML=h;
   brancherVues(zone,setVueTodo);
+
+  const majMag=()=>{document.getElementById('course-mag').style.display=courseOu==='ailleurs'?'':'none'};
+  zone.querySelectorAll('#course-ou [data-ou]').forEach(b=>{b.onclick=()=>{
+    courseOu=b.dataset.ou;
+    zone.querySelectorAll('#course-ou [data-ou]').forEach(x=>x.classList.toggle('actif',x===b));
+    majMag();
+  }});
+  const bu=zone.querySelector('#course-ou [data-urg]');
+  if(bu)bu.onclick=()=>{courseUrgent=!courseUrgent;bu.classList.toggle('actif',courseUrgent)};
+
   const bcp=document.getElementById('course-part');
   if(bcp)bcp.onclick=()=>partager(texteCourses(),'Liste de courses');
   const ajouter=()=>{
     const texte=document.getElementById('course-texte').value.trim();
     if(!texte)return;
-    enregistrerObjet(null,'courses',{texte,coche:false,achete_le:null});
+    courseMagasin=(document.getElementById('course-magasin')||{}).value?.trim()||'';
+    enregistrerObjet(null,'courses',{texte,coche:false,achete_le:null,
+      ailleurs:courseOu==='ailleurs',
+      magasin:courseOu==='ailleurs'?(courseMagasin||null):null,
+      urgent:courseUrgent});
+    // L'urgence ne se garde pas d'un article à l'autre : on la redemande.
+    // La liste et le magasin, si : on ajoute rarement un seul T-shirt.
+    courseUrgent=false;
     renderCourses();
     document.getElementById('course-texte').focus();
   };
@@ -2953,6 +3064,8 @@ function renderCourses(){
       const id=el.closest('.todo-item').dataset.id;
       const c=CACHE.courses.find(x=>x.id===id);
       if(el.dataset.act==='cocher'){enregistrerObjet(id,'courses',{coche:!c.coche});render()}
+      else if(el.dataset.act==='urgent'){enregistrerObjet(id,'courses',{urgent:!c.urgent});renderCourses()}
+      else if(el.dataset.act==='editer'){formCourse(id)}
       else if(el.dataset.act==='suppr'){supprimerObjet(id);render()}
     });
   });
