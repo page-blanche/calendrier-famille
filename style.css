@@ -459,3 +459,16 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
    retrouvait à un mot par ligne. */
 .pm-l input.pm-nb{width:62px;flex:0 0 62px;text-align:center;padding:5px 6px;font-weight:600}
 .pm-n{min-width:0}
+
+/* ---------- La barre de période ---------- */
+/* Même place, même forme, quelle que soit la vue : un jour, un mois ou une
+   semaine se parcourent du même geste. */
+.nav-periode{display:flex;align-items:center;gap:8px;margin:8px 0 2px;
+  border:1px solid var(--border);border-radius:99px;padding:5px 6px;background:#fdfcfa}
+.np-f{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:#fff;
+  color:var(--ink-2);cursor:pointer;font-size:.95rem;line-height:1;flex:0 0 auto}
+.np-f:hover{border-color:var(--border-strong)}
+.np-q{flex:1;text-align:center;font-weight:700;font-size:.87rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-auj{font-size:.74rem;font-weight:700;color:var(--ink-2);border:1px solid var(--border);
+  border-radius:99px;padding:4px 11px;background:#fff;cursor:pointer;flex:0 0 auto}
