@@ -425,5 +425,33 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
   font-size:.63rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
   color:var(--ink-3);margin:12px 0 4px;
 }
-.fusion{font-size:.68rem;font-weight:700;color:var(--ink-3);background:#f2f1ee;
-  border-radius:99px;padding:1px 6px;margin-left:5px;vertical-align:1px}
+
+/* ---------- ⚙️ Réglages ---------- */
+.pm-moi{display:flex;align-items:center;gap:11px;padding:2px 0 4px}
+.pm-moi .pm-rond{width:38px;height:38px;border-radius:50%;background:#f2f1ee;
+  display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--ink-2)}
+.pm-moi b{display:block;font-size:.97rem}
+.pm-moi span{color:var(--ink-3);font-size:.82rem}
+.pm-groupe{font-size:.63rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);margin:20px 0 8px}
+.pm-t{font-weight:700;font-size:.9rem;margin-bottom:4px}
+.pm-ok{font-size:.7rem;font-weight:800;color:#2f7a45;margin-left:6px}
+.pm-l{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border)}
+.pm-l:first-of-type{border-top:none;padding-top:2px}
+.pm-n{flex:1;font-size:.9rem}
+.pm-n small{display:block;color:var(--ink-3);font-size:.76rem;margin-top:1px}
+/* Trois puces et un libellé ne tiennent pas sur une ligne : on empile. */
+.pm-l.pm-bloc{display:block}
+.pm-volet{border:1px solid var(--border);border-radius:var(--radius-s);background:#fdfcfa;margin-bottom:9px}
+.pm-volet summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;
+  padding:13px 15px;font-weight:700;font-size:.9rem}
+.pm-volet summary::-webkit-details-marker{display:none}
+.pm-volet summary::after{content:"⌄";margin-left:auto;color:var(--ink-3);font-size:1rem;
+  transition:transform .15s;flex:0 0 auto}
+.pm-volet[open] summary::after{transform:rotate(180deg)}
+.pm-vt{flex:0 0 auto}
+/* Le résumé sur la ligne repliée : savoir s'il faut ouvrir sans ouvrir. */
+.pm-vr{margin-left:auto;font-weight:600;font-size:.78rem;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm-vd{padding:0 15px 14px;border-top:1px solid var(--border);margin-top:2px;padding-top:10px}
+.pm-nb{width:62px;text-align:center;padding:5px 6px;font-weight:600}
