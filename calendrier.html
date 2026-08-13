@@ -817,10 +817,10 @@ function texteCourses(){
   if(!l.length)return '';
   // Partagée, la liste garde ses deux tas et ses urgences : sinon celui qui
   // la reçoit ne sait pas ce qui presse ni où ça s'achète.
-  const ligne=c=>'· '+(c.urgent?'⚡ ':'')+c.texte
-    +(c.recette_id?' ('+((recetteDe(c.recette_id)||{}).nom||'')+')':'')
-    +(c.magasin?' — '+c.magasin:'');
-  const sup=l.filter(c=>!c.ailleurs),ail=l.filter(c=>c.ailleurs);
+  const ligne=g=>'· '+(g.urgent?'⚡ ':'')+g.texte
+    +(g.items[0]&&g.items[0].magasin?' — '+g.items[0].magasin:'');
+  const sup=grouperCourses(l.filter(c=>!c.ailleurs));
+  const ail=grouperCourses(l.filter(c=>c.ailleurs));
   const bouts=[];
   if(sup.length)bouts.push('🛒 Au supermarché\n'+sup.map(ligne).join('\n'));
   if(ail.length)bouts.push('🛍️ Ailleurs\n'+ail.map(ligne).join('\n'));
@@ -2930,19 +2930,128 @@ let courseOu='super';        // 'super' | 'ailleurs' — où va ce qu'on tape
 let courseUrgent=false;
 let courseMagasin='';
 
+/* ---------- Lire une quantité ----------
+   « 20 cl de crème » → 20 · cl · crème. « 6 œufs » → 6 · rien · œufs.
+   « une pincée de sel » → on ne comprend pas, et on ne devine pas : la ligne
+   reste telle quelle. Mieux vaut deux lignes justes qu'une somme fausse. */
+const UNITES=[
+  ['kg','kg'],['mg','mg'],['g','g'],
+  ['ml','ml'],['cl','cl'],['dl','dl'],['l','L'],
+  // On écrit les formes longues AVANT les abréviations : sinon « c. à s »
+  // avale le début de « c. à soupe » et la ligne n'est plus comprise.
+  ["cuill(?:è|e)res?\\s*(?:à|a)\\s*soupe|c\\.?\\s*(?:à|a)\\s*\\.?\\s*soupe|c\\.?à\\.?s\\.?|càs|cas",'c. à soupe'],
+  ["cuill(?:è|e)res?\\s*(?:à|a)\\s*caf(?:é|e)|c\\.?\\s*(?:à|a)\\s*\\.?\\s*caf(?:é|e)|c\\.?à\\.?c\\.?|càc|cac",'c. à café'],
+  ['pinc(?:ée|ee)s?','pincée'],['gousses?','gousse'],['tranches?','tranche'],
+  ['sachets?','sachet'],['bo(?:î|i)tes?','boîte'],['bottes?','botte'],
+  ['brins?','brin'],['feuilles?','feuille'],['pots?','pot'],
+  ['barquettes?','barquette'],['paquets?','paquet'],['bouquets?','bouquet'],
+  ['tasses?','tasse'],['verres?','verre'],['pav(?:é|e)s?','pavé'],['filets?','filet'],
+];
+const MOTS_NOMBRE={un:1,une:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,
+  neuf:9,dix:10,onze:11,douze:12,demi:0.5,demie:0.5,'demi-':0.5};
+function lireNombre(x){
+  const t=String(x).replace(',','.').replace(/\s/g,'');
+  const f=t.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+  if(f)return Number(f[1])/Number(f[2]);
+  const n=Number(t);
+  return isFinite(n)?n:null;
+}
+function litIngredient(txt){
+  const s=String(txt||'').trim();
+  let m=s.match(/^(\d+(?:[.,]\d+)?(?:\s*\/\s*\d+)?)\s+?(.*)$/);
+  let q=m?lireNombre(m[1]):null;
+  if(!m){
+    const mm=s.match(/^(\p{L}+)\s+(.*)$/u);
+    const v=mm?MOTS_NOMBRE[mm[1].toLowerCase()]:undefined;
+    if(v===undefined)return {q:null,u:null,nom:s};
+    q=v;m=[null,mm[1],mm[2]];
+  }
+  let reste=String(m[2]||'').trim();
+  let u=null;
+  for(const [re,lib] of UNITES){
+    const mm=reste.match(new RegExp('^(?:'+re+')\\.?(?:\\s|$)','i'));
+    if(mm){u=lib;reste=reste.slice(mm[0].length).trim();break}
+  }
+  reste=reste.replace(/^(?:de\s+|d')/i,'').trim();
+  if(q===null||!reste)return {q:null,u:null,nom:s};
+  return {q,u,nom:reste};
+}
+/* La clé de regroupement : sans accents, sans pluriel, sans ponctuation.
+   « Œufs » et « oeuf » sont le même rayon. */
+function cleIngredient(n){
+  return String(n||'').toLowerCase().replace(/œ/g,'oe').replace(/æ/g,'ae')
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()
+    // Le pluriel se met sur CHAQUE mot, pas seulement le dernier :
+    // « pommes de terre » et « pomme de terre » sont le même légume.
+    .split(' ').map(m=>m.replace(/(s|x)$/,'')).join(' ');
+}
+function fmtQuantite(n){
+  if(n===null||n===undefined)return '';
+  const r=Math.round(n*100)/100;
+  return Number.isInteger(r)?String(r):String(r).replace('.',',');
+}
+/* « 3 pincée de sel » sonne faux. Les unités de mesure ne prennent pas la
+   marque du pluriel (200 g, 20 cl), les autres si. */
+const METRIQUES=/^(g|kg|mg|ml|cl|dl|L)$/;
+function unitePluriel(u,q){
+  if(!u||q===null||q<=1)return u;
+  return (METRIQUES.test(u)||u.includes('.'))?u:u+'s';
+}
+const deDevant=n=>/^[aeiouyéèêàâîïôûh]/i.test(String(n||''))?"d'"+n:'de '+n;
+
+/* Regrouper ce qui est le même ingrédient dans la même unité. Deux unités
+   différentes pour le même produit — 200 g de beurre et 2 c. à soupe — ne
+   s'additionnent pas : on les laisse côte à côte. */
+function grouperCourses(l){
+  const par=new Map();
+  l.forEach(c=>{
+    const p=litIngredient(c.texte);
+    const cle=cleIngredient(p.nom);
+    const k=cle?('i|'+cle+'|'+(p.u||'')):('seul|'+c.id);
+    if(!par.has(k))par.set(k,[]);
+    par.get(k).push({c,p});
+  });
+  return [...par.values()].map(g=>{
+    if(g.length===1)return {items:[g[0].c],texte:g[0].c.texte,urgent:!!g[0].c.urgent};
+    const qs=g.map(x=>x.p.q).filter(x=>x!==null&&x!==undefined);
+    const u=g[0].p.u,nom=g[0].p.nom;
+    const somme=qs.length===g.length?qs.reduce((a,b)=>a+b,0):null;
+    // Si une seule ligne n'était pas chiffrée, on ne prétend pas savoir
+    // combien il en faut : on montre le nom, et les sources disent le reste.
+    const texte=somme===null?nom
+      :(u?`${fmtQuantite(somme)} ${unitePluriel(u,somme)} ${deDevant(nom)}`:`${fmtQuantite(somme)} ${nom}`);
+    return {items:g.map(x=>x.c),texte,urgent:g.some(x=>x.c.urgent),fusion:g.length};
+  });
+}
+/* D'où viennent ces lignes : « pour 🥧 Quiche · mardi + 🍰 Gâteau · jeudi ». */
+function sourcesCourses(items){
+  const v=[];
+  items.forEach(c=>{
+    if(!c.recette_id)return;
+    const r=recetteDe(c.recette_id);
+    const d=c.pour_le?deIso(c.pour_le):null;
+    const q=[r?(r.emoji||'🍽️')+' '+r.nom:'',d?DFR[jSem(d)-1].toLowerCase():''].filter(Boolean).join(' · ');
+    if(q&&!v.includes(q))v.push(q);
+  });
+  return v.length?`<div class="todo-date">pour ${echap(v.join(' + '))}</div>`:'';
+}
+
 function trierCourses(l){
   return l.slice().sort((a,b)=>
     (b.urgent?1:0)-(a.urgent?1:0) || String(a.cree_le||'').localeCompare(String(b.cree_le||'')));
 }
-function ligneCourse(c,faite){
-  return `<div class="todo-item${faite?' done':''}${c.urgent&&!faite?' urgent':''}" data-id="${c.id}">
+function ligneCourse(g,faite){
+  const ids=g.items.map(c=>c.id).join(',');
+  const seul=g.items.length===1;
+  return `<div class="todo-item${faite?' done':''}${g.urgent&&!faite?' urgent':''}" data-ids="${attr(ids)}">
     <div class="todo-check" data-act="cocher"></div>
     <div class="todo-corps" data-act="cocher">
-      <div class="todo-text">${c.urgent&&!faite?'⚡ ':''}${echap(c.texte)}</div>
-      ${provenanceCourse(c)}</div>
+      <div class="todo-text">${g.urgent&&!faite?'⚡ ':''}${echap(g.texte)}${g.fusion?` <span class="fusion">×${g.fusion}</span>`:''}</div>
+      ${sourcesCourses(g.items)}</div>
     <div class="todo-actions">
-      <button class="todo-act" data-act="urgent" title="${c.urgent?'Ce n\'est plus urgent':'C\'est urgent'}">${c.urgent?'⚡':'⚡'}</button>
-      <button class="todo-act" data-act="editer" title="Modifier">✏️</button>
+      <button class="todo-act" data-act="urgent" title="${g.urgent?'Ce n\'est plus urgent':'C\'est urgent'}">⚡</button>
+      ${seul?`<button class="todo-act" data-act="editer" title="Modifier">✏️</button>`:''}
       <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
     </div></div>`;
 }
@@ -3013,7 +3122,7 @@ function renderCourses(){
 
   if(superm.length){
     h+=`<div class="todo-section"><div class="todo-section-title">🛒 Au supermarché (${superm.length})</div>`;
-    superm.forEach(c=>{h+=ligneCourse(c,false)});
+    grouperCourses(superm).forEach(g=>{h+=ligneCourse(g,false)});
     h+='</div>';
   }
   if(ailleurs.length){
@@ -3023,18 +3132,18 @@ function renderCourses(){
       .sort((a,b)=>a.localeCompare(b));
     mags.forEach(m=>{
       h+=`<div class="sous-magasin">${echap(m)}</div>`;
-      trierCourses(ailleurs.filter(c=>(c.magasin||'').trim()===m)).forEach(c=>{h+=ligneCourse(c,false)});
+      grouperCourses(trierCourses(ailleurs.filter(c=>(c.magasin||'').trim()===m))).forEach(g=>{h+=ligneCourse(g,false)});
     });
     const sansMag=trierCourses(ailleurs.filter(c=>!c.magasin));
     if(sansMag.length){
       if(mags.length)h+=`<div class="sous-magasin">Sans magasin précis</div>`;
-      sansMag.forEach(c=>{h+=ligneCourse(c,false)});
+      grouperCourses(sansMag).forEach(g=>{h+=ligneCourse(g,false)});
     }
     h+='</div>';
   }
   if(caddie.length){
     h+=`<div class="todo-section"><div class="todo-section-title">Dans le caddie (${caddie.length}) — clic pour remettre</div>`;
-    caddie.forEach(c=>{h+=ligneCourse(c,true)});
+    grouperCourses(caddie).forEach(g=>{h+=ligneCourse(g,true)});
     h+=`</div><button class="btn primaire" style="width:100%;margin-top:8px" id="courses-terminees">✔ Courses terminées — archiver le caddie</button>`;
   }
   if(ouvertes.length||caddie.length)h+=`<div style="margin-top:12px">${boutonPartage('course-part','Envoyer la liste')}</div>`;
@@ -3068,15 +3177,19 @@ function renderCourses(){
   };
   document.getElementById('course-ajouter').onclick=ajouter;
   document.getElementById('course-texte').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
+  // Une ligne à l'écran peut porter plusieurs lignes en base : cocher les
+  // 9 œufs, c'est cocher les 6 de la quiche ET les 3 du gâteau.
   zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
     el.addEventListener('click',ev=>{
       ev.stopPropagation();
-      const id=el.closest('.todo-item').dataset.id;
-      const c=CACHE.courses.find(x=>x.id===id);
-      if(el.dataset.act==='cocher'){enregistrerObjet(id,'courses',{coche:!c.coche});render()}
-      else if(el.dataset.act==='urgent'){enregistrerObjet(id,'courses',{urgent:!c.urgent});renderCourses()}
-      else if(el.dataset.act==='editer'){formCourse(id)}
-      else if(el.dataset.act==='suppr'){supprimerObjet(id);render()}
+      const ids=(el.closest('.todo-item').dataset.ids||'').split(',').filter(Boolean);
+      const items=ids.map(i=>CACHE.courses.find(x=>x.id===i)).filter(Boolean);
+      if(!items.length)return;
+      const act=el.dataset.act;
+      if(act==='cocher'){const v=!items[0].coche;items.forEach(c=>enregistrerObjet(c.id,'courses',{coche:v}));render()}
+      else if(act==='urgent'){const v=!items[0].urgent;items.forEach(c=>enregistrerObjet(c.id,'courses',{urgent:v}));renderCourses()}
+      else if(act==='editer'){formCourse(items[0].id)}
+      else if(act==='suppr'){items.forEach(c=>supprimerObjet(c.id));render()}
     });
   });
   const fin=document.getElementById('courses-terminees');
