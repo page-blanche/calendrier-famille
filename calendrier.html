@@ -4225,6 +4225,14 @@ function magiResume(a){
     case 'reporter':return {ico:'📆',type:'Reporté',titre:a.texte||nomDe(a.id),
       det:a.ech?'nouvelle échéance : '+dfr(a.ech):'sans date'};
     case 'supprimer':return {ico:'🗑️',type:'Suppression',titre:a.texte||nomDe(a.id),det:'on la retire de la liste'};
+    case 'relance_annule':return {ico:'🚫',type:'Relance annulée',titre:a.texte||'(la relance prévue)',
+      det:'je ne la dirai pas'};
+    case 'evenement_modif':{const e=lesEvts().find(x=>x.id===a.id);
+      const ch=[a.titre?'renommé « '+a.titre+' »':null,
+        a.debut?'déplacé au '+dfr(a.debut):null,
+        !a.debut&&a.fin?'jusqu\'au '+dfr(a.fin):null,
+        a.heure?'à '+a.heure:null,a.qui?'pour '+a.qui:null].filter(Boolean).join(' · ');
+      return {ico:'📅',type:'Agenda',titre:e?e.titre:'(événement)',det:ch||'rien ne change'}}
     case 'relance':{const p=String(a.quand||'').split('T');
       return {ico:'⏰',type:'Relance',titre:a.texte||'(vide)',
         det:[a.qui?'à '+a.qui:'pour toi',dfr(p[0]),(p[1]||'').slice(0,5)].filter(Boolean).join(' · ')}}
@@ -4265,6 +4273,19 @@ function magiEnregistrer(actions){
         categorie:rangerCategorie(a.categorie)})}
       enregistrerObjet(null,'notes',{personne_id:pers.id,texte:a.texte,partagee:!!a.partagee,
         email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});n++;
+    }else if(a.type==='relance_annule'&&a.id){
+      /* Annulée, pas effacée : « tu devais me dire quoi, déjà ? » mérite
+         une réponse même après coup. */
+      pousser(sb.from('relances').update({annulee:true}).eq('id',a.id).is('envoye_le',null));n++;
+    }else if(a.type==='evenement_modif'&&a.id){
+      /* Seuls les champs fournis bougent : corriger une heure ne doit pas
+         effacer le titre ni la date de fin. */
+      const e=lesEvts().find(x=>x.id===a.id);
+      if(!e){toast('⚠️ Je n\'ai pas retrouvé cet événement');return}
+      const chg={};
+      ['titre','debut','fin','heure','qui'].forEach(k=>{if(a[k]!=null)chg[k]=a[k]});
+      if(!Object.keys(chg).length)return;
+      enregistrerObjet(a.id,'evts',chg);n++;render();
     }else if(a.type==='relance'&&a.texte&&a.quand){
       /* Une relance ne vit pas dans le CACHE : rien ne l'affiche, elle part
          toute seule. On l'écrit donc directement, sans passer par la
