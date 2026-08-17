@@ -666,7 +666,10 @@ function basculerFaite(id){
     const t=CACHE.taches.find(x=>x.id===id);
     if(!t)return;
     t.faite=!t.faite;
-    pousser(sb.from('taches').update({faite:t.faite}).eq('id',id));
+    // Qui a coché : c'est ce qui permet d'écrire « Didier vient de réserver
+    // le poney ». Sans ça la base sait que c'est fait, jamais par qui.
+    t.faite_par=t.faite?EMAIL_CONNECTE:null;
+    pousser(sb.from('taches').update({faite:t.faite,faite_par:t.faite_par}).eq('id',id));
   }
 }
 function enregistrerObjet(id,coll,donnees){
@@ -3263,7 +3266,8 @@ function renderCourses(){
       const items=ids.map(i=>CACHE.courses.find(x=>x.id===i)).filter(Boolean);
       if(!items.length)return;
       const act=el.dataset.act;
-      if(act==='cocher'){const v=!items[0].coche;items.forEach(c=>enregistrerObjet(c.id,'courses',{coche:v}));render()}
+      if(act==='cocher'){const v=!items[0].coche;
+        items.forEach(c=>enregistrerObjet(c.id,'courses',{coche:v,coche_par:v?EMAIL_CONNECTE:null}));render()}
       else if(act==='urgent'){const v=!items[0].urgent;items.forEach(c=>enregistrerObjet(c.id,'courses',{urgent:v}));renderCourses()}
       else if(act==='editer'){formCourse(items[0].id)}
       else if(act==='suppr'){items.forEach(c=>supprimerObjet(c.id));render()}
@@ -4170,7 +4174,10 @@ function magiResume(a){
   const badge=x=>x?'👥 partagée':'🔒 privée';
   switch(a.type){
     case 'evenement':return {ico:'📌',type:'Événement',titre:a.titre,det:[dfr(a.debut),a.fin&&a.fin!==a.debut?'→ '+dfr(a.fin):null,a.heure,a.qui?'pour '+a.qui:null].filter(Boolean).join(' · ')};
-    case 'tache':return {ico:'✅',type:'Tâche',titre:a.texte,det:[(GROUPES[a.cat]||GROUPES.other),a.ech?'avant le '+dfr(a.ech):null,a.qui?'👤 '+a.qui:'👤 non assignée',a.sante_de?'🩺 santé de '+a.sante_de:null].filter(Boolean).join(' · ')};
+    case 'tache':return {ico:'✅',type:'Tâche',titre:a.texte,det:[(GROUPES[a.cat]||GROUPES.other),a.ech?'avant le '+dfr(a.ech):null,a.qui?'👤 '+a.qui:'👤 non assignée',a.sante_de?'🩺 santé de '+a.sante_de:null,
+      /* Une tâche commune est annoncée à la maison : la proposition doit le
+         dire avant qu'on valide, pas après. */
+      a.partagee===false?'🔒 pour toi seule':'👥 la maison sera prévenue'].filter(Boolean).join(' · ')};
     case 'emmene':return {ico:'🚗',type:'Qui emmène',titre:(a.qui||'Personne')+' emmène — '+(a.activite||''),
       det:a.toujours?'à partir de maintenant, c\'est l\'habitude':(a.jour?'seulement le '+dfr(a.jour):'seulement cette fois')};
     case 'course':return {ico:'🛒',type:'Courses',titre:a.texte,det:'ajouté à la liste partagée'};
@@ -4220,7 +4227,8 @@ function magiEnregistrer(actions){
       const cible=a.sante_de?CACHE.personnes.find(x=>x.nom.trim().toLowerCase()===String(a.sante_de).trim().toLowerCase()):null;
       enregistrerObjet(null,'taches',{texte:a.texte,cat:cible?'sante':(GROUPES[a.cat]?a.cat:'other'),qui:a.qui||'',ech,
         dateTexte:ech?'Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase():'',
-        persistante:false,lien:cible?cible.id:'',y:base.getFullYear(),m:base.getMonth()+1,debY:null,debM:null,finY:null,finM:null});n++;
+        persistante:false,lien:cible?cible.id:'',y:base.getFullYear(),m:base.getMonth()+1,debY:null,debM:null,finY:null,finM:null,
+        partagee:a.partagee!==false});n++;
     }else if(a.type==='emmene'&&a.activite_id){
       const act=lesActs().find(x=>x.id===a.activite_id);
       if(!act){toast('⚠️ Je n\'ai pas retrouvé cette activité');return}
