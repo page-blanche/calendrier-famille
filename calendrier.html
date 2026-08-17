@@ -2499,25 +2499,48 @@ function formAct(id){
   const a=id?trouverParId(id):null;
   ouvrirTiroirBrut(a?'Modifier l\'activité':'Nouvelle activité récurrente');
   const corps=document.getElementById('dbd');
-  const pers=[['darya','Darya'],['kyan','Kyan'],['cyrus','Cyrus'],['didier','Didier'],['mandana','Mandana'],['school','École / crèche']];
+  /* Une seule question au lieu de deux. Le formulaire demandait « Pour qui ?
+     (couleur) » dans un menu, puis « Qui ? (optionnel) » en texte libre —
+     la même question posée deux fois, et on répondait « Darya » deux fois.
+     On coche des personnes ; la couleur s'en déduit. */
+  const rang=n=>{const i=(CACHE.membres||[]).indexOf(n);return i<0?99:i};
+  const foyer=(CACHE.personnes||[]).filter(p=>p.foyer).sort((x,y)=>rang(x.nom)-rang(y.nom));
+  const quiSel=new Set(listeQui({qui:a?.qui,qui_liste:a?.qui_liste}));
+  let ecole=a?.cat==='school';
   const sel=new Set(a?a.jours:[]);
   let accomp=a&&a.accompagne?a.accompagne:'';
+  /* La couleur : celle de la personne quand elle est seule, la couleur
+     commune dès qu'ils sont plusieurs. Elle n'est plus choisie à la main. */
+  const catDeQui=()=>{
+    if(ecole)return 'school';
+    const l=[...quiSel];
+    if(l.length===1){
+      const c=String(l[0]).trim().toLowerCase();
+      return COULEURS[c]?c:'both';
+    }
+    return 'both';
+  };
   const b=boutonsForm(()=>{
     const titre=document.getElementById('f-titre').value.trim();
     const hd=document.getElementById('f-hd').value.trim();
     if(!titre||!hd||sel.size===0){toast('Titre, heure de début et au moins un jour obligatoires');return}
+    const liste=foyer.map(p=>p.nom).filter(n=>quiSel.has(n));
     enregistrerObjet(id,'acts',{
-      titre,cat:document.getElementById('f-cat').value,jours:[...sel].sort(),
+      titre,cat:catDeQui(),jours:[...sel].sort(),
       hd,hf:document.getElementById('f-hf').value.trim()||'',
       lieu:document.getElementById('f-lieu').value.trim()||'',
       accompagne:accomp,
-      qui:document.getElementById('f-qui').value.trim()||''});
+      qui:ecole&&!liste.length?'École / crèche':liste.join(', ')});
     apresEnregistrement(a?'Activité modifiée':'Activité ajoutée');
   });
   corps.innerHTML=`
     <p style="font-size:.82rem;color:var(--ink-2)">💡 Apparaît chaque semaine automatiquement, sauf vacances scolaires et jours fériés.</p>
     <label>Titre</label><input type="text" id="f-titre" value="${attr(a?.titre)}" placeholder="Judo — Gymnase…">
-    <label>Pour qui ? (couleur)</label><select id="f-cat">${pers.map(p=>`<option value="${p[0]}" ${a?.cat===p[0]?'selected':''}>${p[1]}</option>`).join('')}</select>
+    <label class="lbl">Pour qui ? <span class="discret2">(plusieurs possibles — ça donne la couleur)</span></label>
+    <div class="mg-chips" id="f-qui">
+      ${foyer.map(p=>`<button type="button" class="mg-chip ${quiSel.has(p.nom)?'actif':''}" data-q="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')}
+      <button type="button" class="mg-chip ${ecole?'actif':''}" data-ecole="1">🏫 École / crèche</button>
+    </div>
     <label>Jours de la semaine</label>
     <div class="jours-picker" id="f-jours">${DS.map((j,i)=>`<span class="jp ${sel.has(i+1)?'on':''}" data-j="${i+1}">${j}</span>`).join('')}</div>
     <div class="grille-form">
@@ -2526,7 +2549,6 @@ function formAct(id){
     </div>
     <div class="grille-form">
       <div><label>Lieu (optionnel)</label><input type="text" id="f-lieu" value="${attr(a?.lieu)}"></div>
-      <div><label>Qui ? (optionnel)</label><input type="text" id="f-qui" value="${attr(a?.qui)}" placeholder="Darya"></div>
     </div>
     <label class="lbl">Qui l'emmène ? <span class="discret2">(en général — tu pourras changer semaine par semaine)</span></label>
     <div class="mg-chips" id="f-accomp">
@@ -2548,6 +2570,18 @@ function formAct(id){
     if(!chAcc.value)return;
     accomp=chAcc.value;
     document.querySelectorAll('#f-accomp .mg-chip').forEach(x=>x.classList.remove('actif'));
+  };
+  document.querySelectorAll('#f-qui [data-q]').forEach(bt=>{bt.onclick=()=>{
+    if(quiSel.has(bt.dataset.q))quiSel.delete(bt.dataset.q);else quiSel.add(bt.dataset.q);
+    if(quiSel.size)ecole=false;
+    document.querySelectorAll('#f-qui [data-q]').forEach(x=>x.classList.toggle('actif',quiSel.has(x.dataset.q)));
+    document.querySelector('#f-qui [data-ecole]').classList.toggle('actif',ecole);
+  }});
+  document.querySelector('#f-qui [data-ecole]').onclick=()=>{
+    ecole=!ecole;
+    if(ecole)quiSel.clear();
+    document.querySelectorAll('#f-qui [data-q]').forEach(x=>x.classList.remove('actif'));
+    document.querySelector('#f-qui [data-ecole]').classList.toggle('actif',ecole);
   };
   document.querySelectorAll('#f-jours .jp').forEach(p=>{
     p.onclick=()=>{const n=parseInt(p.dataset.j);if(sel.has(n)){sel.delete(n);p.classList.remove('on')}else{sel.add(n);p.classList.add('on')}};
@@ -4166,6 +4200,9 @@ function magiResume(a){
     case 'reporter':return {ico:'📆',type:'Reporté',titre:a.texte||nomDe(a.id),
       det:a.ech?'nouvelle échéance : '+dfr(a.ech):'sans date'};
     case 'supprimer':return {ico:'🗑️',type:'Suppression',titre:a.texte||nomDe(a.id),det:'on la retire de la liste'};
+    case 'relance':{const p=String(a.quand||'').split('T');
+      return {ico:'⏰',type:'Relance',titre:a.texte||'(vide)',
+        det:[a.qui?'à '+a.qui:'pour toi',dfr(p[0]),(p[1]||'').slice(0,5)].filter(Boolean).join(' · ')}}
     default:return {ico:'❓',type:String(a.type||'?'),titre:'(non reconnu)',det:''};
   }
 }
@@ -4202,6 +4239,18 @@ function magiEnregistrer(actions){
         categorie:rangerCategorie(a.categorie)})}
       enregistrerObjet(null,'notes',{personne_id:pers.id,texte:a.texte,partagee:!!a.partagee,
         email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});n++;
+    }else if(a.type==='relance'&&a.texte&&a.quand){
+      /* Une relance ne vit pas dans le CACHE : rien ne l'affiche, elle part
+         toute seule. On l'écrit donc directement, sans passer par la
+         mécanique des listes. L'heure saisie est l'heure d'ici — le
+         navigateur est à Paris, toISOString() fait la conversion. */
+      const m=(CACHE.utilisateurs||[]).find(x=>String(x.nom||'').toLowerCase()===String(a.qui||'').trim().toLowerCase());
+      const t=new Date(String(a.quand));
+      if(!isNaN(t)){
+        pousser(sb.from('relances').insert({id:genId(),de_email:EMAIL_CONNECTE,
+          pour_email:m?.email||EMAIL_CONNECTE,pour_nom:m?.nom||null,
+          texte:a.texte,quand:t.toISOString()}));n++;
+      }
     }else if((a.type==='cocher'||a.type==='reporter'||a.type==='supprimer')&&a.id){
       const cible=trouverParId(String(a.id));
       if(!cible){toast('⚠️ Je n\'ai pas retrouvé cet élément');return}
