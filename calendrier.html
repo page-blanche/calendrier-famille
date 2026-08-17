@@ -790,7 +790,25 @@ function tachesLiees(idInfo){return toutesTaches().filter(t=>t.lien===idInfo)}
 function trouverParId(id){
   return lesEvts().find(x=>x.id===id)||lesVacances().find(x=>x.id===id)||
          lesBdays().find(x=>x.id===id)||lesActs().find(x=>x.id===id)||toutesTaches().find(x=>x.id===id)||
-         (CACHE.personnes||[]).find(x=>x.id===id);
+         (CACHE.personnes||[]).find(x=>x.id===id)||
+         /* Les courses, cadeaux et envies manquaient ici. Pia proposait
+            légitimement de cocher un article — le cerveau reçoit les
+            identifiants de la liste de courses — et l'app répondait
+            « je n'ai pas retrouvé cet élément ». Sur Telegram ça marchait :
+            l'asymétrie la plus visible au quotidien. */
+         (CACHE.courses||[]).find(x=>x.id===id)||
+         (CACHE.cadeaux||[]).find(x=>x.id===id)||
+         (CACHE.envies||[]).find(x=>x.id===id);
+}
+/* Dans quelle liste vit cet identifiant ? Cocher n'écrit pas la même colonne
+   selon l'endroit : `coche` pour une course, `offert` pour un cadeau,
+   `faite` pour une envie ou une tâche. */
+function collectionDe(id){
+  if((CACHE.courses||[]).some(x=>x.id===id))return 'courses';
+  if((CACHE.cadeaux||[]).some(x=>x.id===id))return 'cadeaux';
+  if((CACHE.envies ||[]).some(x=>x.id===id))return 'envies';
+  if(toutesTaches().some(x=>x.id===id))return 'taches';
+  return null;
 }
 
 /* Tout est toujours visible (pas de filtres) */
@@ -4262,18 +4280,38 @@ function magiEnregistrer(actions){
     }else if((a.type==='cocher'||a.type==='reporter'||a.type==='supprimer')&&a.id){
       const cible=trouverParId(String(a.id));
       if(!cible){toast('⚠️ Je n\'ai pas retrouvé cet élément');return}
+      const coll=collectionDe(cible.id);
       if(a.type==='cocher'){
         const veut=a.faite!==false;
-        if(estFaite(cible.id)!==veut)basculerFaite(cible.id);
-        n++;
+        if(coll==='courses'){
+          enregistrerObjet(cible.id,'courses',{coche:veut,coche_par:veut?EMAIL_CONNECTE:null});n++;
+        }else if(coll==='cadeaux'){
+          enregistrerObjet(cible.id,'cadeaux',{offert:veut});n++;
+        }else if(coll==='envies'){
+          enregistrerObjet(cible.id,'envies',{faite:veut});n++;
+        }else if(coll==='taches'){
+          if(estFaite(cible.id)!==veut)basculerFaite(cible.id);
+          n++;
+        }else{
+          /* Un événement n'a pas de colonne « fait ». On le disait quand
+             même coché : une fausse confirmation, silencieuse. */
+          toast('⚠️ Ça ne se coche pas — dis-moi plutôt de le supprimer');
+        }
       }else if(a.type==='supprimer'){
         supprimerObjet(cible.id);n++;
       }else{
-        const ech=a.ech||null;
-        const base=ech?deIso(ech):new Date();
-        enregistrerObjet(cible.id,'taches',{ech,
-          dateTexte:ech?'Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase():'',
-          y:base.getFullYear(),m:base.getMonth()+1});n++;
+        /* Reporter n'existe que pour les tâches. Avant, on envoyait un
+           update sur `taches` avec l'identifiant d'un événement : zéro ligne
+           touchée, aucune erreur, et « ✓ reportée » affiché quand même. */
+        if(coll!=='taches'){
+          toast('⚠️ Je ne sais reporter que les tâches, pas ça');
+        }else{
+          const ech=a.ech||null;
+          const base=ech?deIso(ech):new Date();
+          enregistrerObjet(cible.id,'taches',{ech,
+            dateTexte:ech?'Avant le '+deIso(ech).getDate()+' '+MFR[deIso(ech).getMonth()].toLowerCase():'',
+            y:base.getFullYear(),m:base.getMonth()+1});n++;
+        }
       }
       render();
     }else if(a.type==='maison'&&a.nom&&a.genre){
