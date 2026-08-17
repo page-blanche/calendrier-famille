@@ -815,6 +815,13 @@ function collectionDe(id){
 function visible(){return true}
 
 /* ================== ÉTAT ================== */
+/* Ces deux-là n'étaient déclarées nulle part. Le fichier est en mode strict :
+   écrire dans une variable non déclarée ne crée pas un global, ça lève une
+   erreur. Résultat, « 💬 Parler » lançait une ReferenceError à chaque clic et
+   la conversation avec Pia ne s'ouvrait jamais dans l'app. Trouvé en cliquant
+   sur tous les boutons un par un, pas en relisant le code. */
+let MODE = 'famille';        // 'parler' | 'famille'
+let CONV_CHARGEE = false;    // la conversation a-t-elle déjà été chargée ?
 let vue = window.innerWidth<700 ? 'agenda' : 'mois';
 let cur = new Date();
 let jourOuvert = null;   // Date du jour affiché dans le tiroir
@@ -2169,7 +2176,7 @@ function ouvrirAjout(datePre){
   corps.querySelector('[data-t="bday"]').onclick=()=>formBday(null,datePre);
   corps.querySelector('[data-t="act"]').onclick=()=>formAct(null);
   corps.querySelector('[data-t="tache"]').onclick=()=>formTache(null);
-  const bc=corps.querySelector('[data-t="course"]');if(bc)bc.onclick=()=>formCourse();
+  const bc=corps.querySelector('[data-t="course"]');if(bc)bc.onclick=()=>formCourseRapide();
   const bk=corps.querySelector('[data-t="cadeau"]');if(bk)bk.onclick=()=>formCadeau();
   const bn=corps.querySelector('[data-t="note"]');if(bn)bn.onclick=()=>formNote();
   const be=corps.querySelector('[data-t="envie"]');if(be)be.onclick=()=>formEnvie();
@@ -2658,7 +2665,12 @@ function formPause(idAct,jourRetour){
 }
 
 /* ---------- Ajout rapide : article de courses ---------- */
-function formCourse(){
+/* Elle s'appelait formCourse, comme le formulaire d'édition six cents lignes
+   plus bas. En JavaScript la seconde déclaration écrase la première : le
+   bouton « 🛒 Article de courses » appelait donc formCourse() sans
+   identifiant, la version d'édition ne trouvait aucun article et sortait
+   aussitôt. Le bouton ne faisait rien, sans le moindre message. */
+function formCourseRapide(){
   ouvrirTiroirBrut('🛒 Ajouter aux courses');
   const corps=document.getElementById('dbd');
   corps.innerHTML=`
