@@ -1095,8 +1095,12 @@ function renderMois(){
         b.style.left=`calc(${g0} * (100% + 4px) / 7 + ${M}px)`;
         b.style.width=`calc(${g1-g0+1} * (100% + 4px) / 7 - ${2*M+4}px)`;
         b.style.top=(i*HV)+'px';
-        b.textContent=e.titre;
-        b.title=e.titre;
+        /* Un stage n'est pas un séjour, et la barre doit le dire : sans son
+           horaire, « Tennis » sur cinq jours se lit comme des vacances. */
+        const creneau=e.chaque_jour&&e.heure
+          ? ' · '+e.heure+(e.heure_fin?'–'+e.heure_fin:'') : '';
+        b.textContent=e.titre+creneau;
+        b.title=e.titre+creneau+(e.chaque_jour?' (chaque jour)':'');
         const jour=new Date(jours[g0]);
         b.onclick=(ev)=>{ev.stopPropagation();ouvrirJour(jour)};
         voie.appendChild(b);
