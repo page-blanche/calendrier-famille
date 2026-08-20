@@ -2246,6 +2246,10 @@ function formEvt(id,datePre){
       titre,cat:document.getElementById('f-cat').value,debut,
       fin:document.getElementById('f-fin').value||'',
       heure:document.getElementById('f-heure').value.trim()||'',
+      heure_fin:document.getElementById('f-heure-fin').value.trim()||'',
+      chaque_jour:(()=>{const c=document.getElementById('f-chaque-jour');
+        const d=document.getElementById('f-debut').value,f=document.getElementById('f-fin').value;
+        return !!(c&&c.checked&&f&&d&&f>d)})(),
       qui:tous?'Toute la famille':liste.join(', '),
       qui_liste:liste.length?liste:null,
       accompagne:enfantsSeuls()?(accomp||null):null,
@@ -2268,7 +2272,17 @@ function formEvt(id,datePre){
       <div><label>Date de début</label><input type="date" id="f-debut" value="${e?e.debut:(datePre||'')}"></div>
       <div><label>Date de fin (si plusieurs jours)</label><input type="date" id="f-fin" value="${e?.fin||''}"></div>
     </div>
-    <label>Heure (optionnel)</label><input type="text" id="f-heure" value="${attr(e?.heure)}" placeholder="14:30">
+    <div class="grille-form">
+      <div><label>Heure de début (optionnel)</label><input type="text" id="f-heure" value="${attr(e?.heure)}" placeholder="17:30"></div>
+      <div><label>Heure de fin (optionnel)</label><input type="text" id="f-heure-fin" value="${attr(e?.heure_fin)}" placeholder="18:30"></div>
+    </div>
+    <!-- Un stage de tennis n'est pas un séjour : même créneau tous les jours
+         d'un côté, une plage continue de l'autre. Sans cette case, les cinq
+         jours de tennis se rangeaient comme des vacances. -->
+    <label class="check-ligne" id="f-cj-ligne" style="display:${(e?.fin&&e.fin>e.debut)?'':'none'}">
+      <input type="checkbox" id="f-chaque-jour" ${e?.chaque_jour?'checked':''}>
+      🔁 Tous les jours de la période, au même horaire <span class="discret2">(un stage, un cours)</span>
+    </label>
     <label class="lbl">Qui est concerné ? <span class="discret2">(plusieurs possibles)</span></label>
     <div class="mg-chips" id="f-qui">
       <button type="button" class="mg-chip" data-tous="1">👪 Toute la famille</button>
@@ -2288,6 +2302,23 @@ function formEvt(id,datePre){
     <label>Détails (optionnel — les liens deviennent cliquables)</label>
     <textarea id="f-detail">${echap(e?.detail??'')}</textarea>
     ${b.html}`;
+
+  /* « Tous les jours de la période » n'a de sens qu'une fois la période
+     ouverte. La case apparaît dès qu'une date de fin postérieure est posée et
+     disparaît si on la retire — sinon on coche quelque chose qui serait
+     silencieusement ignoré à l'enregistrement. */
+  function majChaqueJour(){
+    const d=document.getElementById('f-debut').value,f=document.getElementById('f-fin').value;
+    const l=document.getElementById('f-cj-ligne');
+    if(!l)return;
+    const possible=!!(d&&f&&f>d);
+    l.style.display=possible?'':'none';
+    if(!possible)document.getElementById('f-chaque-jour').checked=false;
+  }
+  ['f-debut','f-fin'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.addEventListener('change',majChaqueJour);
+  });
+  majChaqueJour();
 
   function enfantsSeuls(){
     if(!quiSel.size)return false;
@@ -4203,7 +4234,14 @@ function magiResume(a){
   const dfr=s=>{if(!s)return '';const d=deIso(s);return DFR[jSem(d)-1].toLowerCase()+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()};
   const badge=x=>x?'👥 partagée':'🔒 privée';
   switch(a.type){
-    case 'evenement':return {ico:'📌',type:'Événement',titre:a.titre,det:[dfr(a.debut),a.fin&&a.fin!==a.debut?'→ '+dfr(a.fin):null,a.heure,a.qui?'pour '+a.qui:null].filter(Boolean).join(' · ')};
+    case 'evenement':{const liste=Array.isArray(a.qui_liste)&&a.qui_liste.length?a.qui_liste.join(' & '):null;
+      return {ico:'📌',type:'Événement',titre:a.titre,det:[dfr(a.debut),a.fin&&a.fin!==a.debut?'→ '+dfr(a.fin):null,
+        a.chaque_jour?'🔁 chaque jour':null,
+        a.heure?a.heure+(a.heure_fin?'–'+a.heure_fin:''):null,(liste||a.qui)?'pour '+(liste||a.qui):null].filter(Boolean).join(' · ')}}
+    case 'activite':{const JS=['','lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
+      return {ico:'🏃',type:'Activité',titre:a.titre,
+        det:['chaque '+(a.jours||[]).map(j=>JS[Number(j)]||'?').join(', '),
+          a.hd+(a.hf?'–'+a.hf:''),a.qui?'pour '+a.qui:null].filter(Boolean).join(' · ')}}
     case 'tache':return {ico:'✅',type:'Tâche',titre:a.texte,det:[(GROUPES[a.cat]||GROUPES.other),a.ech?'avant le '+dfr(a.ech):null,a.qui?'👤 '+a.qui:'👤 non assignée',a.sante_de?'🩺 santé de '+a.sante_de:null,
       /* Une tâche commune est annoncée à la maison : la proposition doit le
          dire avant qu'on valide, pas après. */
@@ -4255,8 +4293,23 @@ function magiEnregistrer(actions){
   let n=0;
   actions.forEach(a=>{
     if(a.type==='evenement'&&a.titre){
+      /* qui_liste manquait ici comme côté Telegram : la colonne existe depuis
+         qu'on a voulu cocher plusieurs personnes, et « Darya et Kyan » ne
+         restait qu'un texte impossible à relire. */
+      const liste=Array.isArray(a.qui_liste)&&a.qui_liste.length?a.qui_liste:null;
       enregistrerObjet(null,'evts',{titre:a.titre,cat:['event','voyage','pro','rentree'].includes(a.cat)?a.cat:'event',
-        debut:a.debut||iso(new Date()),fin:a.fin||null,heure:a.heure||null,qui:a.qui||null,detail:a.detail||null});n++;
+        debut:a.debut||iso(new Date()),fin:a.fin||null,
+        heure:a.heure||null,heure_fin:a.heure_fin||null,
+        chaque_jour:!!a.chaque_jour&&!!a.fin&&a.fin>a.debut,
+        qui:a.qui||(liste?liste.join(' & '):null),qui_liste:liste,detail:a.detail||null});n++;
+    }else if(a.type==='activite'&&a.titre&&Array.isArray(a.jours)&&a.jours.length){
+      /* Pia ne savait pas créer d'activité récurrente : « ajoute le judo le
+         mercredi » n'avait aucune action derrière, et elle en faisait un
+         événement d'un seul jour. */
+      enregistrerObjet(null,'acts',{titre:a.titre,cat:a.cat||'autre',
+        jours:a.jours.map(Number).filter(j=>j>=1&&j<=7),
+        hd:a.hd||'00:00',hf:a.hf||null,lieu:a.lieu||null,qui:a.qui||null,
+        annulations:[],pauses:[]});n++;
     }else if(a.type==='tache'&&a.texte){
       delete a._dateOk;delete a._quiOk;
       const ech=a.ech||null;
@@ -4397,6 +4450,7 @@ function magiCorriger(a){
     formEvt(null,a.debut||null);
     setTimeout(()=>{set('f-titre',a.titre);set('f-cat',['event','voyage','pro','rentree'].includes(a.cat)?a.cat:'event');
       set('f-debut',a.debut);set('f-fin',a.fin||a.debut);set('f-heure',a.heure||'');
+      set('f-heure-fin',a.heure_fin||'');
       cocheQui(a.qui||'');set('f-detail',a.detail||'')},60);
   }else if(a.type==='tache'){
     formTache(null);
