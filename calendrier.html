@@ -360,14 +360,12 @@ body.a-barre .fab{bottom:calc(78px + env(safe-area-inset-bottom))}
 <body>
 <div class="header">
 <div class="h-zone"><h1 id="titreAccueil" style="cursor:pointer" title="Retour à l'accueil">🏡 Famille</h1></div>
-<div class="h-zone h-centre" id="navBar">
-<span id="navOutils" style="display:flex;align-items:center;gap:8px">
-<button class="fleche" onclick="navMois(-1)">←</button>
-<button class="month-title-btn" id="navTitleBtn"><span id="navTitle"></span><span class="chevron">▾</span></button>
-<button class="fleche" onclick="navMois(1)">→</button>
-<button class="today-btn" onclick="allerAujourdhui()">Aujourd'hui</button>
-</span>
-</div>
+<!-- Il y avait ici une deuxième navigation du mois : ←, le titre, →, et
+     « Aujourd'hui ». Elle faisait doublon avec la barre sous les onglets et,
+     surtout, elle ne la prévenait pas : on avançait d'ici, la grille suivait,
+     et l'autre titre restait au mois d'avant. D'où « Janvier 2027 » en haut
+     et « Octobre 2026 » dessous, sur le même écran. Une seule barre. -->
+<div class="h-zone h-centre" id="navBar"></div>
 <div class="h-zone h-droite">
 <button class="today-btn" id="btnParams" title="Réglages">⚙️</button>
 </div>
@@ -396,7 +394,6 @@ body.a-barre .fab{bottom:calc(78px + env(safe-area-inset-bottom))}
 <div class="month-view" id="monthView">
 <div class="weekday-header"><div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div></div>
 <div class="month-grid" id="monthGrid"></div>
-<div id="jourDetail"></div>
 </div>
 </div>
 <div class="todo-panel" id="todoPanel"></div>
@@ -718,7 +715,6 @@ function visible(){return true}
    sur tous les boutons un par un, pas en relisant le code. */
 let MODE = 'famille';        // 'parler' | 'famille'
 let CONV_CHARGEE = false;    // la conversation a-t-elle déjà été chargée ?
-let vue = window.innerWidth<700 ? 'agenda' : 'mois';
 let cur = new Date();
 let jourOuvert = null;   // Date du jour affiché dans le tiroir
 let ongletTodo = 'moi';  // 'moi' | le prénom (en minuscules) d'un autre compte
@@ -889,7 +885,6 @@ function renderMois(){
     if(!jourSel||jourSel.slice(0,7)!==(y+'-'+String(m+1).padStart(2,'0')))
       jourSel=(auj.getFullYear()===y&&auj.getMonth()===m)?iso(auj):null;
   }
-  document.getElementById('navTitle').textContent=MFR[m]+' '+y;
   const g=document.getElementById('monthGrid');g.innerHTML='';
   const decal=(new Date(y,m,1).getDay()+6)%7;
   const debut=new Date(y,m,1-decal);
@@ -933,10 +928,21 @@ function renderMois(){
       if(iso(d)===auj)cls.push('today');
       if(estRentree)cls.push('rentree');else if(enVoyage)cls.push('voyage');
       else if(v&&visible('vacances'))cls.push('vacation');else if(we)cls.push('weekend');
-      if(estMobile&&iso(d)===jourSel)cls.push('sel');
+      if(estMobile&&iso(d)===jourSel)cls.push('sel');   // le jour choisi, en surbrillance
       const c=document.createElement('div');c.className=cls.join(' ');
       const dd=new Date(d);
-      c.onclick=()=>{if(estMobile){jourSel=iso(dd);if(dd.getMonth()!==m)cur=new Date(dd.getFullYear(),dd.getMonth(),1);renderMois()}else ouvrirJour(dd)};
+      /* En mobile, taper un jour ne faisait que le surligner : la carte qui
+         devait s'afficher dessous dépendait d'une section 'cal' qui n'existe
+         plus, donc elle ne s'affichait jamais. On ouvre la journée, comme sur
+         grand écran — la surbrillance reste, pour savoir d'où l'on vient. */
+      c.onclick=()=>{
+        if(estMobile){
+          jourSel=iso(dd);
+          if(dd.getMonth()!==m)cur=new Date(dd.getFullYear(),dd.getMonth(),1);
+          renderMois();majNavPeriode();
+        }
+        ouvrirJour(dd);
+      };
       let h=`<div class="day-num${f?' ferie':''}">${d.getDate()}</div>`;
       if(!estMobile)h+=`<button class="cell-add" title="Ajouter ce jour-là">＋</button>`;
       if(estMobile){
@@ -1004,43 +1010,8 @@ function renderMois(){
     }
     g.appendChild(row);
   }
-  renderJourDetail();
 }
 
-function renderJourDetail(){
-  const zone=document.getElementById('jourDetail');
-  if(!zone)return;
-  if(window.innerWidth>=700||!jourSel||vue!=='mois'||section!=='cal'){zone.innerHTML='';return}
-  const d=deIso(jourSel);
-  const v=enVacances(d),fe=ferie(d);
-  const bds=bdaysDuJour(d),evs=evtsDuJour(d),acs=actsDuJour(d);
-  const tks=tachesDuJour(d,true);
-  const lignes=[];
-  // L'emoji occupe la colonne de gauche : on ne le répète pas dans le titre.
-  bds.forEach(b=>lignes.push({h:'',ti:sansEmoji(b.titre),ico:emojiDe(b.titre,'bday'),qui:''}));
-  evs.forEach(e=>lignes.push({h:e.heure||'',ti:sansEmoji(e.titre),ico:emojiDe(e.titre,e.cat),qui:e.qui||''}));
-  tks.forEach(t=>lignes.push({h:'',ti:sansEmoji(t.texte),ico:emojiDe(t.texte,t.cat),qui:t.qui||'',tache:true}));
-  lignes.sort((a,b)=>minutes(a.h)-minutes(b.h));
-  const info=[fe?'🇫🇷 '+fe:'',v?v.nom:''].filter(Boolean).join(' · ');
-  let h=`<div class="jd-carte">
-    <div class="jd-tete"><span class="jd-j">${DFR[jSem(d)-1]} ${d.getDate()} ${MFR[d.getMonth()]}</span>
-      ${info?`<span class="jd-i">${echap(info)}</span>`:''}</div>`;
-  if(!lignes.length&&!acs.length)h+='<div class="jd-vide">Rien de prévu ce jour-là 🌿</div>';
-  lignes.slice(0,4).forEach(l=>{
-    h+=`<div class="jd-l"><span class="jd-h">${l.h?echap(l.h):l.ico}</span>
-      <span class="jd-t">${echap(l.ti)}</span>
-      ${l.qui?`<span class="jd-q">${echap(l.qui)}</span>`:''}</div>`;
-  });
-  if(lignes.length>4)h+=`<div class="jd-x">＋ ${lignes.length-4} autre${lignes.length-4>1?'s':''}</div>`;
-  if(acs.length)h+=`<div class="jd-x">＋ ${acs.length} habitude${acs.length>1?'s':''}</div>`;
-  h+=`<div style="display:flex;gap:8px;margin-top:11px">
-    <button class="btn mini" id="jd-detail" style="flex:1">Voir toute la journée ›</button>
-    <button class="btn primaire mini" id="jd-add">＋ Ajouter</button>
-  </div></div>`;
-  zone.innerHTML=h;
-  document.getElementById('jd-detail').onclick=()=>ouvrirJour(deIso(jourSel));
-  document.getElementById('jd-add').onclick=()=>ouvrirAjout(jourSel);
-}
 
 // Sélecteur de mois (popover sous le titre)
 function renderPopMois(){
@@ -1052,21 +1023,10 @@ function renderPopMois(){
     b.className='month-btn'+(cur.getFullYear()===y&&cur.getMonth()===m?' active':'');
     b.style.textAlign='center';
     b.textContent=COURT[m]+' '+String(y).slice(2);
-    b.onclick=()=>{cur=new Date(y,m,1);fermerPopovers();if(vue==='annee')setVue('mois');else render()};
+    b.onclick=()=>{cur=new Date(y,m,1);fermerPopovers();render();majNavPeriode()};
     grille.appendChild(b);
   });
 }
-
-/* ================== VUE « À VENIR » ==================
-   Ce n'est pas le mois en liste : ça part d'aujourd'hui et ça continue,
-   par-dessus la fin du mois. Et la routine de la semaine (école, trajets,
-   activités hebdo) se replie en une ligne — sinon elle noie tout le reste. */
-let avRoutineOuverte={};
-
-/* ================== VUE SEMAINE ================== */
-
-/* ================== VUE ANNÉE ================== */
-
 
 /* ================== TO-DO ================== */
 const GROUPES={deadline:'📋 Admin & inscriptions',facture:'💳 Factures',family:'👨‍👩‍👧 Événements & préparatifs',sante:'🩺 Santé',other:'📌 Divers'};
@@ -1818,11 +1778,10 @@ function ouvrirAjout(datePre){
   <div class="todo-section-title" style="margin:14px 0 6px">✅ Une chose à faire — ça se coche</div>
   <div class="type-grid">
     <button class="type-card" data-t="tache"><div class="tc-ico">✅</div><div class="tc-titre">Tâche</div><div class="tc-sous">Avec échéance (visible au calendrier) ou reportée chaque mois</div></button>
-    ${section!=='cal'?`
     <button class="type-card" data-t="course"><div class="tc-ico">🛒</div><div class="tc-titre">Article de courses</div><div class="tc-sous">Hop, dans la liste partagée</div></button>
     <button class="type-card" data-t="cadeau"><div class="tc-ico">🎁</div><div class="tc-titre">Idée cadeau</div><div class="tc-sous">Notée avant d'oublier</div></button>
     <button class="type-card" data-t="note"><div class="tc-ico">🧠</div><div class="tc-titre">Note sur quelqu'un</div><div class="tc-sous">Privée par défaut, dans ta Mémoire</div></button>
-    <button class="type-card" data-t="envie"><div class="tc-ico">✨</div><div class="tc-titre">Envie</div><div class="tc-sous">Livre, resto, film, sortie… avant d'oublier</div></button>`:''}
+    <button class="type-card" data-t="envie"><div class="tc-ico">✨</div><div class="tc-titre">Envie</div><div class="tc-sous">Livre, resto, film, sortie… avant d'oublier</div></button>
   </div>`;
   corps.querySelector('[data-t="magie"]').onclick=()=>formMagie('');
   corps.querySelector('[data-t="evt"]').onclick=()=>formEvt(null,datePre);
@@ -5357,13 +5316,21 @@ function majNavPeriode(){
     quoi=DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase();
     ici=jourVu===iso(new Date());
   }
+  const titre=echap(quoi.charAt(0).toUpperCase()+quoi.slice(1));
+  // Le titre du mois ouvre le sélecteur de mois : il était accroché à l'autre
+  // barre, celle de l'en-tête, et serait parti avec elle.
   z.innerHTML=`<div class="nav-periode">
     <button class="np-f" data-np="-1" title="Précédent">‹</button>
-    <span class="np-q">${echap(quoi.charAt(0).toUpperCase()+quoi.slice(1))}</span>
+    ${vuePlanning==='mois'
+      ? `<button class="np-q np-titre" id="npTitre">${titre}<span class="chevron">▾</span></button>`
+      : `<span class="np-q">${titre}</span>`}
     <button class="np-f" data-np="1" title="Suivant">›</button>
     ${ici?'':`<button class="np-auj" data-np="0">${vuePlanning==='repas'?'Cette semaine':"Aujourd'hui"}</button>`}
   </div>`;
   z.querySelectorAll('[data-np]').forEach(b=>{b.onclick=()=>navPeriode(Number(b.dataset.np))});
+  const t=z.querySelector('#npTitre');
+  if(t)t.onclick=(e)=>{e.stopPropagation();renderPopMois();
+    togglePopover(document.getElementById('popMois'),t)};
 }
 function navPeriode(dir){
   if(vuePlanning==='mois'){
@@ -5385,7 +5352,6 @@ function brancherVues(zone,poser){
 
 function setVuePlanning(v){
   vuePlanning=v;
-  if(v==='mois')vue='mois';
   // Passer d'une vue à l'autre change de conteneur : « Aujourd'hui » et
   // « Repas » vivent dans une page, le mois dans la zone calendrier.
   // C'est setSection qui sait lequel montrer — sinon on redessine dans
@@ -5423,8 +5389,6 @@ function setSection(s){
   document.getElementById('vueMemoire').style.display=s==='memoire'?'block':'none';
   document.getElementById('vueSante').style.display=s==='sante'?'block':'none';
   document.getElementById('vueMaison').style.display=s==='maison'?'block':'none';
-  document.getElementById('navBar').style.visibility=surCal?'visible':'hidden';
-  document.getElementById('navOutils').style.visibility=surCal?'visible':'hidden';
   document.querySelector('.fab').style.display=(s==='maison')?'none':'';
   /* Les sous-vues vivent toutes ici, au-dessus des conteneurs. Avant, il y
      avait trois traitements : Planning au-dessus, To do et Maison à
@@ -5453,18 +5417,12 @@ function setSection(s){
   majBarreBas();
   render();
 }
-function navMois(dir){
-  if(vue==='semaine')cur.setDate(cur.getDate()+dir*7);
-  else cur.setMonth(cur.getMonth()+dir);
-  render();
-}
-function allerAujourdhui(){cur=new Date();render()}
-/* Il restait ici six vues à masquer, dont quatre n'existaient plus : semaine,
-   agenda, année et son panneau latéral avaient été retirés de l'écran sans que
-   leur code parte. `vue` ne vaut jamais que 'mois' depuis longtemps. */
-function setVue(v){
-  vue=v;
-  document.getElementById('navOutils').style.visibility='visible';
+/* Il y avait ici une variable `vue` et six vues à montrer ou masquer, dont
+   quatre n'existaient plus : semaine, agenda, année et son panneau latéral
+   avaient été retirés de l'écran sans que leur code parte. `vue` ne valait
+   plus jamais que 'mois' — et navMois() était la deuxième façon de changer
+   de mois, celle qui laissait l'autre titre en arrière. */
+function montrerMois(){
   document.getElementById('monthView').style.display='block';
   document.getElementById('todoPanel').style.display='block';
   render();
@@ -5529,13 +5487,8 @@ function togglePopover(pop,ancre){
   pop.style.left=gauche+'px';
   pop.style.top=(r.bottom+8)+'px';
 }
-document.getElementById('navTitleBtn').onclick=(e)=>{
-  e.stopPropagation();
-  renderPopMois();
-  togglePopover(document.getElementById('popMois'),document.getElementById('navTitleBtn'));
-};
 document.addEventListener('click',(e)=>{
-  if(!e.target.closest('.popover')&&!e.target.closest('#navTitleBtn'))fermerPopovers();
+  if(!e.target.closest('.popover')&&!e.target.closest('#npTitre'))fermerPopovers();
 });
 
 /* ================== INIT ================== */
@@ -5565,7 +5518,7 @@ document.addEventListener('visibilitychange',async()=>{
   UTILISATEUR=s.nom||s.session.user.email;
   EMAIL_CONNECTE=(s.session.user.email||'').toLowerCase();
   await chargerReglages();
-  if(await chargerTout()){setVue('mois');setSection('planning');majHautChat();montrerPriseSiBesoin()}
+  if(await chargerTout()){montrerMois();setSection('planning');majHautChat();montrerPriseSiBesoin()}
 })();
 
 </script>
