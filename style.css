@@ -28,19 +28,10 @@ button{font-family:inherit}
 .h-zone{display:flex;align-items:center;gap:8px}
 .h-centre{flex:1;justify-content:center;min-width:0}
 .h-droite{gap:8px}
-.month-title-btn{
-  border:none;background:transparent;font-size:1.08rem;font-weight:700;letter-spacing:-.02em;
-  color:var(--ink);cursor:pointer;padding:4px 10px;border-radius:var(--radius-s);
-  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
-}
-.month-title-btn:hover{background:#efede8}
-.month-title-btn .chevron{font-size:.7rem;color:var(--ink-3)}
-.fleche{
-  background:var(--surface);border:1px solid var(--border-strong);border-radius:50%;
-  width:31px;height:31px;cursor:pointer;font-size:.85rem;color:var(--ink-2);
-  display:inline-flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0;
-}
-.fleche:hover{background:#f2f1ee}
+/* .month-title-btn et .fleche habillaient la navigation du mois dans
+   l'en-tête. Cette barre-là faisait doublon avec celle sous les onglets et
+   ne la tenait pas au courant : elle est partie, son habillage aussi.
+   Ce qui subsistait de `.fleche` ailleurs est sous `.nav .fleche`. */
 .today-btn{
   border-radius:999px;padding:0 13px;height:29px;background:transparent;color:var(--ink-2);
   border:1px solid var(--border-strong);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;
@@ -78,20 +69,9 @@ button{font-family:inherit}
 }
 .hint-banner button{border:none;background:none;cursor:pointer;font-size:.9rem;color:#2e5e3a;opacity:.7}
 
-/* ---------- Navigation ---------- */
-.nav{display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 16px 4px}
-.nav .fleche{
-  background:var(--surface);border:1px solid var(--border-strong);border-radius:50%;
-  width:34px;height:34px;cursor:pointer;font-size:.9rem;color:var(--ink-2);
-  display:inline-flex;align-items:center;justify-content:center;transition:.15s;
-}
-.nav .fleche:hover{background:#f2f1ee}
-.nav .month-title{font-size:1.25rem;font-weight:700;letter-spacing:-.02em;min-width:200px;text-align:center}
-.nav .today-btn{
-  border-radius:999px;padding:0 15px;height:31px;background:var(--ink);color:#fff;
-  border:none;font-size:.8rem;font-weight:600;cursor:pointer;
-}
-.nav .today-btn:hover{background:#3a3833}
+/* Il y avait ici un bloc `.nav` complet — flèches, titre du mois, bouton
+   « Aujourd'hui ». C'était la navigation d'une troisième époque : plus aucun
+   élément ne portait la classe `nav` dans la page. */
 
 /* ---------- Filtres unifiés ---------- */
 .filter-bar{
@@ -470,5 +450,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
 .np-f:hover{border-color:var(--border-strong)}
 .np-q{flex:1;text-align:center;font-weight:700;font-size:.87rem;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Le titre du mois est cliquable : il ouvre le sélecteur de mois. Il doit
+   rester un titre à l'œil — pas de bordure, pas de fond — et n'annoncer
+   qu'il est un bouton qu'au survol, par le chevron et un fond léger. */
+.np-titre{border:none;background:none;color:inherit;font-family:inherit;
+  cursor:pointer;border-radius:99px;padding:3px 8px;display:inline-flex;
+  align-items:center;justify-content:center;gap:6px}
+.np-titre:hover{background:#efede8}
+.np-titre .chevron{font-size:.7rem;color:var(--ink-3)}
 .np-auj{font-size:.74rem;font-weight:700;color:var(--ink-2);border:1px solid var(--border);
   border-radius:99px;padding:4px 11px;background:#fff;cursor:pointer;flex:0 0 auto}
