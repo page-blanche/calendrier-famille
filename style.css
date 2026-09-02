@@ -5,6 +5,13 @@
   --bg:#fafaf9; --surface:#ffffff; --border:#e9e7e2; --border-strong:#d9d6cf;
   --ink:#1c1b18; --ink-2:#6f6b62; --ink-3:#a3a099;
   --vac-bg:#fdf8e7; --radius:12px; --radius-s:8px;
+  /* La couleur porte le module : sa tuile au bureau, sa pastille, le liseré en
+     haut de son écran. C'est le seul fil qui relie l'accueil au module ouvert —
+     sans lui, douze icônes grises se ressemblent toutes et on ne reconnaît plus
+     la sienne du coin de l'œil. Reprises telles quelles de la maquette. */
+  --h-journee:#d98a2b; --h-planning:#41649c; --h-repas:#bd6636;  --h-courses:#2f6b4f;
+  --h-todo:#6f55a0;    --h-projets:#b0402a;  --h-sante:#2f7f8b;  --h-maison:#846838;
+  --h-gens:#9c4570;    --h-envies:#c2851f;   --h-cadeaux:#b83f63; --h-recettes:#5f8639;
   --shadow:0 1px 2px rgba(28,27,24,.05),0 4px 16px rgba(28,27,24,.05);
   --shadow-lg:0 8px 40px rgba(28,27,24,.14);
 }
