@@ -1329,7 +1329,7 @@ let vueTodo='taches';         // 'taches' | 'courses'
    moyen d'en sortir était le petit « ‹ La to-do » en haut.
    setVueMaison fermait déjà sa fiche — c'était la bonne réponse, elle
    n'avait simplement pas été donnée partout. */
-function setVueTodo(v){vueTodo=v;projetOuvert=null;render()}
+function setVueTodo(v){vueTodo=v;projetOuvert=null;majBarreVues();render()}
 
 function renderTodo(){
   if(vueTodo==='courses')return renderCourses();
@@ -4193,7 +4193,7 @@ const ENV_CATS=[['lire','📚','À lire'],['regarder','🎬','À regarder'],['re
 // Même chose en Mémoire : la fiche d'une personne et le rangement passent
 // devant les onglets, qui restaient donc sans effet tant qu'on en avait un
 // d'ouvert.
-function setOngletMem(v){ongletMem=v;persOuverte=null;rangementOuvert=false;render()}
+function setOngletMem(v){ongletMem=v;persOuverte=null;rangementOuvert=false;majBarreVues();render()}
 function brancherOngletsMem(zone){
   zone.querySelectorAll('[data-om]').forEach(b=>{
     b.onclick=()=>{ongletMem=b.dataset.om;persOuverte=null;rangementOuvert=false;renderMemoire()};
@@ -4929,7 +4929,7 @@ function totalAbos(){
 function euros(n){
   return (Math.round(n*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+' €';
 }
-function setVueMaison(v){vueMaison=v;maisonOuvert=null;render()}
+function setVueMaison(v){vueMaison=v;maisonOuvert=null;majBarreVues();render()}
 
 function renderMaison(){
   const zone=document.getElementById('vueMaison');
@@ -5461,32 +5461,42 @@ function setSection(s){
   document.getElementById('vueSante').style.display=s==='sante'?'block':'none';
   document.getElementById('vueMaison').style.display=s==='maison'?'block':'none';
   document.querySelector('.fab').style.display=(s==='maison')?'none':'';
-  /* Les sous-vues vivent toutes ici, au-dessus des conteneurs. Avant, il y
-     avait trois traitements : Planning au-dessus, To do et Maison à
-     l'intérieur de leur panneau, Mémoire dans un composant différent posé
-     sous le titre de la carte. Trois réponses à la même question. */
+  majBarreVues();
+  majBarreBas();
+  render();
+}
+
+/* Les sous-vues vivent toutes ici, au-dessus des conteneurs. Avant, il y
+   avait trois traitements : Planning au-dessus, To do et Maison à
+   l'intérieur de leur panneau, Mémoire dans un composant différent posé
+   sous le titre de la carte. Trois réponses à la même question. */
+const SOUS_VUES={
+  planning:{defs:()=>[['jour','Ma journée'],['mois','Mois'],['repas','🍽️ Repas']],
+            val:()=>vuePlanning,poser:setVuePlanning},
+  todo:{defs:()=>[['taches','✅ À faire'],
+                  ['courses','🛒 Courses',CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length]],
+        val:()=>vueTodo,poser:setVueTodo},
+  memoire:{defs:()=>[['gens','🧑 Les gens'],['envies','✨ Les envies'],
+                     ['cadeaux','🎁 Les cadeaux'],['recettes','📖 Recettes']],
+           val:()=>ongletMem,poser:setOngletMem},
+  maison:{defs:()=>[['entretien','🔧 Entretien'],
+                    ['abonnements','💳 Abonnements',maisonReclame().length||'']],
+          val:()=>vueMaison,poser:setVueMaison},
+};
+
+/* La barre n'était redessinée qu'au changement de section. Passer de
+   « À faire » à « Courses » changeait bien la page, mais laissait la
+   pastille noire sur l'onglet d'avant : l'écran disait une chose et la
+   barre une autre. Elle se redessine maintenant à chaque changement de
+   sous-vue — ce qui rafraîchit aussi le compteur des courses. */
+function majBarreVues(){
   const bv=document.getElementById('barreVues');
-  const SOUS_VUES={
-    planning:{defs:()=>[['jour','Ma journée'],['mois','Mois'],['repas','🍽️ Repas']],
-              val:()=>vuePlanning,poser:setVuePlanning},
-    todo:{defs:()=>[['taches','✅ À faire'],
-                    ['courses','🛒 Courses',CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length]],
-          val:()=>vueTodo,poser:setVueTodo},
-    memoire:{defs:()=>[['gens','🧑 Les gens'],['envies','✨ Les envies'],
-                       ['cadeaux','🎁 Les cadeaux'],['recettes','📖 Recettes']],
-             val:()=>ongletMem,poser:setOngletMem},
-    maison:{defs:()=>[['entretien','🔧 Entretien'],
-                      ['abonnements','💳 Abonnements',maisonReclame().length||'']],
-            val:()=>vueMaison,poser:setVueMaison},
-  };
-  const sv=SOUS_VUES[s];
+  const sv=SOUS_VUES[section];
   if(sv){
-    bv.innerHTML=barreVues(sv.defs(),sv.val(),s)+'<div id="navPeriode"></div>';
+    bv.innerHTML=barreVues(sv.defs(),sv.val(),section)+'<div id="navPeriode"></div>';
     brancherVues(bv,sv.poser);
   }else{bv.innerHTML=''}
   majNavPeriode();
-  majBarreBas();
-  render();
 }
 /* Il y avait ici une variable `vue` et six vues à montrer ou masquer, dont
    quatre n'existaient plus : semaine, agenda, année et son panneau latéral
