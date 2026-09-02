@@ -235,6 +235,7 @@
 .kdo-lien:hover{color:var(--ink)}
 .kdo-plie{font:inherit;font-size:.78rem;font-weight:700;color:var(--ink-2);background:none;
   border:none;padding:2px 0 6px;cursor:pointer;display:block}
+.env-tard{color:var(--alert);font-weight:700}
 .sa-s{font-size:.76rem;color:var(--ink-2);line-height:1.45}
 .sa-doses{display:flex;gap:6px;margin-top:9px}
 .sa-dose{flex:1;text-align:center;border-radius:11px;padding:7px 2px;font-size:.7rem;
@@ -2710,22 +2711,50 @@ function formMenu(sJour,moment){
 }
 function renderRecettes(){
   const zone=document.getElementById('vueMemoire');
-  const recs=(CACHE.recettes||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
-  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>  <h2 class="ps-titre" style="font-size:1.05rem">📖 Tes recettes</h2>
-  <p class="discret2">Le socle de la maison. Une recette, c'est un nom et des ingrédients — écris-les comme tu les dirais.</p>`;
-  if(!recs.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">Aucune recette pour l'instant.<br>Commence par celle que tu fais le plus souvent 🙂</div>`;
+  const toutes=(CACHE.recettes||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
+  // On cherche dans le nom ET dans les ingrédients : « qu'est-ce que je sais
+  // faire avec des poireaux ? » est la vraie question qu'on pose à un carnet.
+  const q=(RECH_RECETTE||'').trim().toLowerCase();
+  const recs=toutes.filter(r=>!q||
+    (r.nom+' '+(r.ingredients||[]).join(' ')).toLowerCase().includes(q));
+  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>  <h2 class="ps-titre" style="font-size:1.05rem">📖 Tes recettes</h2>`;
+  if(toutes.length>6){
+    h+=`<div style="margin:10px 0 6px"><input type="text" id="rc-rech"
+      placeholder="🔍 Chercher — un plat, un ingrédient…" value="${attr(RECH_RECETTE||'')}"></div>`;
+  }
+  if(!recs.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">${q
+    ?'Rien avec « '+echap(q)+' ». Ça pourrait être une recette à écrire 🙂'
+    :'Aucune recette pour l\'instant.<br>Commence par celle que tu fais le plus souvent 🙂'}</div>`;
   recs.forEach(r=>{
     const n=(r.ingredients||[]).filter(x=>String(x).trim()).length;
+    // Quand la recherche a trouvé le mot dans les ingrédients et non dans le
+    // nom, on montre lequel : sinon la liste a l'air de répondre au hasard.
+    const par=q&&!r.nom.toLowerCase().includes(q)
+      ?(r.ingredients||[]).find(x=>String(x).toLowerCase().includes(q)):'';
+    const bas=[n?n+' ingrédient'+(n>1?'s':''):'aucun ingrédient',
+      par?'contient « '+echap(par)+' »':'',
+      r.lien?`<button class="kdo-lien" data-lien="${attr(r.lien)}" title="Ouvrir ${echap(domaineDe(r.lien))}">voir la recette ↗</button>`:''
+      ].filter(Boolean).join(' · ');
     h+=`<div class="todo-item" data-rec="${r.id}" style="cursor:pointer">
       <div style="flex-shrink:0;font-size:1.15rem">${r.emoji||'🍽️'}</div>
       <div class="todo-corps"><div class="todo-text">${echap(r.nom)}</div>
-      <div class="todo-date">${n?n+' ingrédient'+(n>1?'s':''):'aucun ingrédient'}</div></div>
+      <div class="todo-date">${bas}</div></div>
       <div style="color:var(--ink-3)">›</div></div>`;
   });
   h+=`<button class="btn primaire" id="rc-new" style="width:100%;margin-top:14px">＋ Nouvelle recette</button>`;
   zone.innerHTML=h;
   brancherOngletsMem(zone);
   document.getElementById('rc-new').onclick=()=>formRecette(null);
+  const rr=document.getElementById('rc-rech');
+  if(rr)rr.addEventListener('input',()=>{
+    RECH_RECETTE=rr.value; renderRecettes();
+    const r2=document.getElementById('rc-rech');
+    if(r2){r2.focus();r2.setSelectionRange(r2.value.length,r2.value.length)}
+  });
+  zone.querySelectorAll('[data-lien]').forEach(el=>{
+    el.addEventListener('click',ev=>{ev.stopPropagation();
+      window.open(el.dataset.lien,'_blank','noopener')});
+  });
   zone.querySelectorAll('[data-rec]').forEach(el=>{el.onclick=()=>formRecette(el.dataset.rec)});
 }
 const EMOJIS_RECETTE=['🍽️','🥗','🍝','🍲','🥘','🍕','🐟','🍗','🥩','🥧','🍳','🥕'];
@@ -2741,10 +2770,12 @@ function formRecette(id,pourJour,pourMoment){
     <input type="text" id="rc-nom" value="${r?echap(r.nom):''}" placeholder="Quiche aux poireaux">
     <label class="lbl">Son icône</label>
     <div class="mg-chips" id="rc-emos">${EMOJIS_RECETTE.map(e=>`<button type="button" class="mg-chip ${emoji===e?'actif':''}" data-e="${e}" style="font-size:1.1rem">${e}</button>`).join('')}</div>
+    <label class="lbl">Un lien vers la recette <span class="discret2">(facultatif)</span></label>
+    <input type="text" id="rc-lien" value="${r?attr(r.lien||''):''}" placeholder="marmiton.fr/…">
     <label class="lbl">Les ingrédients <span class="discret2">(un par ligne — écris-les comme tu les dirais)</span></label>
-    <textarea id="rc-ing" style="min-height:130px" placeholder="1 pâte brisée&#10;6 œufs&#10;20 cl de crème&#10;3 poireaux">${r?echap((r.ingredients||[]).join('\n')):''}</textarea>
-    <label class="lbl">Un lien ou une note <span class="discret2">(facultatif)</span></label>
-    <input type="text" id="rc-lien" value="${r?attr(r.lien||''):''}" placeholder="https://…">
+    <textarea id="rc-ing" style="min-height:110px" placeholder="1 pâte brisée&#10;6 œufs&#10;20 cl de crème&#10;3 poireaux">${r?echap((r.ingredients||[]).join('\n')):''}</textarea>
+    <label class="lbl">La recette <span class="discret2">(facultatif — colle-la telle quelle, c'est ce que tu liras en cuisinant)</span></label>
+    <textarea id="rc-texte" style="min-height:120px" placeholder="Étaler la pâte, faire revenir les poireaux…">${r?echap(r.texte||''):''}</textarea>
     <button class="btn primaire" id="rc-ok" style="width:100%;margin-top:14px">${r?'Enregistrer':'Ajouter à mes recettes'}</button>
     ${r?`<button class="btn danger" id="rc-suppr" style="width:100%;margin-top:8px">Supprimer</button>`:''}`;
   document.querySelectorAll('#rc-emos [data-e]').forEach(b=>{b.onclick=()=>{
@@ -2755,7 +2786,11 @@ function formRecette(id,pourJour,pourMoment){
     const nom=document.getElementById('rc-nom').value.trim();
     if(!nom){toast('Il faut un nom');return}
     const ing=document.getElementById('rc-ing').value.split('\n').map(x=>x.trim()).filter(Boolean);
-    const l={nom,emoji,ingredients:ing,lien:document.getElementById('rc-lien').value.trim()||null};
+    // Les ingrédients d'abord : c'est ce qui part dans les courses. La recette
+    // se lit après, en cuisinant — d'où sa place en bas du formulaire.
+    const l={nom,emoji,ingredients:ing,
+      lien:lienPropre(document.getElementById('rc-lien').value),
+      texte:document.getElementById('rc-texte').value.trim()||null};
     if(!r)l.id=genId();
     enregistrerObjet(id,'recettes',l);
     fermerTiroir();
@@ -3334,7 +3369,7 @@ setInterval(()=>{if(typeof CACHE!=='undefined'&&CACHE.personnes)montrerPriseSiBe
    ne se remplit jamais. Tant que la migration n'est pas passée, on lit encore
    les deux anciennes colonnes de la personne. */
 const INFOS_DEFAUT=['Groupe sanguin','Allergies'];
-let RECH_CADEAU='', ARCH_OUVERTE=false;
+let RECH_CADEAU='', RECH_RECETTE='', ARCH_OUVERTE=false;
 /* Un même champ pour deux natures : « amazon.fr/… » est une adresse qu'on
    ouvre, « chez Gibert » un endroit où l'on va. On range chacun à sa place à
    l'écriture, sinon il faut deviner à l'affichage — c'est la confusion que
@@ -4721,8 +4756,11 @@ function renderMemoire(){
 
 function renderEnvies(zone){
   const visibles=enviesVisibles();
-  const actives=visibles.filter(e=>!e.faite);
-  const faites=visibles.filter(e=>e.faite);
+  // Deux temps : `archive` est la vérité neuve, `faite` reste écrite pour le
+  // code qui ne la connaît pas encore. On lit l'un OU l'autre.
+  const rangee=(e)=>e.archive||e.faite;
+  const actives=visibles.filter(e=>!rangee(e));
+  const faites=visibles.filter(rangee);
   let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
     <p class="discret2">Le livre dont on t'a parlé, ce resto, cette expo… Dépose-le ici avant d'oublier. 🔒 Privé par défaut.</p>
   <div class="carte-solo">
@@ -4730,8 +4768,10 @@ function renderEnvies(zone){
       <div><label>Quoi ?</label><input type="text" id="env-titre" placeholder="Le resto Chez Georges, le dernier Ferrante…"></div>
       <div><label>Catégorie</label><select id="env-cat">${ENV_CATS.map(c=>`<option value="${c[0]}">${c[1]} ${c[2]}</option>`).join('')}</select></div>
     </div>
-    <label>Détail ou lien (optionnel)</label>
-    <input type="text" id="env-detail" placeholder="Conseillé par Caro, https://…">
+    <label>Un lien ou une précision (facultatif)</label>
+    <input type="text" id="env-detail" placeholder="gibert.com/… ou « conseillé par Caro »">
+    <label>Jusqu'au <span class="todo-date">(facultatif — une expo ferme, un festival passe)</span></label>
+    <input type="date" id="env-jusqua">
     <label class="mem-partage"><input type="checkbox" id="env-partagee"> 👥 Visible par toute la famille</label>
     <button class="btn primaire" id="env-ajouter" style="margin-top:10px;width:100%">Garder cette envie</button>
   </div>`;
@@ -4745,26 +4785,34 @@ function renderEnvies(zone){
       h+=`<div class="todo-item" data-id="${e.id}">
         ${aMoi?`<div class="todo-check" data-act="fait" title="Ça y est, c'est fait !"></div>`:`<div style="flex-shrink:0">${ico}</div>`}
         <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(e.titre)}</div>
-          <div class="todo-date">${e.partagee?'👥 partagée'+(aMoi?'':' par '+echap(e.ajoute_par||'?')):'🔒 privée'}${e.detail?' · '+linkifie(e.detail):''}</div></div>
+          <div class="todo-date">${(()=>{
+            const reste=e.jusqua?Math.round((deIso(e.jusqua)-new Date(iso(new Date())))/864e5):null;
+            return [e.jusqua?`<span class="${reste<=14?'env-tard':''}">jusqu'au ${deIso(e.jusqua).getDate()} ${MFR[deIso(e.jusqua).getMonth()].toLowerCase()}${reste<0?" — c'est passé":''}</span>`:'',
+              e.detail?echap(e.detail):'',
+              e.lien?`<button class="kdo-lien" data-lien="${attr(e.lien)}" title="Ouvrir ${echap(domaineDe(e.lien))}">voir le site ↗</button>`:'',
+              (!e.lien&&!e.detail&&e.detail)?linkifie(e.detail):''].filter(Boolean).join(' · ');
+          })()}</div></div>
         ${aMoi?`<div class="todo-actions">
-          <button class="todo-act" data-act="basculer" title="${e.partagee?'Repasser en privée':'Partager avec la famille'}">${e.partagee?'🔒':'👥'}</button>
-          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div>`:''}
+          <button class="todo-act" data-act="archiver" title="Archiver — on laisse tomber">🗄️</button>
+          <button class="todo-act" data-act="basculer" title="${e.partagee?'Repasser en privée':'Partager avec la famille'}">${e.partagee?'👥':'🔒'}</button>
+        </div>`:''}
       </div>`;
     });
     h+='</div>';
   });
   if(faites.length){
     h+=`<div class="todo-section" style="border-top:1px dashed var(--border);padding-top:10px">
-      <div class="todo-section-title" style="color:var(--ink-3)">Déjà lu · vu · testé (${faites.length})</div>`;
+      <div class="todo-section-title" style="color:var(--ink-3)">Archivées (${faites.length})</div>`;
     faites.forEach(e=>{
       const aMoi=(e.email_auteur||'').toLowerCase()===EMAIL_CONNECTE;
       const ico=(ENV_CATS.find(c=>c[0]===e.categorie)||['','💡'])[1];
       h+=`<div class="todo-item done" data-id="${e.id}">
         <div style="flex-shrink:0">${ico}</div>
-        <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(e.titre)}</div></div>
+        <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(e.titre)}</div>
+          ${e.motif?`<div class="todo-date">${echap(e.motif)}</div>`:''}</div>
         ${aMoi?`<div class="todo-actions">
-          <button class="todo-act" data-act="restaurer" title="Remettre dans les envies">↩️</button>
-          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button></div>`:''}
+          <button class="todo-act" data-act="restaurer" title="Remettre dans les envies">↩︎</button>
+          <button class="todo-act" data-act="suppr" title="Supprimer définitivement">🗑️</button></div>`:''}
       </div>`;
     });
     h+='</div>';
@@ -4774,8 +4822,10 @@ function renderEnvies(zone){
   const ajouter=()=>{
     const titre=document.getElementById('env-titre').value.trim();
     if(!titre){toast('Dis-moi au moins quoi 🙂');return}
+    const [lienE,precision]=lienOuMagasin(document.getElementById('env-detail').value);
     enregistrerObjet(null,'envies',{categorie:document.getElementById('env-cat').value,titre,
-      detail:document.getElementById('env-detail').value.trim()||null,faite:false,
+      lien:lienE,detail:precision,jusqua:document.getElementById('env-jusqua').value||null,
+      faite:false,archive:false,
       partagee:document.getElementById('env-partagee').checked,
       email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});
     toast('Envie gardée ✔');
@@ -4783,6 +4833,10 @@ function renderEnvies(zone){
   };
   document.getElementById('env-ajouter').onclick=ajouter;
   document.getElementById('env-titre').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
+  zone.querySelectorAll('[data-lien]').forEach(el=>{
+    el.addEventListener('click',ev=>{ev.stopPropagation();
+      window.open(el.dataset.lien,'_blank','noopener')});
+  });
   zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
     el.addEventListener('click',ev=>{
       ev.stopPropagation();
@@ -4790,8 +4844,13 @@ function renderEnvies(zone){
       const e=CACHE.envies.find(x=>x.id===id);
       if(!e)return;
       const act=el.dataset.act;
-      if(act==='fait'){enregistrerObjet(id,'envies',{faite:true});toast('Et une envie réalisée 🎉');renderMemoire()}
-      else if(act==='restaurer'){enregistrerObjet(id,'envies',{faite:false});renderMemoire()}
+      // On écrit `archive` ET `faite` : Pia et le contexte lisent encore la
+      // seconde. Le motif dit lequel des deux gestes on a fait.
+      if(act==='fait'){enregistrerObjet(id,'envies',{archive:true,motif:'fait',faite:true});
+        toast('Et une envie réalisée 🎉');renderMemoire()}
+      else if(act==='archiver'){enregistrerObjet(id,'envies',{archive:true,motif:'abandonnée',faite:true});
+        toast('Archivée');renderMemoire()}
+      else if(act==='restaurer'){enregistrerObjet(id,'envies',{archive:false,motif:null,faite:false});renderMemoire()}
       else if(act==='basculer'){enregistrerObjet(id,'envies',{partagee:!e.partagee});renderMemoire()}
       else if(act==='suppr'){if(confirm('Supprimer cette envie ?')){supprimerObjet(id);renderMemoire()}}
     });
