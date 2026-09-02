@@ -200,6 +200,34 @@
 .sa-bloc.alerte{border-color:#f5c6bd;background:#fffafa}
 .sa-bt{font-weight:800;font-size:.88rem;display:flex;align-items:center;gap:7px;margin-bottom:3px}
 .sa-bt .n{margin-left:auto;font-size:.7rem;font-weight:700;color:var(--ink-3)}
+/* Ajouter est une action de second plan : un ＋ au bout du titre, pas un
+   bouton pleine largeur qui pèse autant que la liste qu'il complète. */
+.sa-plus{width:19px;height:19px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border-strong);
+  background:var(--surface);color:var(--ink-2);font:inherit;font-size:.7rem;line-height:1;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.sa-plus:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sa-bt .n + .sa-plus{margin-left:0}
+.sa-bt .sa-plus:only-of-type{margin-left:auto}
+.sa-bt .n ~ .sa-plus{margin-left:7px}
+/* Le retour est un chemin, pas une action. */
+.sa-retour{font:inherit;font-size:.8rem;font-weight:700;color:var(--ink-2);background:none;border:none;
+  padding:0;margin-bottom:12px;cursor:pointer}
+.sa-retour:hover{color:var(--ink);text-decoration:underline}
+.sa-filet{font-size:.74rem;font-style:italic;color:var(--ink-3);margin-top:10px;line-height:1.45}
+.lien-filet{font:inherit;font-size:.74rem;font-style:italic;background:none;border:none;padding:0;
+  color:var(--ink-2);text-decoration:underline;cursor:pointer}
+/* Une action sans icône évidente s'écrit — un carré noir ne veut rien dire. */
+.sa-act{margin-left:8px;display:inline-flex;gap:5px;align-items:center;opacity:.6}
+.sa-bloc:hover .sa-act{opacity:1}
+.sa-act button{border:none;background:none;cursor:pointer;font-size:.78rem;padding:0}
+.sa-act .mot{font-size:.7rem;font-weight:700;color:var(--ink-3);text-transform:lowercase}
+.sa-act .mot:hover{color:var(--alert);text-decoration:underline}
+.sa-cle{display:block;font-size:.78rem}
+.sa-vide2{color:var(--ink-3);font-style:italic}
+.sa-rdv{font:inherit;font-size:.7rem;font-weight:700;border:1px solid var(--border-strong);
+  background:var(--surface);color:var(--ink-2);border-radius:99px;padding:2px 9px;cursor:pointer;
+  margin-left:6px;white-space:nowrap}
+.sa-rdv:hover{color:var(--ink);border-color:var(--ink)}
 .sa-s{font-size:.76rem;color:var(--ink-2);line-height:1.45}
 .sa-doses{display:flex;gap:6px;margin-top:9px}
 .sa-dose{flex:1;text-align:center;border-radius:11px;padding:7px 2px;font-size:.7rem;
@@ -474,11 +502,12 @@ let CACHE={evts:[],vac:[],bdays:[],acts:[],taches:[],courses:[],cadeaux:[],perso
   entretiens:[],abonnements:[],tgliens:[]};
 const TABLES={evts:'evenements',vac:'vacances',bdays:'anniversaires',acts:'activites',taches:'taches',courses:'courses',cadeaux:'cadeaux',personnes:'personnes',notes:'notes_personnes',envies:'envies',
   medecins:'sante_medecins',traitements:'sante_traitements',prises:'sante_prises',suivis:'sante_suivis',
+  infos:'sante_infos',
   accomp:'accompagnements',projets:'projets',recettes:'recettes',menus:'menus',
   entretiens:'entretiens',abonnements:'abonnements',tgliens:'telegram_liens'};
 
 async function chargerTout(){
-  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,pri,su,ac,pj,re,me,ent,abo,tgl]=await Promise.all([
+  const [e,v,b,a,t,s,co,ca,pe,no,en,us,pr,tr,inf,pri,su,ac,pj,re,me,ent,abo,tgl]=await Promise.all([
     sb.from('evenements').select('*'),
     sb.from('vacances').select('*'),
     sb.from('anniversaires').select('*'),
@@ -493,6 +522,7 @@ async function chargerTout(){
     sb.from('app_users').select('nom,email'),
     sb.from('sante_medecins').select('*'),
     sb.from('sante_traitements').select('*'),
+    sb.from('sante_infos').select('*'),
     sb.from('sante_prises').select('*'),
     sb.from('sante_suivis').select('*'),
     sb.from('accompagnements').select('*'),
@@ -525,6 +555,10 @@ async function chargerTout(){
   // La Santé : si la migration n'a pas encore été passée, on continue sans planter
   CACHE.medecins=pr.error?[]:pr.data;
   CACHE.traitements=tr.error?[]:tr.data;
+  // « À savoir » : une ligne par information. Avant la migration, la table
+  // n'existe pas — on retombe sur les deux anciens champs de la personne,
+  // pour que l'écran ne se vide pas entre deux déploiements.
+  CACHE.infos=inf.error?[]:inf.data;
   CACHE.prises=pri.error?[]:pri.data;
   CACHE.suivis=su.error?[]:su.data;
   CACHE.accomp=ac.error?[]:ac.data;
@@ -3212,13 +3246,37 @@ function montrerPriseSiBesoin(){
 /* Toutes les minutes : si une heure vient de tomber, l'écran s'ouvre tout seul */
 setInterval(()=>{if(typeof CACHE!=='undefined'&&CACHE.personnes)montrerPriseSiBesoin()},60000);
 
+/* « À savoir » : une ligne par information, et deux intitulés toujours
+   proposés même vides. Un champ vide qui se voit se remplit ; un champ absent
+   ne se remplit jamais. Tant que la migration n'est pas passée, on lit encore
+   les deux anciennes colonnes de la personne. */
+const INFOS_DEFAUT=['Groupe sanguin','Allergies'];
+/* On colle rarement une adresse proprement, et on veut montrer où l'on va. */
+function lienPropre(u){
+  u=String(u||'').trim();
+  return u?(/^https?:/i.test(u)?u:'https://'+u):null;
+}
+const domaineDe=(u)=>String(u||'').replace(/^https?:\/\//i,'').replace(/^www\./,'').split('/')[0];
+function infosDe(pid){
+  const p=CACHE.personnes.find(x=>x.id===pid)||{};
+  const rangees=(CACHE.infos||[]).filter(x=>x.personne_id===pid);
+  const par={};
+  rangees.forEach(x=>{par[x.cle]={id:x.id,cle:x.cle,valeur:x.valeur||''}});
+  // Reprise de secours, si sante_infos n'existe pas encore côté base.
+  if(!par['Allergies']&&p.allergies)par['Allergies']={cle:'Allergies',valeur:p.allergies};
+  if(!par['À savoir']&&p.sante_notes)par['À savoir']={cle:'À savoir',valeur:p.sante_notes};
+  INFOS_DEFAUT.forEach(c=>{if(!par[c])par[c]={cle:c,valeur:''}});
+  const ordre=[...INFOS_DEFAUT,...Object.keys(par).filter(c=>!INFOS_DEFAUT.includes(c))];
+  return ordre.map(c=>par[c]);
+}
+const allergieDe=(pid)=>(infosDe(pid).find(x=>x.cle==='Allergies')||{}).valeur||'';
+
 function renderSante(){
   const zone=document.getElementById('vueSante');
   if(santeFiche&&!CACHE.personnes.some(p=>p.id===santeFiche))santeFiche=null;
   if(santeFiche){renderSanteFiche(zone);return}
   const gens=gensSante();
-  let h=`<div class="sa-tete"><h2 class="ps-titre">🩺 La santé de la famille</h2></div>
-    <p class="discret2" style="margin:-2px 0 14px">Vert = rien à faire.</p>`;
+  let h=`<div class="sa-tete"><h2 class="ps-titre">🩺 La santé de la famille</h2></div>`;
   if(!gens.length){
     h+=`<div class="sa-vide">Personne n'est encore rangé « à la maison ».<br>
       Ajoute les gens du foyer dans la 🧠 Mémoire, ils apparaîtront ici.</div>`;
@@ -3232,7 +3290,7 @@ function renderSante(){
     });
     al.retard.forEach(x=>bouts.push('⚠️ '+x.su.nom+' dépassé'));
     if(!bouts.length&&al.bientot.length)bouts.push(al.bientot[0].su.nom+' à prévoir');
-    if(!bouts.length)bouts.push(p.allergies?'Allergie : '+p.allergies:'Rien à signaler');
+    if(!bouts.length){const al2=allergieDe(p.id);bouts.push(al2?'Allergie : '+al2:'Rien à signaler')}
     const badge=al.retard.length?`<span class="sa-badge sa-late">⚠️ ${al.retard.length} alerte${al.retard.length>1?'s':''}</span>`
       :al.bientot.length?`<span class="sa-badge sa-warn">${al.bientot.length} à prévoir</span>`
       :`<span class="sa-badge sa-ok">✓ à jour</span>`;
@@ -3245,11 +3303,14 @@ function renderSante(){
   h+=`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
     ${gens.length?'<button class="btn primaire" id="sa-new-trait">💊 Déclarer un traitement</button>':''}
   </div>
-  <p class="discret2" style="margin-top:10px">Qui vit à la maison se règle dans ⚙️ Réglages. Pour suivre la santé de quelqu'un d'autre (tes parents…), déclare simplement son traitement ou son suivi : sa page apparaîtra ici.</p>`;
+  <p class="sa-filet">Pour suivre quelqu'un de plus, ajoute-le dans
+    <button class="lien-filet" id="sa-reglages">⚙️ Réglages</button>.</p>`;
   zone.innerHTML=h;
   zone.querySelectorAll('[data-profil]').forEach(el=>{el.onclick=()=>{santeFiche=el.dataset.profil;renderSante()}});
   const bt=document.getElementById('sa-new-trait');
   if(bt)bt.onclick=()=>formTraitement(null,null);
+  const br=document.getElementById('sa-reglages');
+  if(br)br.onclick=()=>formParams();
 }
 
 function renderSanteFiche(zone){
@@ -3260,34 +3321,17 @@ function renderSanteFiche(zone){
     .sort((a,b)=>String(echeanceSuivi(a)||'9999').localeCompare(String(echeanceSuivi(b)||'9999')));
   const age=(p.naiss_annee&&p.naiss_mois&&p.naiss_jour)
     ?Math.floor((new Date()-new Date(p.naiss_annee,p.naiss_mois-1,p.naiss_jour))/(365.25*864e5)):null;
-  let h=`<button class="btn mini" id="sa-retour" style="margin-bottom:12px">‹ La famille</button>
+  let h=`<button class="sa-retour" id="sa-retour">‹ La famille</button>
     <div class="sa-tete"><div class="sa-av" style="width:44px;height:44px;font-size:1.45rem">${p.emoji||'🙂'}</div>
       <div><h2 class="ps-titre" style="margin:0">${echap(p.nom)}</h2>
-        <div class="discret2">${[age!=null?age+' ans':'',roleAffiche(p)?echap(roleAffiche(p)):'',p.allergies?'⚠️ allergie : '+echap(p.allergies):''].filter(Boolean).join(' · ')||'—'}</div></div>
-      <button class="todo-act" id="sa-edit" title="Allergies et infos médicales" style="margin-left:auto">✏️</button></div>`;
-  tr.forEach(t=>{
-    const jours=t.fin?Math.max(1,Math.round((deIso(t.fin)-deIso(t.debut))/864e5)+1):null;
-    const jFait=Math.min(jours||99,Math.max(1,Math.round((new Date()-deIso(t.debut))/864e5)+1));
-    h+=`<div class="sa-bloc alerte">
-      <div class="sa-bt">💊 ${echap(t.medicament)}
-        ${jours?`<span class="n">jour ${jFait} / ${jours}</span>`:'<span class="n">en cours</span>'}</div>
-      <div class="sa-s">${[t.dose,(t.moments||[]).length+' fois par jour',t.fin?"jusqu'au "+deIso(t.fin).getDate()+' '+MFR[deIso(t.fin).getMonth()].toLowerCase():''].filter(Boolean).join(' · ')}</div>
-      ${jours?`<div class="sa-barre"><div style="width:${Math.round(jFait/jours*100)}%"></div></div>`:''}
-      <div class="sa-doses">${(t.moments||[]).map(m=>{
-        const def=MOMENTS.find(x=>x[0]===m)||[m,'💊',m];
-        const on=priseFaite(t.id,auj,m);
-        return `<div class="sa-dose ${on?'on':''}" data-dose="${t.id}|${m}">${def[1]} ${def[2]}<b>${on?'✓ donné':'à cocher'}</b></div>`;
-      }).join('')}</div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn mini" data-modtrait="${t.id}">✏️ Modifier</button>
-        <button class="btn mini danger" data-stoptrait="${t.id}">Arrêter</button>
-      </div></div>`;
-  });
+        <div class="discret2">${[age!=null?age+' ans':'',roleAffiche(p)?echap(roleAffiche(p)):'',allergieDe(p.id)?'⚠️ '+echap(allergieDe(p.id).split(' —')[0]):''].filter(Boolean).join(' · ')||'—'}</div></div>
+      </div>`;
   // Les actions de santé qui la concernent : elles vivent dans la to-do,
   // on les montre aussi ici. Une seule tâche, deux endroits où la voir.
   const aFaire=tachesLiees(p.id).filter(t=>t.cat==='sante'&&!estFaite(t.id))
     .sort((a,b)=>String(a.ech||'9999').localeCompare(String(b.ech||'9999')));
-  h+=`<div class="sa-bloc"><div class="sa-bt">✅ À faire pour sa santé<span class="n">${aFaire.length||''}</span></div>`;
+  h+=`<div class="sa-bloc"><div class="sa-bt">✅ Sa to-do médicale<span class="n">${aFaire.length||''}</span>
+    <button class="sa-plus" id="sa-new-tache" title="Ajouter une action">＋</button></div>`;
   if(!aFaire.length)h+=`<div class="sa-s" style="padding:4px 0">Rien en attente.</div>`;
   aFaire.forEach(t=>{
     const tard=t.ech&&t.ech<auj;
@@ -3296,8 +3340,36 @@ function renderSanteFiche(zone){
       <span class="txt" data-mod-tache="${t.id}">${echap(t.texte)}</span>
       <span class="quand">${t.ech?(tard?'en retard depuis le ':'')+deIso(t.ech).getDate()+' '+MFR[deIso(t.ech).getMonth()].toLowerCase():''}</span></div>`;
   });
-  h+=`<button class="btn mini" id="sa-new-tache" style="margin-top:10px">＋ Ajouter une action</button></div>`;
-  h+=`<div class="sa-bloc"><div class="sa-bt">💉 Vaccins &amp; bilans<span class="n">${suivis.length||''}</span></div>`;
+  h+=`</div>`;
+  // Une section même à zéro : « aucun » est une information, et c'est ici
+  // qu'on vient en déclarer un.
+  if(!tr.length){
+    h+=`<div class="sa-bloc"><div class="sa-bt">💊 Traitements en cours<span class="n">0</span>
+      <button class="sa-plus" id="sa-add-trait" title="Déclarer un traitement">＋</button></div>
+      <div class="sa-s" style="padding:4px 0">Aucun traitement en cours.</div></div>`;
+  }else{
+    h+=`<div class="sa-bloc"><div class="sa-bt">💊 Traitements en cours<span class="n">${tr.length}</span>
+      <button class="sa-plus" id="sa-add-trait" title="Déclarer un traitement">＋</button></div></div>`;
+  }
+  tr.forEach(t=>{
+    const jours=t.fin?Math.max(1,Math.round((deIso(t.fin)-deIso(t.debut))/864e5)+1):null;
+    const jFait=Math.min(jours||99,Math.max(1,Math.round((new Date()-deIso(t.debut))/864e5)+1));
+    h+=`<div class="sa-bloc alerte">
+      <div class="sa-bt">💊 ${echap(t.medicament)}
+        ${jours?`<span class="n">jour ${jFait} / ${jours}</span>`:'<span class="n">en cours</span>'}
+        <span class="sa-act"><button data-modtrait="${t.id}" title="Modifier">✏️</button>
+          <button class="mot" data-stoptrait="${t.id}" title="Arrêter le traitement">arrêter</button></span></div>
+      <div class="sa-s">${[t.dose,(t.moments||[]).length+' fois par jour',t.fin?"jusqu'au "+deIso(t.fin).getDate()+' '+MFR[deIso(t.fin).getMonth()].toLowerCase():''].filter(Boolean).join(' · ')}</div>
+      ${jours?`<div class="sa-barre"><div style="width:${Math.round(jFait/jours*100)}%"></div></div>`:''}
+      <div class="sa-doses">${(t.moments||[]).map(m=>{
+        const def=MOMENTS.find(x=>x[0]===m)||[m,'💊',m];
+        const on=priseFaite(t.id,auj,m);
+        return `<div class="sa-dose ${on?'on':''}" data-dose="${t.id}|${m}">${def[1]} ${def[2]}<b>${on?'✓ donné':'à cocher'}</b></div>`;
+      }).join('')}</div>
+      </div>`;
+  });
+  h+=`<div class="sa-bloc"><div class="sa-bt">💉 Vaccins &amp; bilans<span class="n">${suivis.length||''}</span>
+    <button class="sa-plus" id="sa-new-suivi" title="Ajouter un suivi">＋</button></div>`;
   if(!suivis.length)h+=`<div class="sa-s" style="padding:4px 0">Rien de suivi pour l'instant.</div>`;
   suivis.forEach(su=>{
     const e=echeanceSuivi(su),enRetard=e&&e<auj;
@@ -3309,23 +3381,35 @@ function renderSanteFiche(zone){
       <span class="txt" data-modsuivi="${su.id}">${su.type==='vaccin'?'💉 ':'🩺 '}${echap(su.nom)}</span>
       <span class="quand">${echap(quand)}</span></div>`;
   });
-  h+=`<button class="btn mini" id="sa-new-suivi" style="margin-top:10px">＋ Ajouter un suivi</button></div>`;
+  h+=`</div>`;
 
   const meds=medecinsDe(p.id);
-  h+=`<div class="sa-bloc"><div class="sa-bt">🩺 Ses médecins</div>`;
+  h+=`<div class="sa-bloc"><div class="sa-bt">🩺 Ses médecins<span class="n">${meds.length||''}</span>
+    <button class="sa-plus" id="sa-add-med" title="Rattacher un médecin">＋</button></div>`;
   if(!meds.length)h+=`<div class="sa-s" style="padding:4px 0">Aucun médecin rattaché.</div>`;
   meds.forEach(m=>{
     h+=`<div class="sa-med"><b>${echap(m.nom)}</b>
       <span class="r">${[m.role,m.detail].filter(Boolean).map(echap).join(' · ')}</span>
+      ${m.lien_rdv?`<button class="sa-rdv" data-rdv="${attr(m.lien_rdv)}"
+        title="Ouvrir ${echap(domaineDe(m.lien_rdv))}">Prendre rendez-vous ↗</button>`:''}
       <button class="todo-act" data-delmed="${m.id}" title="Détacher">✕</button></div>`;
   });
-  h+=`<button class="btn mini" id="sa-add-med" style="margin-top:8px">＋ Rattacher un médecin</button></div>`;
-  if(p.sante_notes)h+=`<div class="sa-bloc"><div class="sa-bt">📝 À savoir</div><div class="sa-s">${echap(p.sante_notes)}</div></div>`;
-  h+=`<button class="btn primaire" id="sa-add-trait" style="width:100%">💊 Déclarer un traitement</button>`;
+  h+=`</div>`;
+  h+=`<div class="sa-bloc"><div class="sa-bt">📝 À savoir
+    <button class="sa-plus" id="sa-new-info" title="Ajouter une info">＋</button></div>`;
+  infosDe(p.id).forEach(x=>{
+    h+=`<div class="sa-l"><span class="txt" data-modinfo="${attr(x.cle)}">
+        <b class="sa-cle">${echap(x.cle)}</b>
+        <span class="${x.valeur?'':'sa-vide2'}">${x.valeur?echap(x.valeur):'à renseigner'}</span></span>
+      <span class="quand">✏️</span></div>`;
+  });
+  h+=`</div>`;
   zone.innerHTML=h;
 
   document.getElementById('sa-retour').onclick=()=>{santeFiche=null;renderSante()};
-  document.getElementById('sa-edit').onclick=()=>formSanteInfos(p.id);
+  document.getElementById('sa-new-info').onclick=()=>formInfo(p.id,null);
+  zone.querySelectorAll('[data-modinfo]').forEach(el=>{
+    el.onclick=()=>formInfo(p.id,el.dataset.modinfo)});
   document.getElementById('sa-new-suivi').onclick=()=>formSuivi(null,p.id);
   document.getElementById('sa-new-tache').onclick=()=>formTache(null,p.id,null,{
     titre:'Nouvelle action santé',
@@ -3341,6 +3425,8 @@ function renderSanteFiche(zone){
   zone.querySelectorAll('[data-dose]').forEach(el=>{
     el.onclick=()=>{const [id,m]=el.dataset.dose.split('|');basculerPrise(id,auj,m);renderSante()};
   });
+  zone.querySelectorAll('[data-rdv]').forEach(el=>{
+    el.onclick=()=>window.open(el.dataset.rdv,'_blank','noopener')});
   zone.querySelectorAll('[data-delmed]').forEach(el=>{el.onclick=()=>{
     const l=CACHE.medecins.find(m=>m.personne_id===p.id&&m.medecin_id===el.dataset.delmed);
     if(l){supprimerObjet(l.id);toast('Détaché');renderSante()}
@@ -3357,6 +3443,33 @@ function renderSanteFiche(zone){
     toast('Noté : fait aujourd\'hui ✓');renderSante();
   }});
   zone.querySelectorAll('[data-modsuivi]').forEach(el=>{el.onclick=()=>formSuivi(el.dataset.modsuivi,p.id)});
+}
+
+/* Une information à savoir : un intitulé, une valeur. Les deux intitulés
+   proposés d'office — groupe sanguin, allergies — se remplissent ici comme
+   les autres ; c'est la même ligne, qu'elle existe déjà en base ou non. */
+function formInfo(pid,cle){
+  const p=CACHE.personnes.find(x=>x.id===pid);
+  const dejaLa=(CACHE.infos||[]).find(x=>x.personne_id===pid&&x.cle===cle);
+  const valeur=dejaLa?(dejaLa.valeur||''):(cle?((infosDe(pid).find(x=>x.cle===cle)||{}).valeur||''):'');
+  ouvrirTiroirBrut(cle?echap(cle):'Une info à savoir');
+  document.getElementById('dbd').innerHTML=`
+    <label class="lbl">L'intitulé</label>
+    <input type="text" id="fi-cle" value="${cle?attr(cle):''}" placeholder="Mutuelle, asthme, numéro de sécu…">
+    <label class="lbl">Ce qu'il faut retenir</label>
+    <input type="text" id="fi-val" value="${attr(valeur)}" placeholder="Harmonie — n° 4412…">
+    <button class="btn primaire" id="fi-ok" style="width:100%;margin-top:14px">Enregistrer</button>
+    ${dejaLa?`<button class="btn danger" id="fi-suppr" style="width:100%;margin-top:8px">Supprimer</button>`:''}`;
+  document.getElementById('fi-ok').onclick=()=>{
+    const c=document.getElementById('fi-cle').value.trim();
+    const v=document.getElementById('fi-val').value.trim();
+    if(!c){toast('Il faut un intitulé');return}
+    if(dejaLa)enregistrerObjet(dejaLa.id,'infos',{cle:c,valeur:v||null});
+    else enregistrerObjet(null,'infos',{id:genId(),personne_id:pid,cle:c,valeur:v||null});
+    fermerTiroir();toast('C\'est noté ✔');renderSante();
+  };
+  const bs=document.getElementById('fi-suppr');
+  if(bs)bs.onclick=()=>{supprimerObjet(dejaLa.id);fermerTiroir();toast('Supprimé');renderSante()};
 }
 
 /* Les infos médicales d'une personne (allergies, à savoir) */
@@ -3390,7 +3503,7 @@ function formMedecin(pid){
     <label class="lbl">Ou en créer un</label>
     <input type="text" id="fm-nom" placeholder="Dr Chen">
     <input type="text" id="fm-role" placeholder="Pédiatre" style="margin-top:8px">
-    <input type="text" id="fm-tel" placeholder="Téléphone" style="margin-top:8px">
+    <input type="text" id="fm-rdv" placeholder="Le lien pour prendre rendez-vous — doctolib.fr/…" style="margin-top:8px">
     <button class="btn primaire" id="fm-ok" style="width:100%;margin-top:14px">Créer et rattacher</button>`;
   const rattacher=(medId)=>{
     enregistrerObjet(null,'medecins',{personne_id:pid,medecin_id:medId});
@@ -3404,7 +3517,7 @@ function formMedecin(pid){
     const id=genId();
     enregistrerObjet(null,'personnes',{id,nom,foyer:false,emoji:'🩺',
       role:document.getElementById('fm-role').value.trim()||null,
-      detail:document.getElementById('fm-tel').value.trim()||null});
+      lien_rdv:lienPropre(document.getElementById('fm-rdv').value)});
     rattacher(id);
   };
 }
