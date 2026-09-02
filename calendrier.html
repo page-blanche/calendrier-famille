@@ -1322,7 +1322,14 @@ function formProjet(id){
 /* Les vues de la To do : toi, les autres, puis les courses — même onglet,
    écrans séparés, pour rester lisible d'une main dans un magasin. */
 let vueTodo='taches';         // 'taches' | 'courses'
-function setVueTodo(v){vueTodo=v;render()}
+/* Choisir un onglet, c'est sortir de ce qu'on avait ouvert.
+   Le projet ouvert occupe le même panneau que la to-do et que les courses,
+   et render() lui redonnait la main quoi qu'on clique : depuis un projet,
+   ni « ✅ À faire » ni « 🛒 Courses » ne faisaient quoi que ce soit. Le seul
+   moyen d'en sortir était le petit « ‹ La to-do » en haut.
+   setVueMaison fermait déjà sa fiche — c'était la bonne réponse, elle
+   n'avait simplement pas été donnée partout. */
+function setVueTodo(v){vueTodo=v;projetOuvert=null;render()}
 
 function renderTodo(){
   if(vueTodo==='courses')return renderCourses();
@@ -4183,7 +4190,10 @@ function notesVisibles(){return CACHE.notes.filter(n=>n.partagee||((n.email_aute
 function enviesVisibles(){return CACHE.envies.filter(n=>n.partagee||((n.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
 function cadeauxVisibles(){return CACHE.cadeaux.filter(c=>c.partagee||((c.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
 const ENV_CATS=[['lire','📚','À lire'],['regarder','🎬','À regarder'],['resto','🍽️','Restos'],['sortie','🏛️','Sorties & lieux'],['autre','💡','Autre']];
-function setOngletMem(v){ongletMem=v;render()}
+// Même chose en Mémoire : la fiche d'une personne et le rangement passent
+// devant les onglets, qui restaient donc sans effet tant qu'on en avait un
+// d'ouvert.
+function setOngletMem(v){ongletMem=v;persOuverte=null;rangementOuvert=false;render()}
 function brancherOngletsMem(zone){
   zone.querySelectorAll('[data-om]').forEach(b=>{
     b.onclick=()=>{ongletMem=b.dataset.om;persOuverte=null;rangementOuvert=false;renderMemoire()};
