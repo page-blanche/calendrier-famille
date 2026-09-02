@@ -402,6 +402,49 @@ body.a-barre .fab{bottom:calc(78px + env(safe-area-inset-bottom))}
 .tuiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-top:12px}
 .tuile.bientot{opacity:.42;cursor:default;box-shadow:none}
 .tuile.bientot:hover{transform:none;box-shadow:none;border-color:var(--border)}
+/* --- LE BUREAU : une icône par chose, et l'ordre appartient au foyer --- */
+.bureau{display:none;padding:2px 16px 20px;flex-direction:column;gap:16px}
+body.au-bureau .bureau{display:flex}
+body.au-bureau .main-layout,body.au-bureau #barreVues,body.au-bureau .barre-bas,
+body.au-bureau .fab{display:none!important}
+.bur-presse{background:#f7f6f3;border:1px solid var(--border);border-radius:var(--radius);
+  padding:11px 13px;display:flex;flex-direction:column;gap:7px}
+.bur-presse .t{font-size:.66rem;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);
+  font-weight:800}
+.bur-presse button{display:flex;gap:9px;align-items:baseline;background:none;border:none;
+  font:inherit;font-size:.88rem;text-align:left;padding:0;cursor:pointer;color:var(--ink);width:100%}
+.bur-presse .h{font-weight:700;color:var(--ink-3);font-size:.8rem;flex:0 0 auto;
+  font-variant-numeric:tabular-nums}
+.bur-presse .urg{color:var(--alert)}
+.bur-presse button:hover .q{text-decoration:underline}
+.bur-grille{display:grid;grid-template-columns:repeat(3,1fr);gap:15px 10px}
+@media(min-width:620px){.bur-grille{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:900px){.bur-grille{grid-template-columns:repeat(6,1fr)}}
+.bur-mod{display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;
+  font:inherit;color:inherit;cursor:pointer;padding:0;position:relative;touch-action:none;
+  -webkit-user-select:none;user-select:none}
+.bur-tuile{width:100%;aspect-ratio:1;border-radius:20px;display:flex;align-items:center;
+  justify-content:center;font-size:1.85rem;background:var(--surface);border:1px solid var(--border);
+  transition:transform .12s ease,border-color .15s;pointer-events:none}
+.bur-mod:hover .bur-tuile{transform:translateY(-2px);border-color:var(--border-strong)}
+.bur-mod.attrape{opacity:.35}
+.bur-mod.cible .bur-tuile{border-color:var(--ink);border-style:dashed}
+.bur-nom{font-size:.78rem;font-weight:700;color:var(--ink-2);text-align:center;line-height:1.15;
+  pointer-events:none}
+.bur-pastille{position:absolute;top:-5px;right:-2px;min-width:21px;height:21px;padding:0 6px;
+  border-radius:999px;background:var(--ink);color:#fff;font-size:.7rem;font-weight:800;display:flex;
+  align-items:center;justify-content:center;border:2px solid var(--surface);pointer-events:none;
+  font-variant-numeric:tabular-nums}
+.bur-pastille.alerte{background:var(--alert)}
+.bur-astuce{font-size:.74rem;color:var(--ink-3);text-align:center}
+.fleche-retour{width:30px;height:30px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border);
+  background:var(--surface);color:var(--ink-2);font:inherit;font-size:1rem;cursor:pointer;
+  align-items:center;justify-content:center;margin-right:2px}
+.fleche-retour:hover{border-color:var(--border-strong);color:var(--ink)}
+/* Le retour au bureau, dans l'en-tête, quand un module est ouvert. */
+#retourBureau{display:none}
+body:not(.au-bureau) #retourBureau{display:inline-flex}
+
 /* --- la barre « dis-moi tout », une seule ligne --- */
 .chatline{display:flex;align-items:center;gap:9px;background:var(--surface);border:1.5px solid #e6dcf5;
   border-radius:999px;padding:8px 8px 8px 14px;margin-top:12px;box-shadow:var(--shadow);cursor:text}
@@ -410,7 +453,9 @@ body.a-barre .fab{bottom:calc(78px + env(safe-area-inset-bottom))}
 </head>
 <body>
 <div class="header">
-<div class="h-zone"><h1 id="titreAccueil" style="cursor:pointer" title="Retour à l'accueil">🏡 Famille</h1></div>
+<div class="h-zone">
+<button class="fleche-retour" id="retourBureau" title="Le bureau">‹</button>
+<h1 id="titreAccueil" style="cursor:pointer" title="Le bureau">🏡 Famille</h1></div>
 <!-- Il y avait ici une deuxième navigation du mois : ←, le titre, →, et
      « Aujourd'hui ». Elle faisait doublon avec la barre sous les onglets et,
      surtout, elle ne la prévenait pas : on avançait d'ici, la grille suivait,
@@ -426,6 +471,8 @@ body.a-barre .fab{bottom:calc(78px + env(safe-area-inset-bottom))}
 <button data-mode="parler">💬 Parler</button>
 <button data-mode="famille" class="actif">🏡 La famille</button>
 </div>
+
+<div id="bureau" class="bureau"></div>
 
 <div id="barreVues" style="margin:0 16px"></div>
 
@@ -4872,12 +4919,10 @@ function renderFichePersonne(zone,p){
     const suite=bd.annee?(d.getFullYear()-bd.annee)+' ans':(dans===0?"c'est aujourd'hui":dans===1?'demain':'dans '+dans+' jours');
     faits.push(`<span class="pp-fait">🎂 ${bd.jour} ${MFR[bd.mois-1].toLowerCase()} · ${echap(suite)}</span>`);
   }
-  if(p.allergies)faits.push(`<span class="pp-fait">⚠️ ${echap(p.allergies)}</span>`);
+  // Pas d'allergie ici : un traitement, une allergie, un bilan ne sont pas de
+  // la même nature qu'une note sur quelqu'un. Santé est cloisonné — rien n'en
+  // sort vers Les gens, rien n'y entre.
   if(kdo.length)faits.push(`<span class="pp-fait">🎁 ${kdo.length} idée${kdo.length>1?'s':''} gardée${kdo.length>1?'s':''}</span>`);
-  const traits=traitementsActifs(p.id);
-  const medecins=medecinsDe(p.id);
-  const aSante=p.foyer||traits.length||medecins.length||CACHE.suivis.some(x=>x.personne_id===p.id)||p.allergies||p.sante_notes;
-
   let h=`<button class="btn mini" id="mem-retour" style="margin-bottom:12px">‹ Les gens</button>
   <div class="pp-tete">
     <div class="pp-av">${p.emoji||'🧑'}</div>
@@ -4889,10 +4934,6 @@ function renderFichePersonne(zone,p){
     <button class="todo-act" id="mem-editer" title="Modifier">✏️</button>
   </div>
   ${faits.length?`<div class="pp-faits">${faits.join('')}</div>`:''}
-  ${traits.length?`<div class="mem-encart" style="margin-top:12px">
-    ${traits.map(t=>`<div class="mem-note-tete"><span>💊 ${echap(t.nom)}</span></div>`).join('')}
-  </div>`:''}
-  ${aSante?`<div style="margin-top:12px"><button class="btn mini" id="mem-sante">🩺 Sa santé${medecins.length?` <span class="todo-date">· ${echap(medecins.map(m=>m.nom).join(', '))}</span>`:''}</button></div>`:''}
   <div class="carte-solo" style="margin-top:14px">
     <textarea id="note-texte" placeholder="Quelque chose à retenir sur ${attr(p.nom)}…"></textarea>
     <label class="mem-partage"><input type="checkbox" id="note-partagee"> 👥 Visible par toute la famille <span class="todo-date">(sinon : 🔒 rien que pour toi)</span></label>
@@ -4925,8 +4966,6 @@ function renderFichePersonne(zone,p){
   zone.innerHTML=h;
   document.getElementById('mem-retour').onclick=()=>{persOuverte=null;renderMemoire()};
   document.getElementById('mem-ou').onclick=()=>formPersonne(p.id);
-  const bSante=document.getElementById('mem-sante');
-  if(bSante)bSante.onclick=()=>{santeFiche=p.id;setSection('sante')};
   document.getElementById('mem-editer').onclick=()=>formPersonne(p.id);
   document.getElementById('mem-suppr').onclick=()=>{
     const n=CACHE.notes.filter(x=>x.personne_id===p.id).length;
@@ -5711,9 +5750,169 @@ function majBarreBas(){
     el.appendChild(p);
   });
 }
+/* ============================================================
+   LE BUREAU
+   ------------------------------------------------------------
+   Douze modules à plat, une icône chacun. Le routeur ne réécrit
+   pas les écrans : il choisit la section et la sous-vue qui
+   existent déjà, puis les montre. Courses et Repas cessent d'être
+   cachés dans autre chose — c'est tout ce que ça change, et c'est
+   tout ce qu'on demandait.
+   ============================================================ */
+const MODULES_BUREAU={
+  journee:{nom:'Ma journée', ico:'☀️', sec:'planning', sous:['vuePlanning','jour']},
+  planning:{nom:'Planning', ico:'📅', sec:'planning', sous:['vuePlanning','mois'],
+    pastille:()=>lesEvts().filter(e=>e.debut===iso(new Date())).length},
+  repas:{nom:'Repas', ico:'🍽️', sec:'planning', sous:['vuePlanning','repas'],
+    alerte:()=>!menuDuJour(iso(new Date()),'soir')},
+  courses:{nom:'Courses', ico:'🛒', sec:'todo', sous:['vueTodo','courses'],
+    pastille:()=>CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length},
+  todo:{nom:'To-do', ico:'✅', sec:'todo', sous:['vueTodo','taches'],
+    pastille:()=>(typeof tachesEnRetard==='function'?tachesEnRetard().length:0), rouge:true},
+  projets:{nom:'Projets', ico:'🧩', sec:'todo', sous:['vueTodo','taches'],
+    pastille:()=>(CACHE.projets||[]).filter(x=>!x.archive).length},
+  sante:{nom:'Santé', ico:'🩺', sec:'sante'},
+  maison:{nom:'Maison', ico:'🏠', sec:'maison',
+    pastille:()=>maisonReclame().filter(x=>x.jours<=30).length, rouge:true},
+  gens:{nom:'Les gens', ico:'🧑', sec:'memoire', sous:['ongletMem','gens']},
+  envies:{nom:'Envies', ico:'✨', sec:'memoire', sous:['ongletMem','envies']},
+  cadeaux:{nom:'Cadeaux', ico:'🎁', sec:'memoire', sous:['ongletMem','cadeaux']},
+  recettes:{nom:'Recettes', ico:'📖', sec:'memoire', sous:['ongletMem','recettes']},
+};
+const ORDRE_DEFAUT=Object.keys(MODULES_BUREAU);
+let ORDRE_BUREAU=ORDRE_DEFAUT.slice();
+
+/* L'ordre appartient à la personne, pas au foyer : Didier ne veut pas la même
+   grille. On le relit au chargement, on l'écrit au dépôt. */
+function chargerOrdreBureau(){
+  const moi=(CACHE.utilisateurs||[]).find(u=>(u.email||'').toLowerCase()===EMAIL_CONNECTE);
+  const range=moi&&Array.isArray(moi.ordre_bureau)?moi.ordre_bureau:null;
+  if(!range||!range.length)return;
+  // On repart de ce qui est rangé, puis on ajoute ce qui est apparu depuis :
+  // un module neuf ne doit pas disparaître parce qu'il manque à la liste.
+  ORDRE_BUREAU=[...range.filter(c=>MODULES_BUREAU[c]),
+    ...ORDRE_DEFAUT.filter(c=>!range.includes(c))];
+}
+function garderOrdreBureau(){
+  if(!EMAIL_CONNECTE)return;
+  pousser(sb.from('app_users').update({ordre_bureau:ORDRE_BUREAU}).eq('email',EMAIL_CONNECTE));
+}
+
+function renderBureau(){
+  const z=document.getElementById('bureau');
+  if(!z)return;
+  const auj=new Date(),sAuj=iso(auj);
+  const prochain=lesEvts().filter(e=>e.debut===sAuj&&e.heure)
+    .sort((a,b)=>String(a.heure).localeCompare(String(b.heure)))[0];
+  const retard=(typeof tachesEnRetard==='function'?tachesEnRetard():[])[0];
+  const menuSoir=menuDuJour(sAuj,'soir');
+  const presse=[];
+  if(retard)presse.push({h:'en retard',urg:true,q:echap(retard.texte),cle:'todo'});
+  if(prochain)presse.push({h:echap(prochain.heure),q:echap(sansEmoji(prochain.titre)),cle:'journee'});
+  presse.push(menuSoir
+    ?{h:'ce soir',q:echap(menuSoir.recette_id?((recetteDe(menuSoir.recette_id)||{}).nom||'?'):(menuSoir.texte||'')),cle:'repas'}
+    :{h:'ce soir',q:'Le dîner n\'est pas prévu',cle:'repas'});
+
+  let h='';
+  if(presse.length){
+    h+=`<div class="bur-presse"><div class="t">Ce qui presse</div>`;
+    presse.slice(0,3).forEach(x=>{
+      h+=`<button data-va="${x.cle}"><span class="h ${x.urg?'urg':''}">${x.h}</span>
+        <span class="q">${x.q}</span></button>`;
+    });
+    h+='</div>';
+  }
+  h+=`<div class="bur-grille" id="burGrille">`;
+  ORDRE_BUREAU.forEach(cle=>{
+    const m=MODULES_BUREAU[cle];
+    let n=0,al=false;
+    try{n=m.pastille?m.pastille():0;al=m.alerte?m.alerte():false}catch(e){n=0}
+    h+=`<button class="bur-mod" data-mod="${cle}">
+      <span class="bur-tuile">${m.ico}</span>
+      ${n?`<span class="bur-pastille ${m.rouge?'alerte':''}">${n}</span>`
+        :(al?'<span class="bur-pastille alerte">!</span>':'')}
+      <span class="bur-nom">${m.nom}</span></button>`;
+  });
+  h+=`</div><p class="bur-astuce">Garde une icône appuyée pour changer l'ordre.</p>`;
+  z.innerHTML=h;
+  z.querySelectorAll('[data-va]').forEach(b=>{b.onclick=()=>setModule(b.dataset.va)});
+  brancherGlisserBureau();
+}
+
+function setModule(cle){
+  const m=MODULES_BUREAU[cle];
+  if(!m)return;
+  MODULE_OUVERT=cle;
+  if(m.sous){
+    const [quoi,val]=m.sous;
+    if(quoi==='vuePlanning')vuePlanning=val;
+    else if(quoi==='vueTodo'){vueTodo=val;projetOuvert=null}
+    else if(quoi==='ongletMem'){ongletMem=val;persOuverte=null;rangementOuvert=false}
+  }
+  if(cle==='sante')santeFiche=null;
+  document.body.classList.remove('au-bureau');
+  setSection(m.sec);
+}
+function versBureau(){
+  MODULE_OUVERT=null;
+  document.body.classList.add('au-bureau');
+  renderBureau();
+}
+let MODULE_OUVERT=null;
+
+/* Le glisser-déposer, au doigt comme à la souris. `dragstart` n'existe pas au
+   tactile : on suit le pointeur, avec un appui long pour ne pas confondre un
+   déplacement avec un simple appui. */
+function brancherGlisserBureau(){
+  const grille=document.getElementById('burGrille');
+  if(!grille)return;
+  let attrape=null,timer=null,parti=false;
+  const finir=()=>{
+    clearTimeout(timer);
+    grille.querySelectorAll('.bur-mod').forEach(x=>x.classList.remove('attrape','cible'));
+    attrape=null;parti=false;
+  };
+  grille.querySelectorAll('.bur-mod').forEach(b=>{
+    b.addEventListener('pointerdown',(ev)=>{
+      attrape=b;parti=false;
+      timer=setTimeout(()=>{parti=true;b.classList.add('attrape');
+        if(navigator.vibrate)navigator.vibrate(8)},350);
+    });
+    b.addEventListener('pointerup',()=>{
+      if(!parti){clearTimeout(timer);const c=b.dataset.mod;finir();setModule(c)}
+    });
+    b.addEventListener('pointermove',(ev)=>{
+      if(!attrape)return;
+      if(!parti){clearTimeout(timer);return}
+      ev.preventDefault();
+      const sous=document.elementFromPoint(ev.clientX,ev.clientY);
+      const cible=sous&&sous.closest?sous.closest('.bur-mod'):null;
+      grille.querySelectorAll('.bur-mod').forEach(x=>x.classList.toggle('cible',x===cible&&x!==attrape));
+    });
+  });
+  grille.addEventListener('pointerup',(ev)=>{
+    if(!parti||!attrape)return finir();
+    const sous=document.elementFromPoint(ev.clientX,ev.clientY);
+    const cible=sous&&sous.closest?sous.closest('.bur-mod'):null;
+    if(cible&&cible!==attrape){
+      const de=ORDRE_BUREAU.indexOf(attrape.dataset.mod);
+      const vers=ORDRE_BUREAU.indexOf(cible.dataset.mod);
+      ORDRE_BUREAU.splice(de,1);ORDRE_BUREAU.splice(vers,0,attrape.dataset.mod);
+      garderOrdreBureau();
+      finir();renderBureau();return;
+    }
+    finir();
+  });
+  grille.addEventListener('pointercancel',finir);
+}
+
 function setSection(s){
   if(!ONGLETS.includes(s))s='planning';
   section=s;
+  // Montrer une section, c'est quitter le bureau. Sans cette ligne, tous les
+  // renvois internes — « voir la to-do », « mes recettes », la fiche santé
+  // d'une personne — changeaient l'écran caché derrière la grille.
+  document.body.classList.remove('au-bureau');
   document.querySelectorAll('#barreBas [data-sec]').forEach(b=>b.classList.toggle('actif',b.dataset.sec===s));
 
   const surCal=(s==='planning'&&vuePlanning==='mois');
@@ -5844,7 +6043,8 @@ document.querySelectorAll('#modesBar [data-mode]').forEach(b=>{b.onclick=()=>set
 document.getElementById('mg-envoyer').onclick=mgEnvoyer;
 document.getElementById('mg-coller').onclick=()=>collerDansChat(document.getElementById('mg-texte'));
 document.getElementById('mg-texte').addEventListener('keydown',e=>{if(e.key==='Enter')mgEnvoyer()});
-document.getElementById('titreAccueil').onclick=()=>{vuePlanning='jour';setSection('planning')};
+document.getElementById('titreAccueil').onclick=()=>versBureau();
+document.getElementById('retourBureau').onclick=()=>versBureau();
 document.getElementById('btnParams').onclick=formParams;
 document.body.classList.add('a-barre');
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){fermerTiroir();fermerPopovers()}});
@@ -5865,7 +6065,7 @@ document.addEventListener('visibilitychange',async()=>{
   UTILISATEUR=s.nom||s.session.user.email;
   EMAIL_CONNECTE=(s.session.user.email||'').toLowerCase();
   await chargerReglages();
-  if(await chargerTout()){montrerMois();setSection('planning');majHautChat();montrerPriseSiBesoin()}
+  if(await chargerTout()){chargerOrdreBureau();montrerMois();versBureau();majHautChat();montrerPriseSiBesoin()}
 })();
 
 </script>
