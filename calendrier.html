@@ -382,8 +382,12 @@ body.mode-parler #navBar{visibility:hidden!important}
 .barre-bas .bb-nb{position:absolute;top:-1px;left:50%;margin-left:4px;background:var(--alert);color:#fff;
   font-size:.6rem;font-weight:800;border-radius:999px;min-width:15px;height:15px;line-height:15px;
   text-align:center;padding:0 3px;border:1.5px solid var(--surface)}
-body.a-barre .main-layout{padding-bottom:74px}
-body.a-barre .fab{bottom:calc(78px + env(safe-area-inset-bottom))}
+/* La barre des cinq sections a été remplacée par le bureau : une grille de
+   douze icônes dit mieux ce que l'app contient que cinq onglets qui en
+   cachaient sept. On la laisse dans le code le temps d'un déploiement — si
+   le bureau déçoit, une ligne suffit à la rendre. */
+.barre-bas{display:none!important}
+body.a-barre .main-layout{padding-bottom:0}
 /* --- l'interrupteur des deux modes --- */
 .modes-bar{display:flex;background:#eceae6;border-radius:999px;padding:3px;margin:10px 16px 8px;gap:2px}
 .modes-bar button{flex:1;background:none;border:none;font-family:inherit;cursor:pointer;
@@ -441,6 +445,30 @@ body.au-bureau .fab{display:none!important}
   background:var(--surface);color:var(--ink-2);font:inherit;font-size:1rem;cursor:pointer;
   align-items:center;justify-content:center;margin-right:2px}
 .fleche-retour:hover{border-color:var(--border-strong);color:var(--ink)}
+/* Sur grand écran, la grille ne disparaît pas quand on ouvre un module : elle
+   se replie en colonne à gauche. C'est là que les passerelles prennent leur
+   sens — poser une recette et voir les courses se remplir à côté. */
+.atelier{display:block}
+.colonne-droite{min-width:0}
+body.au-bureau .colonne-droite{display:none}
+@media(min-width:900px){
+  .atelier{display:grid;grid-template-columns:1fr;gap:18px;align-items:start;
+    max-width:1280px;margin:0 auto;padding:0 4px}
+  /* Un module ouvert : rail de gauche + écran à droite. */
+  body:not(.au-bureau) .atelier{grid-template-columns:186px minmax(0,1fr)}
+  body:not(.au-bureau) .bureau{display:flex;padding:2px 0 20px 12px;position:sticky;top:8px}
+  body:not(.au-bureau) .bur-presse,body:not(.au-bureau) .bur-astuce{display:none}
+  body:not(.au-bureau) .bur-grille{grid-template-columns:1fr 1fr;gap:11px 9px}
+  body:not(.au-bureau) .bur-tuile{font-size:1.35rem;border-radius:15px}
+  body:not(.au-bureau) .bur-nom{font-size:.68rem}
+  body:not(.au-bureau) .bur-pastille{min-width:17px;height:17px;font-size:.62rem;top:-4px}
+  /* Où l'on est : la tuile ouverte se marque, sinon le rail ne sert qu'à partir. */
+  body:not(.au-bureau) .bur-mod.ouvert .bur-tuile{border-color:var(--ink);background:#f4f2ee}
+  body:not(.au-bureau) .bur-mod.ouvert .bur-nom{color:var(--ink)}
+  /* La flèche de retour ne sert plus : la grille est là, en permanence. */
+  body:not(.au-bureau) #retourBureau{display:none}
+}
+
 /* Le retour au bureau, dans l'en-tête, quand un module est ouvert. */
 #retourBureau{display:none}
 body:not(.au-bureau) #retourBureau{display:inline-flex}
@@ -472,10 +500,6 @@ body:not(.au-bureau) #retourBureau{display:inline-flex}
 <button data-mode="famille" class="actif">🏡 La famille</button>
 </div>
 
-<div id="bureau" class="bureau"></div>
-
-<div id="barreVues" style="margin:0 16px"></div>
-
 <div class="page-chat" id="vueChat">
 <div class="chat-fil" id="mg-fil"></div>
 <div class="chat-saisie">
@@ -487,6 +511,13 @@ body:not(.au-bureau) #retourBureau{display:inline-flex}
 
 <div class="popover" id="popMois"><div class="pop-grille" id="popMoisGrille"></div></div>
 
+<!-- L'atelier : la grille et l'écran ouvert. Sur téléphone, l'un OU l'autre ;
+     sur grand écran, la grille se replie en colonne à gauche et y reste — on
+     voit alors les passerelles fonctionner sans quitter le reste des yeux. -->
+<div class="atelier">
+<div id="bureau" class="bureau"></div>
+<div class="colonne-droite">
+<div id="barreVues" style="margin:0 16px"></div>
 <div class="main-layout">
 <div class="cal-area">
 <div class="month-view" id="monthView">
@@ -500,6 +531,8 @@ body:not(.au-bureau) #retourBureau{display:inline-flex}
 <div class="page-solo" id="vueSante" style="display:none"></div>
 <div class="page-solo" id="vueMaison" style="display:none"></div>
 <div class="prise-plein" id="prisePlein" style="display:none"></div>
+</div>
+</div>
 </div>
 
 <nav class="barre-bas" id="barreBas">
@@ -5780,6 +5813,7 @@ const MODULES_BUREAU={
   recettes:{nom:'Recettes', ico:'📖', sec:'memoire', sous:['ongletMem','recettes']},
 };
 const ORDRE_DEFAUT=Object.keys(MODULES_BUREAU);
+let MODULE_OUVERT=null;
 let ORDRE_BUREAU=ORDRE_DEFAUT.slice();
 
 /* L'ordre appartient à la personne, pas au foyer : Didier ne veut pas la même
@@ -5827,7 +5861,7 @@ function renderBureau(){
     const m=MODULES_BUREAU[cle];
     let n=0,al=false;
     try{n=m.pastille?m.pastille():0;al=m.alerte?m.alerte():false}catch(e){n=0}
-    h+=`<button class="bur-mod" data-mod="${cle}">
+    h+=`<button class="bur-mod ${cle===MODULE_OUVERT?'ouvert':''}" data-mod="${cle}">
       <span class="bur-tuile">${m.ico}</span>
       ${n?`<span class="bur-pastille ${m.rouge?'alerte':''}">${n}</span>`
         :(al?'<span class="bur-pastille alerte">!</span>':'')}
@@ -5852,13 +5886,13 @@ function setModule(cle){
   if(cle==='sante')santeFiche=null;
   document.body.classList.remove('au-bureau');
   setSection(m.sec);
+  renderBureau();          // le rail doit savoir où l'on est
 }
 function versBureau(){
   MODULE_OUVERT=null;
   document.body.classList.add('au-bureau');
   renderBureau();
 }
-let MODULE_OUVERT=null;
 
 /* Le glisser-déposer, au doigt comme à la souris. `dragstart` n'existe pas au
    tactile : on suit le pointeur, avec un appui long pour ne pas confondre un
