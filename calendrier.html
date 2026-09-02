@@ -388,8 +388,35 @@ body.mode-parler #navBar{visibility:hidden!important}
    le bureau déçoit, une ligne suffit à la rendre. */
 .barre-bas{display:none!important}
 body.a-barre .main-layout{padding-bottom:0}
-/* --- l'interrupteur des deux modes --- */
-.modes-bar{display:flex;background:#eceae6;border-radius:999px;padding:3px;margin:10px 16px 8px;gap:2px}
+/* --- Pia, toujours là ---
+   L'interrupteur « 💬 Parler / 🏡 La famille » posait la question à l'envers :
+   il fallait choisir d'aller parler à Pia, comme on change d'application. La
+   barre du bas ne demande plus de choisir — elle attend, en bas de chaque
+   module, et elle sait de quoi on parle : dans Recettes elle propose une
+   recette, dans Courses elle propose du lait. C'est la même fonction derrière
+   (saisie-magique), à qui l'on dit simplement d'où part la phrase. */
+.pia{position:fixed;left:0;right:0;bottom:0;z-index:70;background:#f7f6f3;
+  border-top:1px solid var(--border);padding:9px 12px calc(11px + env(safe-area-inset-bottom))}
+body.mode-parler .pia{display:none}
+.pia-barre{display:flex;align-items:center;gap:9px;width:100%;background:var(--surface);
+  border:1px solid var(--border);border-radius:999px;padding:7px 7px 7px 14px;cursor:pointer;
+  font-family:inherit;text-align:left}
+.pia-barre:hover{border-color:var(--border-strong)}
+.pia-barre .ph{flex:1;color:var(--ink-3);font-size:.85rem;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.pia-barre .micro{width:29px;height:29px;border-radius:50%;background:var(--h,var(--ink));color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:.88rem;flex:0 0 auto}
+/* Ce qui flottait au-dessus du vide flotte maintenant au-dessus de la barre. */
+.fab{bottom:calc(74px + env(safe-area-inset-bottom))!important}
+.main-layout,.bureau{padding-bottom:76px}
+@media(min-width:900px){
+  /* Sur grand écran la barre suit la colonne de droite : sous le rail, elle
+     ferait mine de commander la grille. */
+  body:not(.au-bureau) .pia{left:198px}
+}
+/* --- l'interrupteur des deux modes : il ne sert plus qu'à revenir --- */
+.modes-bar{display:none;background:#eceae6;border-radius:999px;padding:3px;margin:10px 16px 8px;gap:2px}
+body.mode-parler .modes-bar{display:flex}
 .modes-bar button{flex:1;background:none;border:none;font-family:inherit;cursor:pointer;
   font-size:.82rem;font-weight:700;padding:7px 0;border-radius:999px;color:var(--ink-3);transition:all .15s}
 .modes-bar button.actif{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(28,27,24,.09)}
@@ -411,6 +438,13 @@ body.a-barre .main-layout{padding-bottom:0}
 body.au-bureau .bureau{display:flex}
 body.au-bureau .main-layout,body.au-bureau #barreVues,body.au-bureau .barre-bas,
 body.au-bureau .fab{display:none!important}
+/* Le bonjour : le bureau s'ouvre sur une phrase, pas sur une grille nue. La
+   date à droite parce que la première question qu'on se pose devant un
+   calendrier familial, c'est « on est quel jour ». */
+.bur-bonjour{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.bur-bonjour h2{font-size:1.3rem;font-weight:800;letter-spacing:-.02em;margin:0}
+.bur-bonjour .date{font-size:.75rem;color:var(--ink-3);font-weight:800;text-transform:uppercase;
+  letter-spacing:.08em;white-space:nowrap}
 .bur-presse{background:#f7f6f3;border:1px solid var(--border);border-radius:var(--radius);
   padding:11px 13px;display:flex;flex-direction:column;gap:7px}
 .bur-presse .t{font-size:.66rem;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);
@@ -427,19 +461,34 @@ body.au-bureau .fab{display:none!important}
 .bur-mod{display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;
   font:inherit;color:inherit;cursor:pointer;padding:0;position:relative;touch-action:none;
   -webkit-user-select:none;user-select:none}
+/* Chaque tuile prend la teinte de son module — une trace de couleur sur fond
+   blanc, pas un aplat : douze aplats saturés côte à côte, c'est un jouet.
+   `color-mix` n'existe pas sur les vieux Safari : la valeur de repli juste
+   au-dessus reste le blanc de la carte, donc au pire on retombe sur ce qu'on
+   avait avant, jamais sur du transparent. */
 .bur-tuile{width:100%;aspect-ratio:1;border-radius:20px;display:flex;align-items:center;
   justify-content:center;font-size:1.85rem;background:var(--surface);border:1px solid var(--border);
   transition:transform .12s ease,border-color .15s;pointer-events:none}
-.bur-mod:hover .bur-tuile{transform:translateY(-2px);border-color:var(--border-strong)}
+.bur-mod[style*="--h"] .bur-tuile{background:color-mix(in oklab,var(--h) 15%,var(--surface));
+  border-color:color-mix(in oklab,var(--h) 32%,var(--surface))}
+.bur-mod:hover .bur-tuile{transform:translateY(-2px)}
+.bur-mod:hover[style*="--h"] .bur-tuile{border-color:color-mix(in oklab,var(--h) 55%,var(--surface))}
 .bur-mod.attrape{opacity:.35}
 .bur-mod.cible .bur-tuile{border-color:var(--ink);border-style:dashed}
 .bur-nom{font-size:.78rem;font-weight:700;color:var(--ink-2);text-align:center;line-height:1.15;
   pointer-events:none}
 .bur-pastille{position:absolute;top:-5px;right:-2px;min-width:21px;height:21px;padding:0 6px;
-  border-radius:999px;background:var(--ink);color:#fff;font-size:.7rem;font-weight:800;display:flex;
-  align-items:center;justify-content:center;border:2px solid var(--surface);pointer-events:none;
-  font-variant-numeric:tabular-nums}
+  border-radius:999px;background:var(--h,var(--ink));color:#fff;font-size:.7rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;border:2px solid var(--surface);
+  pointer-events:none;font-variant-numeric:tabular-nums}
+/* Ce qui réclame vraiment reste rouge : une pastille « en retard » qui prendrait
+   la couleur douce du module ne se distinguerait plus d'un simple décompte. */
 .bur-pastille.alerte{background:var(--alert)}
+/* Le liseré : la couleur du module suit en haut de son écran. C'est ce qui dit
+   « tu es toujours dans Recettes » quand la grille a disparu (téléphone). */
+.mod-liseré{height:3px;flex:0 0 auto;background:var(--h,var(--ink));border-radius:99px;
+  margin:0 16px 8px}
+body.au-bureau .mod-liseré{display:none}
 .bur-astuce{font-size:.74rem;color:var(--ink-3);text-align:center}
 .fleche-retour{width:30px;height:30px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border);
   background:var(--surface);color:var(--ink-2);font:inherit;font-size:1rem;cursor:pointer;
@@ -457,16 +506,29 @@ body.au-bureau .colonne-droite{display:none}
   /* Un module ouvert : rail de gauche + écran à droite. */
   body:not(.au-bureau) .atelier{grid-template-columns:186px minmax(0,1fr)}
   body:not(.au-bureau) .bureau{display:flex;padding:2px 0 20px 12px;position:sticky;top:8px}
-  body:not(.au-bureau) .bur-presse,body:not(.au-bureau) .bur-astuce{display:none}
+  body:not(.au-bureau) .bur-presse,body:not(.au-bureau) .bur-astuce,
+  body:not(.au-bureau) .bur-bonjour{display:none}
   body:not(.au-bureau) .bur-grille{grid-template-columns:1fr 1fr;gap:11px 9px}
   body:not(.au-bureau) .bur-tuile{font-size:1.35rem;border-radius:15px}
   body:not(.au-bureau) .bur-nom{font-size:.68rem}
   body:not(.au-bureau) .bur-pastille{min-width:17px;height:17px;font-size:.62rem;top:-4px}
   /* Où l'on est : la tuile ouverte se marque, sinon le rail ne sert qu'à partir. */
-  body:not(.au-bureau) .bur-mod.ouvert .bur-tuile{border-color:var(--ink);background:#f4f2ee}
+  body:not(.au-bureau) .bur-mod.ouvert .bur-tuile{background:color-mix(in oklab,var(--h) 30%,var(--surface));
+    border-color:color-mix(in oklab,var(--h) 70%,var(--surface))}
   body:not(.au-bureau) .bur-mod.ouvert .bur-nom{color:var(--ink)}
   /* La flèche de retour ne sert plus : la grille est là, en permanence. */
   body:not(.au-bureau) #retourBureau{display:none}
+  /* Le contenu commence au bord du rail et s'étale au lieu de flotter au
+     milieu d'un grand vide. Les deux barres — période et contenu — partagent
+     la même largeur, sinon l'une surplombe l'autre sans raison. */
+  body:not(.au-bureau) .colonne-droite .main-layout{max-width:none;margin:0;
+    padding:6px 8px 40px 0}
+  body:not(.au-bureau) .colonne-droite #barreVues{margin:0 8px 0 0}
+  /* Assez large pour ne plus flotter, pas au point d'étirer une liste sur
+     1200 pixels : une ligne de courses n'a pas besoin de la moitié de l'écran
+     entre sa case et son texte. */
+  body:not(.au-bureau) .page-solo{max-width:860px;margin:0;flex:1}
+  body:not(.au-bureau) .nav-periode{max-width:none}
 }
 
 /* Le retour au bureau, dans l'en-tête, quand un module est ouvert. */
@@ -533,6 +595,13 @@ body:not(.au-bureau) #retourBureau{display:inline-flex}
 <div class="prise-plein" id="prisePlein" style="display:none"></div>
 </div>
 </div>
+</div>
+
+<!-- Pia attend en bas, dans chaque module. Elle n'est plus un mode où l'on
+     entre : c'est une ligne de texte au bord de l'écran, qui sait déjà de quoi
+     on parle parce qu'elle voit le module ouvert. -->
+<div class="pia" id="piaBarre">
+<button class="pia-barre" id="piaOuvrir"><span class="ph" id="piaPh">Dis-moi tout</span><span class="micro">🎙️</span></button>
 </div>
 
 <nav class="barre-bas" id="barreBas">
@@ -2654,7 +2723,7 @@ function renderRepas(zone){
   const lundi=lundiDe(new Date());
   lundi.setDate(lundi.getDate()+semaineRepas*7);
   const sAuj=iso(new Date());
-  let h=`<h2 class="ps-titre">🍽️ Les repas de la semaine</h2>`;
+  let h=``;
   /* Ce qu'un repas donne à lire, recette ou simple mot. */
   const dire=(m)=>{
     const r=m&&m.recette_id?recetteDe(m.recette_id):null;
@@ -2797,7 +2866,7 @@ function renderRecettes(){
   const q=(RECH_RECETTE||'').trim().toLowerCase();
   const recs=toutes.filter(r=>!q||
     (r.nom+' '+(r.ingredients||[]).join(' ')).toLowerCase().includes(q));
-  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>  <h2 class="ps-titre" style="font-size:1.05rem">📖 Tes recettes</h2>`;
+  let h=``;
   if(toutes.length>6){
     h+=`<div style="margin:10px 0 6px"><input type="text" id="rc-rech"
       placeholder="🔍 Chercher — un plat, un ingrédient…" value="${attr(RECH_RECETTE||'')}"></div>`;
@@ -3080,8 +3149,7 @@ function renderCourses(){
   const ailleurs=trierCourses(ouvertes.filter(c=>c.ailleurs));
   const nUrgent=ouvertes.filter(c=>c.urgent).length;
 
-  let h=`<h2 class="ps-titre">🛒 La liste de courses</h2>
-  <p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>
+  let h=`  <p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>
   <div class="ps-ajout"><input type="text" id="course-texte" placeholder="Lait, piles, T-shirts pour Darya…">
   <button class="btn primaire" id="course-ajouter">Ajouter</button></div>
   <div class="mg-chips" id="course-ou" style="margin:-8px 0 4px">
@@ -3190,8 +3258,7 @@ function renderCadeaux(zone){
   const q=(RECH_CADEAU||'').trim().toLowerCase();
   const colle=(c)=>!q||((c.idee||'')+' '+(c.magasin||'')+' '+(c.personne||'')).toLowerCase().includes(q);
 
-  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
-  <div class="carte-solo">
+  let h=`<div class="carte-solo">
     <div class="grille-form">
       <div><label>Pour qui ?</label>
         <input type="text" id="cadeau-personne" list="liste-personnes" placeholder="Tina, Didier, la maîtresse…">
@@ -3485,7 +3552,7 @@ function renderSante(){
   if(santeFiche&&!CACHE.personnes.some(p=>p.id===santeFiche))santeFiche=null;
   if(santeFiche){renderSanteFiche(zone);return}
   const gens=gensSante();
-  let h=`<div class="sa-tete"><h2 class="ps-titre">🩺 La santé de la famille</h2></div>`;
+  let h=``;
   if(!gens.length){
     h+=`<div class="sa-vide">Personne n'est encore rangé « à la maison ».<br>
       Ajoute les gens du foyer dans la 🧠 Mémoire, ils apparaîtront ici.</div>`;
@@ -4005,7 +4072,11 @@ async function mgEnvoyer(){
   try{
     const body={texte:enCorrection?MAGIE_TEXTE:texte,
       contexte:{aujourdhui:iso(new Date()),membres:CACHE.membres,personnes:CACHE.personnes.map(p=>p.nom),
-        moi:UTILISATEUR||'',adultes:accompagnateurs().chips.concat(accompagnateurs().menu).map(p=>p.nom)},
+        moi:UTILISATEUR||'',adultes:accompagnateurs().chips.concat(accompagnateurs().menu).map(p=>p.nom),
+        // D'où part la phrase. Un champ de plus dans le contexte : la fonction
+        // qui l'ignore continue de marcher exactement comme avant, ce qui
+        // permet de déployer l'app sans attendre la fonction.
+        module:MODULE_OUVERT?MODULES_BUREAU[MODULE_OUVERT].nom:''},
       personne:EMAIL_CONNECTE||'',moi:UTILISATEUR||'',
       historique:MAGIE_HISTO.slice(-12)};
     if(enCorrection){body.correction=texte;body.precedent=MAGIE_PROPS}
@@ -4756,8 +4827,7 @@ function renderMemoire(){
       <div style="color:var(--ink-3)">›</div></div>`;
   };
 
-  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
-    <p class="discret2">Ce que tu veux garder sur les gens. 🔒 Ce que tu écris reste pour toi — sauf si tu le partages.</p>
+  let h=`<p class="discret2">Ce que tu veux garder sur les gens. 🔒 Ce que tu écris reste pour toi — sauf si tu le partages.</p>
   <div class="ps-ajout">
     ${CACHE.personnes.length>6?`<input type="text" id="mem-recherche" placeholder="🔍 Chercher quelqu'un…" value="${attr(rechercheMem)}">`:''}
     <button class="btn primaire" id="mem-ajouter" style="${CACHE.personnes.length>6?'':'width:100%'}">+ Ajouter</button>
@@ -4841,8 +4911,7 @@ function renderEnvies(zone){
   const rangee=(e)=>e.archive||e.faite;
   const actives=visibles.filter(e=>!rangee(e));
   const faites=visibles.filter(rangee);
-  let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
-    <p class="discret2">Le livre dont on t'a parlé, ce resto, cette expo… Dépose-le ici avant d'oublier. 🔒 Privé par défaut.</p>
+  let h=`<p class="discret2">Le livre dont on t'a parlé, ce resto, cette expo… Dépose-le ici avant d'oublier. 🔒 Privé par défaut.</p>
   <div class="carte-solo">
     <div class="grille-form">
       <div><label>Quoi ?</label><input type="text" id="env-titre" placeholder="Le resto Chez Georges, le dernier Ferrante…"></div>
@@ -5792,25 +5861,41 @@ function majBarreBas(){
    cachés dans autre chose — c'est tout ce que ça change, et c'est
    tout ce qu'on demandait.
    ============================================================ */
+/* `h` : la teinte du module (une variable CSS, cf. style.css).
+   `pia` : ce que la barre du bas propose quand ce module est ouvert. Ce n'est
+   pas de la décoration — c'est ce qui évite d'écrire « ajoute du lait à la
+   liste de courses » quand on est déjà debout dans la liste de courses. */
 const MODULES_BUREAU={
-  journee:{nom:'Ma journée', ico:'☀️', sec:'planning', sous:['vuePlanning','jour']},
-  planning:{nom:'Planning', ico:'📅', sec:'planning', sous:['vuePlanning','mois'],
+  journee:{nom:'Ma journée', ico:'☀️', h:'--h-journee', sec:'planning', sous:['vuePlanning','jour'],
+    pia:'Récupère Kyan à 16h30 jeudi'},
+  planning:{nom:'Planning', ico:'📅', h:'--h-planning', sec:'planning', sous:['vuePlanning','mois'],
+    pia:'Vacances à Cabourg du 12 au 19',
     pastille:()=>lesEvts().filter(e=>e.debut===iso(new Date())).length},
-  repas:{nom:'Repas', ico:'🍽️', sec:'planning', sous:['vuePlanning','repas'],
+  repas:{nom:'Repas', ico:'🍽️', h:'--h-repas', sec:'planning', sous:['vuePlanning','repas'],
+    pia:'Jeudi soir, c\'est raclette',
     alerte:()=>!menuDuJour(iso(new Date()),'soir')},
-  courses:{nom:'Courses', ico:'🛒', sec:'todo', sous:['vueTodo','courses'],
+  courses:{nom:'Courses', ico:'🛒', h:'--h-courses', sec:'todo', sous:['vueTodo','courses'],
+    pia:'Ajoute du lait et des piles',
     pastille:()=>CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length},
-  todo:{nom:'To-do', ico:'✅', sec:'todo', sous:['vueTodo','taches'],
+  todo:{nom:'To-do', ico:'✅', h:'--h-todo', sec:'todo', sous:['vueTodo','taches'],
+    pia:'Rappelle-moi d\'appeler l\'école lundi',
     pastille:()=>(typeof tachesEnRetard==='function'?tachesEnRetard().length:0), rouge:true},
-  projets:{nom:'Projets', ico:'🧩', sec:'todo', sous:['vueTodo','taches'],
+  projets:{nom:'Projets', ico:'🧩', h:'--h-projets', sec:'todo', sous:['vueTodo','taches'],
+    pia:'Dans le projet Cabourg, réserver le train',
     pastille:()=>(CACHE.projets||[]).filter(x=>!x.archive).length},
-  sante:{nom:'Santé', ico:'🩺', sec:'sante'},
-  maison:{nom:'Maison', ico:'🏠', sec:'maison',
+  sante:{nom:'Santé', ico:'🩺', h:'--h-sante', sec:'sante',
+    pia:'Rendez-vous dentiste Darya le 14 à 10h'},
+  maison:{nom:'Maison', ico:'🏠', h:'--h-maison', sec:'maison',
+    pia:'Chaudière révisée aujourd\'hui',
     pastille:()=>maisonReclame().filter(x=>x.jours<=30).length, rouge:true},
-  gens:{nom:'Les gens', ico:'🧑', sec:'memoire', sous:['ongletMem','gens']},
-  envies:{nom:'Envies', ico:'✨', sec:'memoire', sous:['ongletMem','envies']},
-  cadeaux:{nom:'Cadeaux', ico:'🎁', sec:'memoire', sous:['ongletMem','cadeaux']},
-  recettes:{nom:'Recettes', ico:'📖', sec:'memoire', sous:['ongletMem','recettes']},
+  gens:{nom:'Les gens', ico:'🧑', h:'--h-gens', sec:'memoire', sous:['ongletMem','gens'],
+    pia:'Kyan a commencé le judo'},
+  envies:{nom:'Envies', ico:'✨', h:'--h-envies', sec:'memoire', sous:['ongletMem','envies'],
+    pia:'Envie d\'aller voir l\'expo Hopper'},
+  cadeaux:{nom:'Cadeaux', ico:'🎁', h:'--h-cadeaux', sec:'memoire', sous:['ongletMem','cadeaux'],
+    pia:'Idée cadeau pour Cyrus : un microscope'},
+  recettes:{nom:'Recettes', ico:'📖', h:'--h-recettes', sec:'memoire', sous:['ongletMem','recettes'],
+    pia:'Note la recette du gratin de ma mère'},
 };
 const ORDRE_DEFAUT=Object.keys(MODULES_BUREAU);
 let MODULE_OUVERT=null;
@@ -5847,7 +5932,13 @@ function renderBureau(){
     ?{h:'ce soir',q:echap(menuSoir.recette_id?((recetteDe(menuSoir.recette_id)||{}).nom||'?'):(menuSoir.texte||'')),cle:'repas'}
     :{h:'ce soir',q:'Le dîner n\'est pas prévu',cle:'repas'});
 
-  let h='';
+  // « Bonjour Mandana » : le prénom vient du compte connecté, pas d'un texte
+  // écrit en dur. Sans compte reconnu, on salue la maison plutôt que personne.
+  const moi=(UTILISATEUR||'').trim();
+  const dateCourte=auj.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})
+    .replace(/\./g,'.');
+  let h=`<div class="bur-bonjour"><h2>${moi?'Bonjour '+echap(moi):'🏡 La maison'}</h2>
+    <span class="date">${echap(dateCourte)}</span></div>`;
   if(presse.length){
     h+=`<div class="bur-presse"><div class="t">Ce qui presse</div>`;
     presse.slice(0,3).forEach(x=>{
@@ -5861,7 +5952,8 @@ function renderBureau(){
     const m=MODULES_BUREAU[cle];
     let n=0,al=false;
     try{n=m.pastille?m.pastille():0;al=m.alerte?m.alerte():false}catch(e){n=0}
-    h+=`<button class="bur-mod ${cle===MODULE_OUVERT?'ouvert':''}" data-mod="${cle}">
+    h+=`<button class="bur-mod ${cle===MODULE_OUVERT?'ouvert':''}" data-mod="${cle}"
+      style="--h:var(${m.h})">
       <span class="bur-tuile">${m.ico}</span>
       ${n?`<span class="bur-pastille ${m.rouge?'alerte':''}">${n}</span>`
         :(al?'<span class="bur-pastille alerte">!</span>':'')}
@@ -5887,11 +5979,37 @@ function setModule(cle){
   document.body.classList.remove('au-bureau');
   setSection(m.sec);
   renderBureau();          // le rail doit savoir où l'on est
+  majPia();
 }
 function versBureau(){
   MODULE_OUVERT=null;
   document.body.classList.add('au-bureau');
   renderBureau();
+  majPia();
+}
+
+/* La barre de Pia prend la couleur et l'exemple du module ouvert. C'est la
+   seule chose qui change : la phrase part au même endroit, avec en plus le nom
+   du module — « ajoute du lait » depuis Courses n'a pas besoin de dire où. */
+function majPia(){
+  const m=MODULE_OUVERT&&MODULES_BUREAU[MODULE_OUVERT];
+  // L'entête dit où l'on est. Elle affichait « 🏡 Famille » partout pendant que
+  // l'écran redisait « 🧠 Mémoire » juste dessous : deux titres pour un même
+  // endroit, dont aucun ne nommait le module ouvert. Dans Repas, on est dans
+  // Repas — c'est exactement ce que Mandana reprochait aux onglets.
+  const t=document.getElementById('titreAccueil');
+  if(t)t.textContent=m?`${m.ico} ${m.nom}`:'🏡 Famille';
+  const ph=document.getElementById('piaPh');
+  if(!ph)return;
+  ph.textContent=m&&m.pia?'« '+m.pia+' »':'Dis-moi tout — « jeudi, c\'est raclette »';
+  const z=document.getElementById('piaBarre');
+  if(z)z.style.setProperty('--h',m?`var(${m.h})`:'var(--ink)');
+  // Le liseré de couleur, en haut de l'écran du module.
+  let l=document.querySelector('.mod-liseré');
+  const hote=document.querySelector('.colonne-droite');
+  if(!l&&hote){l=document.createElement('div');l.className='mod-liseré';hote.prepend(l)}
+  if(l){l.style.setProperty('--h',m?`var(${m.h})`:'transparent');
+    l.style.visibility=m?'visible':'hidden'}
 }
 
 /* Le glisser-déposer, au doigt comme à la souris. `dragstart` n'existe pas au
@@ -5969,15 +6087,12 @@ function setSection(s){
    avait trois traitements : Planning au-dessus, To do et Maison à
    l'intérieur de leur panneau, Mémoire dans un composant différent posé
    sous le titre de la carte. Trois réponses à la même question. */
+/* Il n'en reste qu'une. Ma journée, Mois, Repas, Courses, Les gens, Envies,
+   Cadeaux, Recettes ont chacun leur icône au bureau : les proposer aussi en
+   onglets, c'était deux navigations pour la même chose — exactement ce que la
+   refonte devait supprimer. Entretien / Abonnements restent : ce sont deux
+   vues du même module, pas deux modules. */
 const SOUS_VUES={
-  planning:{defs:()=>[['jour','Ma journée'],['mois','Mois'],['repas','🍽️ Repas']],
-            val:()=>vuePlanning,poser:setVuePlanning},
-  todo:{defs:()=>[['taches','✅ À faire'],
-                  ['courses','🛒 Courses',CACHE.courses.filter(c=>!c.achete_le&&!c.coche).length]],
-        val:()=>vueTodo,poser:setVueTodo},
-  memoire:{defs:()=>[['gens','🧑 Les gens'],['envies','✨ Les envies'],
-                     ['cadeaux','🎁 Les cadeaux'],['recettes','📖 Recettes']],
-           val:()=>ongletMem,poser:setOngletMem},
   maison:{defs:()=>[['entretien','🔧 Entretien'],
                     ['abonnements','💳 Abonnements',maisonReclame().length||'']],
           val:()=>vueMaison,poser:setVueMaison},
@@ -5991,10 +6106,10 @@ const SOUS_VUES={
 function majBarreVues(){
   const bv=document.getElementById('barreVues');
   const sv=SOUS_VUES[section];
-  if(sv){
-    bv.innerHTML=barreVues(sv.defs(),sv.val(),section)+'<div id="navPeriode"></div>';
-    brancherVues(bv,sv.poser);
-  }else{bv.innerHTML=''}
+  // La barre de période s'affiche même sans onglets : c'est elle qui donne
+  // accès à la semaine suivante et au mois précédent.
+  bv.innerHTML=(sv?barreVues(sv.defs(),sv.val(),section):'')+'<div id="navPeriode"></div>';
+  if(sv)brancherVues(bv,sv.poser);
   majNavPeriode();
 }
 /* Il y avait ici une variable `vue` et six vues à montrer ou masquer, dont
@@ -6074,6 +6189,7 @@ document.addEventListener('click',(e)=>{
 /* ================== INIT ================== */
 document.querySelectorAll('#barreBas [data-sec]').forEach(b=>{b.onclick=()=>setSection(b.dataset.sec)});
 document.querySelectorAll('#modesBar [data-mode]').forEach(b=>{b.onclick=()=>setMode(b.dataset.mode)});
+{const p=document.getElementById('piaOuvrir');if(p)p.onclick=()=>setMode('parler')}
 document.getElementById('mg-envoyer').onclick=mgEnvoyer;
 document.getElementById('mg-coller').onclick=()=>collerDansChat(document.getElementById('mg-texte'));
 document.getElementById('mg-texte').addEventListener('keydown',e=>{if(e.key==='Enter')mgEnvoyer()});
