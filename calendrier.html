@@ -123,17 +123,32 @@
 .pj-tete .ic{font-size:1.6rem}
 .pj-tete .nom{font-size:1.28rem;font-weight:800;line-height:1.15}
 .pj-tete .sous{font-size:.79rem;color:var(--ink-3)}
-.rp-j{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border);cursor:pointer}
+.rp-j{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
 .rp-j:first-of-type{border-top:none}
-.rp-j:active{opacity:.65}
 .rp-j.passe{opacity:.5}
 .rp-j.auj .rp-d b{color:var(--alert)}
-.rp-d{width:52px;flex-shrink:0;display:flex;flex-direction:column;line-height:1.15}
-.rp-d b{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+/* 52px suffisaient tant que rien ne venait juste après : « MERCREDI » débordait
+   déjà, ça ne se voyait pas. Avec l'étiquette du service à côté, ça se voyait. */
+.rp-d{width:76px;flex-shrink:0;display:flex;flex-direction:column;line-height:1.15;overflow:hidden}
+.rp-d b{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rp-d span{font-size:1.05rem;font-weight:700}
+/* Un jour porte un repas, parfois deux : la colonne de droite les empile.
+   Les jours à un seul repas gardent exactement l'allure d'avant — c'est la
+   règle par défaut, et elle ne doit rien coûter à l'œil. */
+.rp-s{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rp-l{display:flex;align-items:center;gap:8px;width:100%;padding:2px 0;
+  border:none;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.rp-l:active{opacity:.65}
+.rp-m{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);
+  width:34px;flex-shrink:0}
 .rp-q{flex:1;font-size:.95rem;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.rp-q.vide{color:var(--ink-3);font-style:italic}
+.rp-l.vide .rp-q{color:var(--ink-3);font-style:italic}
 .rp-ch{color:var(--ink-3)}
+.rp-plus{align-self:flex-start;margin-top:2px;padding:1px 9px;border-radius:99px;
+  border:1px dashed var(--border-strong);background:none;color:var(--ink-3);
+  font-size:.72rem;font-weight:600;cursor:pointer}
+.rp-plus:hover{color:var(--ink-2);border-style:solid}
 .fp-echo{font-size:.78rem;color:var(--ink-2);margin:7px 0 2px;padding-left:2px}
 .fp-echo b{color:var(--ink)}
 .fp-changer{background:none;border:none;padding:0;font:inherit;font-size:.76rem;
@@ -776,10 +791,14 @@ function texteRepas(lundi){
   const l=[];
   for(let i=0;i<7;i++){
     const d=new Date(lundi);d.setDate(d.getDate()+i);
-    const m=menuDuJour(iso(d));
-    if(!m)continue;
-    const r=m.recette_id?recetteDe(m.recette_id):null;
-    l.push(DFR[jSem(d)-1]+' : '+(r?(r.emoji||'')+' '+r.nom:m.texte||''));
+    const midi=menuDuJour(iso(d),'midi'),soir=menuDuJour(iso(d),'soir');
+    if(!midi&&!soir)continue;
+    const dit=(m)=>{const r=m.recette_id?recetteDe(m.recette_id):null;
+      return r?((r.emoji||'')+' '+r.nom).trim():(m.texte||'')};
+    // Un seul repas : la ligne d'avant, sans étiquette. Deux : on les nomme.
+    l.push(DFR[jSem(d)-1]+' : '+(midi
+      ? 'midi '+dit(midi)+' · soir '+(soir?dit(soir):'—')
+      : dit(soir)));
   }
   return l.length?'🍽️ Les repas de la semaine\n'+l.join('\n'):'';
 }
@@ -2453,18 +2472,25 @@ function lundiDe(d){
   x.setDate(x.getDate()-j);
   return x;
 }
-function menuDuJour(sJour){return (CACHE.menus||[]).find(m=>m.jour===sJour)||null}
+/* Un jour peut porter deux repas. Sans précision on parle du soir : c'est
+   celui qu'on prévoit par défaut, et tout ce qui a été noté avant l'arrivée
+   du midi est du soir — d'où le `||'soir'` sur les lignes anciennes. */
+function menuDuJour(sJour,moment){
+  const q=moment||'soir';
+  return (CACHE.menus||[]).find(m=>m.jour===sJour&&(m.moment||'soir')===q)||null;
+}
 function recetteDe(id){return (CACHE.recettes||[]).find(r=>r.id===id)||null}
 /* Poser un repas : les ingrédients rejoignent la liste, en gardant d'où ils viennent. */
 /* `garder` : les lignes d'ingrédients qu'on veut vraiment acheter. Absent =
    tout. C'est ce qui permet de dire « le beurre, je l'ai » sans toucher à la
    recette : elle garde ses ingrédients, c'est la liste qui n'en prend que
    ce qui manque. */
-function poserMenu(sJour,recetteId,texte,garder){
-  const id='menu-'+sJour;
-  const avant=menuDuJour(sJour);
-  if(avant)retirerIngredients(sJour);
-  const l={id,jour:sJour,recette_id:recetteId||null,texte:texte||null,ajoute_par:UTILISATEUR||null};
+function poserMenu(sJour,moment,recetteId,texte,garder){
+  const q=moment||'soir';
+  const id='menu-'+sJour+'-'+q;
+  const avant=menuDuJour(sJour,q);
+  if(avant)retirerIngredients(sJour,q);
+  const l={id,jour:sJour,moment:q,recette_id:recetteId||null,texte:texte||null,ajoute_par:UTILISATEUR||null};
   const i=(CACHE.menus||[]).findIndex(m=>m.id===id);
   if(i>=0){CACHE.menus[i]={...CACHE.menus[i],...l};pousser(sb.from('menus').update(l).eq('id',id))}
   else{CACHE.menus.push(l);pousser(sb.from('menus').insert(l))}
@@ -2473,19 +2499,24 @@ function poserMenu(sJour,recetteId,texte,garder){
     .filter((t,i)=>!garder||garder.includes(i));
   retenus.forEach(t=>{
     enregistrerObjet(null,'courses',{texte:t,coche:false,achete_le:null,
-      recette_id:r.id,pour_le:sJour});
+      recette_id:r.id,pour_le:sJour,pour_moment:q});
   });
   return retenus.length;
 }
-/* Enlever un repas : on ne retire QUE ce qui n'a pas encore été acheté ni coché. */
-function retirerIngredients(sJour){
-  const aJeter=CACHE.courses.filter(c=>c.pour_le===sJour&&c.recette_id&&!c.coche&&!c.achete_le);
+/* Enlever un repas : on ne retire QUE ce qui n'a pas encore été acheté ni
+   coché — et QUE les ingrédients de ce repas-là. Sans le moment, changer le
+   midi viderait aussi les courses du soir : même jour, même filtre. */
+function retirerIngredients(sJour,moment){
+  const q=moment||'soir';
+  const aJeter=CACHE.courses.filter(c=>c.pour_le===sJour&&c.recette_id&&!c.coche&&!c.achete_le
+    &&(c.pour_moment||'soir')===q);
   aJeter.forEach(c=>supprimerObjet(c.id));
   return aJeter.length;
 }
-function enleverMenu(sJour){
-  const n=retirerIngredients(sJour);
-  const id='menu-'+sJour;
+function enleverMenu(sJour,moment){
+  const q=moment||'soir';
+  const n=retirerIngredients(sJour,q);
+  const id='menu-'+sJour+'-'+q;
   const i=(CACHE.menus||[]).findIndex(m=>m.id===id);
   if(i>=0){CACHE.menus.splice(i,1);pousser(sb.from('menus').delete().eq('id',id))}
   return n;
@@ -2495,16 +2526,33 @@ function renderRepas(zone){
   lundi.setDate(lundi.getDate()+semaineRepas*7);
   const sAuj=iso(new Date());
   let h=`<h2 class="ps-titre">🍽️ Les repas de la semaine</h2>`;
+  /* Ce qu'un repas donne à lire, recette ou simple mot. */
+  const dire=(m)=>{
+    const r=m&&m.recette_id?recetteDe(m.recette_id):null;
+    return r?((r.emoji||'🍽️')+' '+r.nom):(m&&m.texte?m.texte:'');
+  };
   for(let i=0;i<7;i++){
     const d=new Date(lundi);d.setDate(d.getDate()+i);
     const sJ=iso(d);
-    const m=menuDuJour(sJ);
-    const r=m&&m.recette_id?recetteDe(m.recette_id):null;
-    const quoi=r?((r.emoji||'🍽️')+' '+r.nom):(m&&m.texte?m.texte:'');
-    h+=`<div class="rp-j ${sJ===sAuj?'auj':''} ${sJ<sAuj?'passe':''}" data-jour="${sJ}">
+    const midi=menuDuJour(sJ,'midi'),soir=menuDuJour(sJ,'soir');
+    const qMidi=dire(midi),qSoir=dire(soir);
+    /* Un repas par jour reste la règle : tant qu'il n'y a que le soir, la
+       ligne est celle d'avant, sans étiquette. Le jour où un midi existe,
+       les deux services se nomment — sinon on ne saurait plus lequel est
+       lequel. « ＋ midi » ne s'affiche que là où il manque. */
+    const ligne=(moment,quoi)=>`<button type="button" class="rp-l ${quoi?'':'vide'}"
+        data-jour="${sJ}" data-moment="${moment}">
+        ${midi?`<span class="rp-m">${moment==='midi'?'midi':'soir'}</span>`:''}
+        <span class="rp-q">${quoi?echap(quoi):'rien de prévu'}</span>
+        <span class="rp-ch">›</span></button>`;
+    h+=`<div class="rp-j ${sJ===sAuj?'auj':''} ${sJ<sAuj?'passe':''}">
       <div class="rp-d"><b>${DFR[jSem(d)-1]}</b><span>${d.getDate()}</span></div>
-      <div class="rp-q ${quoi?'':'vide'}">${quoi?echap(quoi):'rien de prévu'}</div>
-      <span class="rp-ch">›</span></div>`;
+      <div class="rp-s">
+        ${midi?ligne('midi',qMidi):''}
+        ${ligne('soir',qSoir)}
+        ${midi?'':`<button type="button" class="rp-plus" data-jour="${sJ}" data-moment="midi"
+            title="Prévoir aussi le déjeuner">＋ midi</button>`}
+      </div></div>`;
   }
   h+=`<div style="display:flex;gap:8px;margin-top:16px">
     <button class="btn" id="rp-recettes" style="flex:1">📖 Mes recettes (${(CACHE.recettes||[]).length})</button>
@@ -2512,14 +2560,18 @@ function renderRepas(zone){
   </div>`;
   zone.innerHTML=h;
   zone.querySelectorAll('[data-sem]').forEach(b=>{b.onclick=()=>{semaineRepas+=Number(b.dataset.sem);render()}});
-  zone.querySelectorAll('[data-jour]').forEach(el=>{el.onclick=()=>formMenu(el.dataset.jour)});
+  zone.querySelectorAll('[data-jour]').forEach(el=>{
+    el.onclick=()=>formMenu(el.dataset.jour,el.dataset.moment)});
   document.getElementById('rp-recettes').onclick=()=>{ongletMem='recettes';setSection('memoire')};
   document.getElementById('rp-part').onclick=()=>partager(texteRepas(lundi),'Les repas de la semaine');
 }
-function formMenu(sJour){
+function formMenu(sJour,moment){
+  const q=moment||'soir';
   const d=deIso(sJour);
-  const m=menuDuJour(sJour);
-  ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase());
+  const m=menuDuJour(sJour,q);
+  // Le titre dit le service : le même jour peut s'ouvrir deux fois.
+  ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()
+    +(q==='midi'?' · le midi':' · le soir'));
   const recs=(CACHE.recettes||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
   document.getElementById('dbd').innerHTML=`
     ${m?`<p class="discret2" style="margin-bottom:12px">Prévu : <strong>${echap(m.recette_id?((recetteDe(m.recette_id)||{}).nom||'?'):(m.texte||''))}</strong></p>`:''}
@@ -2589,20 +2641,24 @@ function formMenu(sJour){
     const r=choix?recetteDe(choix):null;
     const total=(r?(r.ingredients||[]):[]).map(x=>String(x||'').trim()).filter(Boolean).length;
     const garder=choix?[...Array(total).keys()].filter(i=>!ecartes.has(i)):null;
-    const n=poserMenu(sJour,choix,choix?null:txt,garder);
+    const n=poserMenu(sJour,q,choix,choix?null:txt,garder);
     fermerTiroir();
     toast(n?n+' ingrédient'+(n>1?'s':'')+' dans les courses 🛒':'C\'est noté ✔');
-    renderCourses();
+    /* render() et pas renderCourses() : la liste de courses vit dans le
+       panneau de droite, la semaine des repas dans la page. On ne redessinait
+       que la première — on posait un repas et la ligne continuait d'afficher
+       « rien de prévu » jusqu'à ce qu'on change d'écran. */
+    render();
   };
   majIngredients();
   const bv=document.getElementById('mn-vide');
   if(bv)bv.onclick=()=>{
-    const n=enleverMenu(sJour);
+    const n=enleverMenu(sJour,q);
     fermerTiroir();
     toast(n?n+' ingrédient'+(n>1?'s':'')+' retiré'+(n>1?'s':'')+' des courses':'C\'est effacé');
-    renderCourses();
+    render();
   };
-  document.getElementById('mn-new').onclick=()=>formRecette(null,sJour);
+  document.getElementById('mn-new').onclick=()=>formRecette(null,sJour,q);
 }
 function renderRecettes(){
   const zone=document.getElementById('vueMemoire');
@@ -2625,7 +2681,10 @@ function renderRecettes(){
   zone.querySelectorAll('[data-rec]').forEach(el=>{el.onclick=()=>formRecette(el.dataset.rec)});
 }
 const EMOJIS_RECETTE=['🍽️','🥗','🍝','🍲','🥘','🍕','🐟','🍗','🥩','🥧','🍳','🥕'];
-function formRecette(id,pourJour){
+/* `pourMoment` accompagne `pourJour` : une recette créée depuis le midi
+   d'un jour doit se poser sur le midi, pas sur le dîner. */
+function formRecette(id,pourJour,pourMoment){
+  const momentJour=pourMoment||'soir';
   const r=id?recetteDe(id):null;
   ouvrirTiroirBrut(r?echap(r.nom):'Nouvelle recette');
   let emoji=r&&r.emoji?r.emoji:'🍽️';
@@ -2652,7 +2711,7 @@ function formRecette(id,pourJour){
     if(!r)l.id=genId();
     enregistrerObjet(id,'recettes',l);
     fermerTiroir();
-    if(!r&&pourJour){poserMenu(pourJour,l.id,null);toast(ing.length+' ingrédient'+(ing.length>1?'s':'')+' dans les courses 🛒')}
+    if(!r&&pourJour){poserMenu(pourJour,momentJour,l.id,null);toast(ing.length+' ingrédient'+(ing.length>1?'s':'')+' dans les courses 🛒')}
     else toast(r?'C\'est noté ✔':'Ajoutée à tes recettes ✔');
     render();
   };
@@ -2773,7 +2832,9 @@ function sourcesCourses(items){
     if(!c.recette_id)return;
     const r=recetteDe(c.recette_id);
     const d=c.pour_le?deIso(c.pour_le):null;
-    const q=[r?(r.emoji||'🍽️')+' '+r.nom:'',d?DFR[jSem(d)-1].toLowerCase():''].filter(Boolean).join(' · ');
+    // « mardi midi » quand c'est le déjeuner ; le soir reste implicite, comme avant.
+    const quand=d?DFR[jSem(d)-1].toLowerCase()+(c.pour_moment==='midi'?' midi':''):'';
+    const q=[r?(r.emoji||'🍽️')+' '+r.nom:'',quand].filter(Boolean).join(' · ');
     if(q&&!v.includes(q))v.push(q);
   });
   return v.length?`<div class="todo-date">pour ${echap(v.join(' + '))}</div>`:'';
@@ -4024,7 +4085,7 @@ function magiEnregistrer(actions){
       // Le tri « je l'ai déjà » se fait dans l'écran des repas ; ici on pose
       // le menu complet, comme Pia le fait avant de proposer le tri.
       const r=a.recette?(CACHE.recettes||[]).find(x=>x.nom.trim().toLowerCase()===String(a.recette).trim().toLowerCase()):null;
-      poserMenu(a.jour,r?r.id:null,r?null:(a.texte||a.recette||''));n++;
+      poserMenu(a.jour,a.moment==='midi'?'midi':'soir',r?r.id:null,r?null:(a.texte||a.recette||''));n++;
     }else if(a.type==='envie'&&a.titre){
       enregistrerObjet(null,'envies',{categorie:ENV_CATS.some(c=>c[0]===a.categorie)?a.categorie:'autre',titre:a.titre,
         detail:a.detail||null,faite:false,partagee:!!a.partagee,email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});n++;
