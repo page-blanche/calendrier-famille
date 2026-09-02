@@ -228,6 +228,13 @@
   background:var(--surface);color:var(--ink-2);border-radius:99px;padding:2px 9px;cursor:pointer;
   margin-left:6px;white-space:nowrap}
 .sa-rdv:hover{color:var(--ink);border-color:var(--ink)}
+/* Le lien vers la boutique n'est pas l'action principale de la ligne :
+   il vit avec les informations, en dessous. */
+.kdo-lien{font:inherit;font-size:inherit;color:var(--ink-2);background:none;border:none;padding:0;
+  cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.kdo-lien:hover{color:var(--ink)}
+.kdo-plie{font:inherit;font-size:.78rem;font-weight:700;color:var(--ink-2);background:none;
+  border:none;padding:2px 0 6px;cursor:pointer;display:block}
 .sa-s{font-size:.76rem;color:var(--ink-2);line-height:1.45}
 .sa-doses{display:flex;gap:6px;margin-top:9px}
 .sa-dose{flex:1;text-align:center;border-radius:11px;padding:7px 2px;font-size:.7rem;
@@ -2870,6 +2877,16 @@ function grouperCourses(l){
 function sourcesCourses(items){
   const v=[];
   items.forEach(c=>{
+    /* Une ligne née d'une idée de cadeau ne dit « pour 🎁 Darya » qu'à ceux
+       qui ont déjà le droit de voir l'idée : cadeauxVisibles() écarte les
+       idées privées des autres, donc chez eux la provenance ne se résout
+       pas et la ligne reste un objet ordinaire. La surprise tient toute
+       seule, sans colonne supplémentaire sur les courses. */
+    if(c.cadeau_id){
+      const k=cadeauxVisibles().find(x=>x.id===c.cadeau_id);
+      if(k){const q='🎁 pour '+(k.personne||'?');if(!v.includes(q))v.push(q)}
+      return;
+    }
     if(!c.recette_id)return;
     const r=recetteDe(c.recette_id);
     const d=c.pour_le?deIso(c.pour_le):null;
@@ -3050,8 +3067,15 @@ function renderCourses(){
 function renderCadeaux(zone){
   const visibles=cadeauxVisibles();
   const noms=[...new Set([...lesBdays().filter(b=>b.type!=='evenement').map(b=>b.nom),...CACHE.personnes.map(p=>p.nom)])];
+  // Deux temps : `archive` est la nouvelle vérité, `offert` reste écrit pour
+  // le code qui ne la connaît pas encore (le briefing du matin, Pia). Ici on
+  // lit l'un OU l'autre, pour qu'une base non migrée continue de marcher.
+  const rangee=(c)=>c.archive||c.offert;
+  const actifs=visibles.filter(c=>!rangee(c));
+  const q=(RECH_CADEAU||'').trim().toLowerCase();
+  const colle=(c)=>!q||((c.idee||'')+' '+(c.magasin||'')+' '+(c.personne||'')).toLowerCase().includes(q);
+
   let h=`<h2 class="ps-titre">🧠 Mémoire</h2>
-    <p class="discret2">Notez une idée dès qu'elle passe. 🔒 Privée par défaut — parfait pour préparer une surprise à quelqu'un de la famille 🤫. Cochez 👥 pour les idées à coordonner à deux.</p>
   <div class="carte-solo">
     <div class="grille-form">
       <div><label>Pour qui ?</label>
@@ -3059,61 +3083,95 @@ function renderCadeaux(zone){
         <datalist id="liste-personnes">${noms.map(n=>`<option value="${attr(n)}">`).join('')}</datalist></div>
       <div><label>L'idée</label><input type="text" id="cadeau-idee" placeholder="Coffret céramique"></div>
     </div>
-    <label>Détail ou lien (optionnel)</label>
-    <input type="text" id="cadeau-detail" placeholder="https://…">
+    <label>Lien ou magasin (facultatif)</label>
+    <input type="text" id="cadeau-detail" placeholder="amazon.fr/… ou « chez Gibert »">
     <label class="mem-partage"><input type="checkbox" id="cadeau-partagee"> 👥 Visible par toute la famille <span class="todo-date">(sinon : 🔒 rien que pour toi)</span></label>
     <button class="btn primaire" id="cadeau-ajouter" style="margin-top:12px;width:100%">Ajouter l'idée</button>
   </div>`;
-  const actifs=visibles.filter(c=>!c.offert);
+
+  // La recherche n'apparaît qu'au-delà de six idées — la règle des gens.
+  if(actifs.length>6){
+    h+=`<div style="margin:12px 0 4px"><input type="text" id="cadeau-rech"
+      placeholder="🔍 Chercher une idée…" value="${attr(RECH_CADEAU||'')}"></div>`;
+  }
+
+  const gardes=actifs.filter(colle);
   const parPersonne={};
-  actifs.forEach(c=>{const p=(c.personne||'?').trim();(parPersonne[p]=parPersonne[p]||[]).push(c)});
+  gardes.forEach(c=>{const p=(c.personne||'?').trim();(parPersonne[p]=parPersonne[p]||[]).push(c)});
   const cles=Object.keys(parPersonne).sort((a,b)=>a.localeCompare(b));
-  if(!cles.length)h+=`<div class="todo-empty" style="text-align:center;padding:20px 0">Aucune idée notée pour l'instant.</div>`;
+  if(!cles.length)h+=`<div class="todo-empty" style="text-align:center;padding:20px 0">${
+    q?'Aucune idée ne correspond à « '+echap(q)+' ».':'Aucune idée notée pour l\'instant.'}</div>`;
   cles.forEach(p=>{
     const bd=lesBdays().find(b=>b.nom.trim().toLowerCase()===p.toLowerCase());
     h+=`<div class="todo-section"><div class="todo-section-title">${echap(p)}${bd?' · 🎂 le '+bd.jour+' '+MFR[bd.mois-1].toLowerCase():''}</div>`;
     parPersonne[p].forEach(c=>{
       const aMoi=(c.email_auteur||'').toLowerCase()===EMAIL_CONNECTE;
+      // Sous le nom : où l'acheter, et le lien. L'état de partage vit dans les
+      // icônes de droite, où il se change — il était écrit deux fois.
+      const bas=[c.magasin?'chez '+echap(c.magasin):'',
+        c.lien?`<button class="kdo-lien" data-lien="${attr(c.lien)}"
+          title="Ouvrir ${echap(domaineDe(c.lien))}">voir le site ↗</button>`:'',
+        (!c.lien&&!c.magasin&&c.detail)?linkifie(c.detail):''].filter(Boolean);
       h+=`<div class="todo-item" data-id="${c.id}">
         <div style="flex-shrink:0">🎁</div>
         <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(c.idee)}</div>
-        <div class="todo-date">${c.partagee?'👥 partagée'+(aMoi?'':' par '+echap(c.ajoute_par||'?')):'🔒 privée'}${c.detail?' · '+linkifie(c.detail):''}</div></div>
+        ${bas.length?`<div class="todo-date">${bas.join(' · ')}</div>`:''}</div>
         <div class="todo-actions">
-          <button class="todo-act" data-act="offert" title="Marquer comme offert">✅</button>
-          ${aMoi?`<button class="todo-act" data-act="basculer" title="${c.partagee?'Repasser en privée':'Partager avec la famille'}">${c.partagee?'🔒':'👥'}</button>
-          <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>`:''}
+          <button class="todo-act" data-act="courses" title="Mettre dans la liste de courses">🛒</button>
+          <button class="todo-act" data-act="achete" title="Je l'ai acheté — il passe dans l'archive">✔</button>
+          <button class="todo-act" data-act="archiver" title="Archiver — on abandonne l'idée">🗄️</button>
+          ${aMoi?`<button class="todo-act" data-act="basculer" title="${c.partagee?'Repasser en privée':'Partager avec la famille'}">${c.partagee?'👥':'🔒'}</button>`:''}
         </div></div>`;
     });
     h+='</div>';
   });
-  const offerts=visibles.filter(c=>c.offert);
-  if(offerts.length){
+
+  // L'archive : c'est le seul endroit d'où l'on supprime pour de bon.
+  const archivees=visibles.filter(rangee);
+  if(archivees.length){
     h+=`<div class="todo-section" style="border-top:1px dashed var(--border);padding-top:10px">
-      <div class="todo-section-title" style="color:var(--ink-3)">Déjà offerts</div>`;
-    offerts.forEach(c=>{
+      <button class="kdo-plie" id="kdo-arch">${ARCH_OUVERTE?'▾':'▸'} Archivées (${archivees.length})</button>`;
+    if(ARCH_OUVERTE)archivees.forEach(c=>{
       const aMoi=(c.email_auteur||'').toLowerCase()===EMAIL_CONNECTE;
       h+=`<div class="todo-item done" data-id="${c.id}">
-        <div style="flex-shrink:0">🎁</div>
-        <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(c.idee)} <span class="todo-date">· ${echap(c.personne)}</span></div></div>
+        <div style="flex-shrink:0">🗄️</div>
+        <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(c.idee)}</div>
+        <div class="todo-date">pour ${echap(c.personne||'?')}${c.motif?' · '+echap(c.motif):''}</div></div>
         <div class="todo-actions">
-          <button class="todo-act" data-act="restaurer" title="Remettre dans les idées">↩️</button>
-          ${aMoi?`<button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>`:''}
+          <button class="todo-act" data-act="restaurer" title="Remettre dans les idées">↩︎</button>
+          ${aMoi?`<button class="todo-act" data-act="suppr" title="Supprimer définitivement — cette fois la donnée s'en va">🗑️</button>`:''}
         </div></div>`;
     });
     h+='</div>';
   }
   zone.innerHTML=h;
   brancherOngletsMem(zone);
+
+  const rech=document.getElementById('cadeau-rech');
+  if(rech)rech.addEventListener('input',()=>{
+    RECH_CADEAU=rech.value; renderMemoire();
+    const r2=document.getElementById('cadeau-rech');
+    if(r2){r2.focus();r2.setSelectionRange(r2.value.length,r2.value.length)}
+  });
+  const ba=document.getElementById('kdo-arch');
+  if(ba)ba.onclick=()=>{ARCH_OUVERTE=!ARCH_OUVERTE;renderMemoire()};
+
   document.getElementById('cadeau-ajouter').onclick=()=>{
     const personne=document.getElementById('cadeau-personne').value.trim();
     const idee=document.getElementById('cadeau-idee').value.trim();
     if(!personne||!idee){toast('Personne et idée obligatoires');return}
     const partagee=document.getElementById('cadeau-partagee').checked;
-    enregistrerObjet(null,'cadeaux',{personne,idee,detail:document.getElementById('cadeau-detail').value.trim()||null,offert:false,
+    const [lien,magasin]=lienOuMagasin(document.getElementById('cadeau-detail').value);
+    enregistrerObjet(null,'cadeaux',{personne,idee,lien,magasin,detail:null,offert:false,archive:false,
       partagee,email_auteur:EMAIL_CONNECTE,ajoute_par:UTILISATEUR});
     toast(partagee?'Idée notée et partagée ✔':'Idée notée, rien que pour toi 🤫');
     renderMemoire();
   };
+
+  zone.querySelectorAll('[data-lien]').forEach(el=>{
+    el.addEventListener('click',ev=>{ev.stopPropagation();
+      window.open(el.dataset.lien,'_blank','noopener')});
+  });
   zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
     el.addEventListener('click',ev=>{
       ev.stopPropagation();
@@ -3121,10 +3179,35 @@ function renderCadeaux(zone){
       const c=CACHE.cadeaux.find(x=>x.id===id);
       if(!c)return;
       const act=el.dataset.act;
-      if(act==='offert'){enregistrerObjet(id,'cadeaux',{offert:true});toast('Marqué comme offert 🎉');renderMemoire()}
-      else if(act==='restaurer'){enregistrerObjet(id,'cadeaux',{offert:false});renderMemoire()}
-      else if(act==='basculer'){enregistrerObjet(id,'cadeaux',{partagee:!c.partagee});renderMemoire()}
-      else if(act==='suppr'){if(confirm('Supprimer cette idée ?')){supprimerObjet(id);renderMemoire()}}
+      // On écrit `archive` ET `offert` : le briefing du matin et Pia lisent
+      // encore le second. La colonne mourra au troisième temps, pas avant.
+      if(act==='achete'){
+        enregistrerObjet(id,'cadeaux',{archive:true,motif:'acheté',offert:true});
+        toast('Acheté — rangé dans les archives ✔');renderMemoire();
+      }else if(act==='archiver'){
+        enregistrerObjet(id,'cadeaux',{archive:true,motif:'abandonnée',offert:true});
+        toast('Archivée');renderMemoire();
+      }else if(act==='restaurer'){
+        enregistrerObjet(id,'cadeaux',{archive:false,motif:null,offert:false});renderMemoire();
+      }else if(act==='courses'){
+        /* Le fil vers la ligne de courses : sans lui, impossible de savoir
+           d'où elle vient ni de la retirer si on change d'avis.
+           La liste de courses est commune — elle n'a ni `partagee` ni
+           `email_auteur`, et ce n'est pas à cet écran de changer sa nature.
+           Donc la ligne ne porte que l'objet, jamais « cadeau pour X » : la
+           provenance ne s'affiche qu'à qui a déjà le droit de voir l'idée.
+           Et on le dit, plutôt que de laisser croire au secret. */
+        enregistrerObjet(null,'courses',{texte:c.idee,coche:false,achete_le:null,
+          ailleurs:true,magasin:c.magasin||(c.lien?domaineDe(c.lien):null),
+          cadeau_id:c.id});
+        toast(c.partagee?'Dans la liste de courses 🛒'
+          :'Dans les courses 🛒 — la ligne ne dit pas que c\'est un cadeau');
+        renderMemoire();
+      }else if(act==='basculer'){
+        enregistrerObjet(id,'cadeaux',{partagee:!c.partagee});renderMemoire();
+      }else if(act==='suppr'){
+        if(confirm('Supprimer définitivement cette idée ?')){supprimerObjet(id);renderMemoire()}
+      }
     });
   });
 }
@@ -3251,6 +3334,17 @@ setInterval(()=>{if(typeof CACHE!=='undefined'&&CACHE.personnes)montrerPriseSiBe
    ne se remplit jamais. Tant que la migration n'est pas passée, on lit encore
    les deux anciennes colonnes de la personne. */
 const INFOS_DEFAUT=['Groupe sanguin','Allergies'];
+let RECH_CADEAU='', ARCH_OUVERTE=false;
+/* Un même champ pour deux natures : « amazon.fr/… » est une adresse qu'on
+   ouvre, « chez Gibert » un endroit où l'on va. On range chacun à sa place à
+   l'écriture, sinon il faut deviner à l'affichage — c'est la confusion que
+   portait la colonne `detail`. */
+function lienOuMagasin(v){
+  v=String(v||'').trim();
+  if(!v)return [null,null];
+  const adresse=/^https?:\/\//i.test(v)||(/\.[a-z]{2,}(\/|$)/i.test(v)&&!/\s/.test(v));
+  return adresse?[lienPropre(v),null]:[null,v];
+}
 /* On colle rarement une adresse proprement, et on veut montrer où l'on va. */
 function lienPropre(u){
   u=String(u||'').trim();
