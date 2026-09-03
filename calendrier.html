@@ -16,7 +16,10 @@
 <style>
 .wk2-h.auj{background:var(--ink);color:#fff}
 /* Pages To-do / Courses / Cadeaux */
-.page-solo{flex:1;max-width:620px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px 26px}
+/* `.page-solo` ne dit plus que l'habillage : le fond, le trait, le coin
+   arrondi, la marge intérieure. La géométrie — où le cadre commence et
+   jusqu'où il va — est écrite une seule fois, dans `.ecran`. */
+.page-solo{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px 26px}
 .mem-note{border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:10px;background:var(--surface)}
 .mem-encart{border:1px solid #f3e5c8;border-radius:12px;padding:10px 14px;margin-top:10px;background:#fdf8ef}
 /* --- les bulles d'aide ---
@@ -98,7 +101,38 @@
 .ps-ajout{display:flex;gap:8px;margin:12px 0 18px}
 .ps-ajout input{flex:1}
 .carte-solo{border:1px solid var(--border);border-radius:var(--radius-s);padding:14px 16px;margin:12px 0 20px;background:#fdfcfa}
-.main-layout.mode-todo .todo-panel{width:100%;max-width:620px;margin:0 auto;position:static;max-height:none}
+/* ================== UN SEUL CADRE, DOUZE ÉCRANS ==================
+   Mandana : « parfois elles sont centrées à gauche, parfois bien centrées,
+   parfois mal centrées ; elles n'ont pas toutes la même taille ».
+
+   Il y avait trois géométries pour douze écrans :
+     · `.page-solo`   — 860 px, collée à gauche      (Ma journée, Repas, Santé,
+                                                      Maison, Les gens, Envies,
+                                                      Cadeaux, Recettes)
+     · `.todo-panel`  — 620 px, centrée              (Courses, To-do, Projets)
+     · `.cal-area`    — tout ce qui reste, 1060 px   (Planning)
+   Passer de Recettes à Projets déplaçait donc le cadre de 220 px vers la
+   droite ET le rétrécissait de 240. Trois réponses à une question qui n'a
+   qu'une bonne réponse.
+
+   Le « mal centré » venait d'ailleurs, et c'était le pire : aucune des trois
+   ne fixait de largeur, seulement un maximum. Un enfant de flex sans largeur
+   se rétrécit à son contenu — Cadeaux faisait 194 px, Recettes 215, Ma
+   journée 287, les autres 358, et `margin:0 auto` centrait chacun autour de
+   SA largeur à lui. La page semblait mal cadrée parce que le cadre suivait
+   le texte au lieu de le contenir.
+
+   Une seule règle, donc, et `width:100%` en est le cœur : c'est elle qui fait
+   venir la largeur du cadre et non du contenu, aux deux tailles d'écran.
+   Même bord gauche que le rail et que la barre de période juste au-dessus,
+   même largeur maximale pour tout le monde. */
+.ecran{width:100%;max-width:var(--large-ecran,860px);margin:0;min-width:0;flex:0 1 auto}
+/* La barre de période coiffe l'écran : même bord gauche, même largeur. Elle
+   portait `style="margin:0 16px"` écrit en dur dans le HTML — un style en
+   ligne qu'aucune feuille ne peut corriger. La règle grand écran écrite pour
+   l'aligner n'a donc jamais rien aligné : la barre est restée 16 px à droite
+   de son écran, et large de toute la colonne quand l'écran s'arrête à 860. */
+#barreVues{max-width:var(--large-ecran,860px);margin:0 16px}
 @media(max-width:820px){}
 .pill-cont{height:5px;border-radius:3px;margin:3px 0;opacity:.45}
 .day-cell.sel{border-color:var(--ink);box-shadow:var(--shadow)}
@@ -329,8 +363,6 @@
   .grille-form{grid-template-columns:1fr;gap:0}
   #mainNav .view-btn.active .vb-lbl{display:inline}
   #navBar{flex-wrap:wrap;row-gap:6px;justify-content:center}
-  .cal-area{max-width:calc(100vw - 32px);width:100%}
-  .main-layout{align-items:stretch}
   .day-cell{min-height:48px;padding:3px 2px;border-radius:8px}
   .day-num{margin:0 auto 1px}
   .cell-add{display:none}
@@ -608,11 +640,12 @@ body.bureau-range .bur-mod:nth-child(even){animation-delay:.08s}
 /* Ce qui réclame vraiment reste rouge : une pastille « en retard » qui prendrait
    la couleur douce du module ne se distinguerait plus d'un simple décompte. */
 .bur-pastille.alerte{background:var(--alert)}
-/* Le liseré : la couleur du module suit en haut de son écran. C'est ce qui dit
-   « tu es toujours dans Recettes » quand la grille a disparu (téléphone). */
-.mod-liseré{height:3px;flex:0 0 auto;background:var(--h,var(--ink));border-radius:99px;
-  margin:0 16px 8px}
-body.au-bureau .mod-liseré{display:none}
+/* Il y avait ici un liseré de 3 px, de la couleur du module, en haut de chaque
+   écran. Il devait dire « tu es toujours dans Recettes » — mais le titre le dit
+   déjà, en toutes lettres, et le rail marque la tuile ouverte. Il ne restait
+   qu'une barre de couleur de plus, différente à chaque écran, au-dessus d'une
+   page qui n'en demandait pas. La couleur du module vit encore là où elle sert :
+   la tuile, la pastille, le bouton de Pia. */
 .bur-astuce{font-size:.74rem;color:var(--ink-3);text-align:center}
 .fleche-retour{width:30px;height:30px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border);
   background:var(--surface);color:var(--ink-2);font:inherit;font-size:1rem;cursor:pointer;
@@ -650,11 +683,11 @@ body.au-bureau .colonne-droite{display:none}
      la même largeur, sinon l'une surplombe l'autre sans raison. */
   body:not(.au-bureau) .colonne-droite .main-layout{max-width:none;margin:0;
     padding:6px 8px 40px 0}
-  body:not(.au-bureau) .colonne-droite #barreVues{margin:0 8px 0 0}
-  /* Assez large pour ne plus flotter, pas au point d'étirer une liste sur
-     1200 pixels : une ligne de courses n'a pas besoin de la moitié de l'écran
-     entre sa case et son texte. */
-  body:not(.au-bureau) .page-solo{max-width:860px;margin:0;flex:1}
+  body:not(.au-bureau) .colonne-droite #barreVues{margin:0}
+  /* 860 px : assez large pour ne plus flotter, pas au point d'étirer une liste
+     sur 1200 pixels — une ligne de courses n'a pas besoin de la moitié de
+     l'écran entre sa case et son texte. La mesure vaut pour les douze écrans,
+     calendrier compris, et c'est `.ecran` qui l'applique. */
   body:not(.au-bureau) .nav-periode{max-width:none}
 }
 
@@ -714,19 +747,19 @@ body:not(.au-bureau) #retourBureau{display:inline-flex}
 <div class="atelier">
 <div id="bureau" class="bureau"></div>
 <div class="colonne-droite">
-<div id="barreVues" style="margin:0 16px"></div>
+<div id="barreVues"></div>
 <div class="main-layout">
-<div class="cal-area">
+<div class="cal-area ecran">
 <div class="month-view" id="monthView">
 <div class="weekday-header"><div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div></div>
 <div class="month-grid" id="monthGrid"></div>
 </div>
 </div>
-<div class="todo-panel" id="todoPanel"></div>
-<div class="page-solo" id="vueCourses" style="display:none"></div>
-<div class="page-solo" id="vueMemoire" style="display:none"></div>
-<div class="page-solo" id="vueSante" style="display:none"></div>
-<div class="page-solo" id="vueMaison" style="display:none"></div>
+<div class="todo-panel ecran" id="todoPanel"></div>
+<div class="page-solo ecran" id="vueCourses" style="display:none"></div>
+<div class="page-solo ecran" id="vueMemoire" style="display:none"></div>
+<div class="page-solo ecran" id="vueSante" style="display:none"></div>
+<div class="page-solo ecran" id="vueMaison" style="display:none"></div>
 <div class="prise-plein" id="prisePlein" style="display:none"></div>
 </div>
 </div>
@@ -2215,30 +2248,26 @@ function ouvrirAjout(datePre){
   ouvrirTiroirBrut('Que veux-tu ajouter ?');
   const corps=document.getElementById('dbd');
   corps.innerHTML=`
-  ${datePre?`<p style="font-size:.84rem;color:var(--ink-2);margin-bottom:4px">Pour le <strong>${deIso(datePre).getDate()} ${MFR[deIso(datePre).getMonth()]}</strong> :</p>`:''}
-  <div class="type-grid" style="margin-bottom:10px">
-    <button class="type-card" data-t="magie" style="grid-column:1/-1;background:linear-gradient(135deg,#fdf6e3,#f6ecfe);border-color:#e7d9f5"><div class="tc-ico">🪄</div><div class="tc-titre">Saisie magique</div><div class="tc-sous">Dis tout en une phrase — l'app range toute seule</div></button>
-  </div>
-  <div class="todo-section-title" style="margin:4px 0 6px">📌 Une info — ça s'affiche dans le calendrier</div>
+  ${datePre?`<p style="font-size:.84rem;color:var(--ink-2);margin-bottom:8px">Pour le <strong>${deIso(datePre).getDate()} ${MFR[deIso(datePre).getMonth()]}</strong> :</p>`:''}
   <div class="type-grid">
     <button class="type-card" data-t="evt"><div class="tc-ico">📌</div><div class="tc-titre">Événement</div><div class="tc-sous">Fête, sortie, voyage, absence…</div></button>
-    <button class="type-card" data-t="vac"><div class="tc-ico">☀️</div><div class="tc-titre">Vacances scolaires</div><div class="tc-sous">Une période de vacances (zone C)</div></button>
-    <button class="type-card" data-t="bday"><div class="tc-ico">🎂</div><div class="tc-titre">Anniversaire</div><div class="tc-sous">Revient chaque année, et génère « souhaiter » (+ cadeau pour les proches)</div></button>
-    <button class="type-card" data-t="act"><div class="tc-ico">🏃</div><div class="tc-titre">Activité récurrente</div><div class="tc-sous">Cours, sport… chaque semaine, sur la période que tu veux</div></button>
-  </div>
-  <div class="todo-section-title" style="margin:14px 0 6px">✅ Une chose à faire — ça se coche</div>
-  <div class="type-grid">
     <button class="type-card" data-t="tache"><div class="tc-ico">✅</div><div class="tc-titre">Tâche</div><div class="tc-sous">Avec échéance (visible au calendrier) ou reportée chaque mois</div></button>
+    <button class="type-card" data-t="act"><div class="tc-ico">🏃</div><div class="tc-titre">Activité récurrente</div><div class="tc-sous">Cours, sport… chaque semaine, sur la période que tu veux</div></button>
+    <button class="type-card" data-t="bday"><div class="tc-ico">🎂</div><div class="tc-titre">Anniversaire</div><div class="tc-sous">Revient chaque année, et génère « souhaiter » (+ cadeau pour les proches)</div></button>
+    <button class="type-card" data-t="vac"><div class="tc-ico">☀️</div><div class="tc-titre">Vacances scolaires</div><div class="tc-sous">Une période de vacances (zone C)</div></button>
   </div>
   <!-- Il y avait ici quatre entrées de plus : article de courses, idée cadeau,
        note sur quelqu'un, envie. Elles datent de l'app à cinq onglets, où ce
        tiroir était la seule porte d'entrée. Chacune a désormais son icône au
-       bureau, et un ＋ dans son propre écran. Les laisser ici, c'était
-       proposer d'ajouter du lait depuis le calendrier — et surtout donner
-       quatre chances de se tromper d'endroit à chaque ajout.
-       Pia, elle, sait toujours tout ranger : c'est ce que fait la saisie
-       magique en haut du tiroir. -->`;
-  corps.querySelector('[data-t="magie"]').onclick=()=>formMagie('');
+       bureau, et un ＋ dans son propre écran.
+       Il y avait aussi la saisie magique, en haut : ce tiroir répond à « je
+       sais ce que je veux ajouter », elle répond à « je ne veux pas choisir ».
+       On ne pose pas les deux questions à la fois — Pia s'ouvre par son propre
+       bouton, à côté du ＋.
+       Et deux intertitres, « une info / une chose à faire », qui demandaient
+       de classer avant de choisir. Une tâche AVEC échéance s'affiche aussi au
+       calendrier : la frontière qu'ils traçaient n'existe pas. Cinq cartes,
+       une grille, dans l'ordre de ce qu'on ajoute le plus souvent. -->`;
   corps.querySelector('[data-t="evt"]').onclick=()=>formEvt(null,datePre);
   corps.querySelector('[data-t="vac"]').onclick=()=>formVac(null,datePre);
   corps.querySelector('[data-t="bday"]').onclick=()=>formBday(null,datePre);
@@ -3436,7 +3465,7 @@ function renderCourses(){
   const ailleurs=trierCourses(ouvertes.filter(c=>c.ailleurs));
   const nUrgent=ouvertes.filter(c=>c.urgent).length;
 
-  let h=`<p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>`;
+  let h=``;
 
   if(nUrgent)h+=`<div class="bandeau-urgent">⚡ ${nUrgent} chose${nUrgent>1?'s':''} qui ne peu${nUrgent>1?'vent':'t'} pas attendre</div>`;
   if(!ouvertes.length&&!caddie.length)h+=inviteVide('Liste vide 🌿','Ajouter aux courses');
@@ -5512,7 +5541,7 @@ function renderMemoire(){
       <div style="color:var(--ink-3)">›</div></div>`;
   };
 
-  let h=`<p class="discret2">Ce que tu veux garder sur les gens. 🔒 Ce que tu écris reste pour toi — sauf si tu le partages.</p>
+  let h=`
   ${CACHE.personnes.length>6?`<div class="ps-ajout">
     <input type="text" id="mem-recherche" placeholder="🔍 Chercher quelqu'un…" value="${attr(rechercheMem)}"></div>`:''}`;
   // Fusionner ne se propose qu'à partir de deux fiches, et pas pendant une
@@ -5702,7 +5731,7 @@ function renderEnvies(zone){
   const rangee=(e)=>e.archive||e.faite;
   const actives=visibles.filter(e=>!rangee(e));
   const faites=visibles.filter(rangee);
-  let h=`<p class="discret2">Le livre dont on t'a parlé, ce resto, cette expo… Dépose-le ici avant d'oublier. 🔒 Privé par défaut.</p>`;
+  let h=``;
   if(!actives.length&&!faites.length)h+=inviteVide(`Rien pour l'instant.<br>La prochaine fois que tu dis « faut que je note ça »… c'est ici 😉`,'Garder une envie');
   catsEnvies().forEach(([cat,ico,titre])=>{
     const liste=actives.filter(e=>e.categorie===cat).sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?1:-1);
@@ -6869,12 +6898,6 @@ function majPia(){
     z.style.setProperty('--h',m?`var(${m.h})`:'var(--ink)');
     majReservePia();
   }
-  // Le liseré de couleur, en haut de l'écran du module.
-  let l=document.querySelector('.mod-liseré');
-  const hote=document.querySelector('.colonne-droite');
-  if(!l&&hote){l=document.createElement('div');l.className='mod-liseré';hote.prepend(l)}
-  if(l){l.style.setProperty('--h',m?`var(${m.h})`:'transparent');
-    l.style.visibility=m?'visible':'hidden'}
 }
 
 /* Le glisser-déposer, au doigt comme à la souris. `dragstart` n'existe pas au
