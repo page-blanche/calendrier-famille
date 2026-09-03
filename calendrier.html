@@ -500,10 +500,12 @@ body.mode-parler .pia-lanceur{display:none}
    derniers centimètres de chaque écran devenaient inatteignables. Sa hauteur
    est MESURÉE sur les boutons flottants (voir majReservePia), pas devinée. */
 body{padding-bottom:var(--bas-pia,146px)}
-/* Le ＋ Ajouter monte au-dessus du lanceur. Deux boutons flottants dans le
-   même coin se recouvrent au premier téléphone étroit s'ils ne forment pas une
-   pile — et c'est le ＋ qu'on perdrait, celui dont on se sert le plus. */
-.fab{bottom:calc(84px + env(safe-area-inset-bottom))!important}
+/* Le ＋ Ajouter se range À GAUCHE du lanceur, sur la même ligne — les empiler
+   fabriquait une colonne de deux boutons qui mangeait le bas de l'écran. La
+   place à laisser est MESURÉE (`--large-pia`), parce que la largeur du lanceur
+   change avec son libellé et disparaît sous 360 px. */
+.fab{bottom:calc(22px + env(safe-area-inset-bottom))!important;
+  right:calc(22px + var(--large-pia,170px))!important}
 @media(max-width:359px){
   /* Sous 360 px seulement, le mot passe à la trappe. Pas avant : « Parler à
      Pia » en toutes lettres vaut mieux qu'une bulle qu'il faut avoir touchée
@@ -1600,7 +1602,7 @@ function renderProjet(){
     evt?'🔗 '+(evt.titre||evt.nom||''):'',
     a.total?a.faites+' sur '+a.total:'aucune tâche',
   ].filter(Boolean).join(' · ');
-  let h=`<button class="btn mini" id="pj-retour" style="margin-bottom:12px">‹ La to-do</button>
+  let h=`<button class="btn mini" id="pj-retour" style="margin-bottom:12px">‹ Les projets</button>
   <div class="pj-tete"><span class="ic">${p.emoji||'✨'}</span>
     <div style="min-width:0"><div class="nom">${echap(p.nom)}</div>
       <div class="sous">${echap(sous)}</div></div>
@@ -1745,8 +1747,7 @@ function setVueTodo(v){vueTodo=v;projetOuvert=null;majBarreVues();render()}
 function blocProjets(avecTitre){
   const projs=lesProjets().slice().sort((a,b)=>String(a.ech||'9999').localeCompare(String(b.ech||'9999')));
   let h=avecTitre?`<div class="td-sect">Les projets<span class="n">${projs.length||''}</span></div>`:'';
-  if(!projs.length)h+=`<div class="todo-empty" style="padding:14px 0">Rien en cours.<br>
-    Un projet, c'est une chose à plusieurs étapes : un voyage, une rentrée, un déménagement.</div>`;
+  if(!projs.length)h+=inviteVide(`Rien en cours.<br>Un projet, c'est une chose à plusieurs étapes : un voyage, une rentrée, un déménagement.`,'Nouveau projet');
   projs.forEach(p=>{
     const a=avancement(p.id);
     const suite=prochaineDuProjet(p.id);
@@ -1758,14 +1759,12 @@ function blocProjets(avecTitre){
       </div>
       <span class="ch">${a.faites} / ${a.total} ›</span></div>`;
   });
-  h+=`<button class="btn primaire" id="td-new-projet" style="width:100%;margin-top:12px">＋ Nouveau projet</button>`;
   return h;
 }
 function renderProjets(){
   const p=document.getElementById('todoPanel');
   p.innerHTML=blocProjets(false);
-  const bp=document.getElementById('td-new-projet');
-  if(bp)bp.onclick=()=>formProjet(null);
+  brancherInvite(p);
   p.querySelectorAll('[data-projet]').forEach(el=>{el.onclick=()=>ouvrirProjet(el.dataset.projet)});
 }
 
@@ -1847,7 +1846,6 @@ function renderListeTaches(){
     h+=`<p class="discret2" style="margin-top:16px">Les projets et ce que personne n'a pris restent sur ton onglet.</p>`;
   }
 
-  h+=`<button class="btn" style="width:100%;margin-top:14px" id="td-ajout">＋ Ajouter une tâche</button>`;
   p.innerHTML=h;
 
   // Les puces « À faire / Courses » sont redessinées à chaque rendu : sans
@@ -1858,10 +1856,7 @@ function renderListeTaches(){
   p.querySelectorAll('[data-plier]').forEach(b=>{b.onclick=()=>{
     todoPlie[b.dataset.plier]=!todoPlie[b.dataset.plier];renderTodo();
   }});
-  const ba=document.getElementById('td-ajout');
-  if(ba)ba.onclick=()=>formTache(null);
-  const bp=document.getElementById('td-new-projet');
-  if(bp)bp.onclick=()=>formProjet(null);
+  brancherInvite(p);
   p.querySelectorAll('[data-projet]').forEach(el=>{el.onclick=()=>ouvrirProjet(el.dataset.projet)});
   p.querySelectorAll('.todo-item [data-act]').forEach(el=>{
     el.addEventListener('click',ev=>{
@@ -2098,8 +2093,12 @@ function corpsJournee(d,pleinePage){
     const rtd=tachesEnRetard();
     if(rtd.length)h+=`<div class="tj-retard" data-voir-todo="1">🚨 ${rtd.length} tâche${rtd.length>1?'s':''} en retard — voir la to-do ›</div>`;
   }
+  // Dans le VOLET d'un jour, « ＋ Ajouter ce jour-là » dit quelque chose que le
+  // ＋ flottant ne peut pas dire : la date. Il reste. En pleine page, « Ma
+  // journée » c'est aujourd'hui, et le ＋ flottant fait déjà exactement ça —
+  // deux boutons pour un geste, c'est ce qu'on est en train de retirer partout.
   h+=`<div style="display:flex;gap:8px;margin-top:18px">
-    <button class="btn primaire" style="flex:1" data-ajout-ici="1">＋ Ajouter ${pleinePage?'aujourd\'hui':'ce jour-là'}</button>
+    ${pleinePage?'':`<button class="btn primaire" style="flex:1" data-ajout-ici="1">＋ Ajouter ce jour-là</button>`}
     ${boutonPartage(pleinePage?'tj-part-p':'tj-part','Envoyer')}
   </div>`;
   return h;
@@ -2779,21 +2778,51 @@ function formPause(idAct,jourRetour){
    bouton « 🛒 Article de courses » appelait donc formCourse() sans
    identifiant, la version d'édition ne trouvait aucun article et sortait
    aussitôt. Le bouton ne faisait rien, sans le moindre message. */
+/* Ajouter aux courses est le seul geste vraiment répétitif de l'app : on tape
+   lait, piles, pain, l'un après l'autre. Le formulaire reste donc ouvert et se
+   vide après chaque ajout — c'est ce qui permettait à la ligne de saisie de
+   l'écran d'exister, et c'est ce qui la remplace maintenant sans rien coûter.
+   Il reprend au passage le magasin et l'urgence, qui n'existaient que dans
+   l'écran : une règle d'ergonomie ne doit pas faire perdre un champ. */
 function formCourseRapide(){
   ouvrirTiroirBrut('🛒 Ajouter aux courses');
   const corps=document.getElementById('dbd');
   corps.innerHTML=`
     <label>L'article</label>
     <input type="text" id="fc-texte" placeholder="Lait, piles, cadeau Léa…">
+    <div class="mg-chips" id="fc-ou" style="margin-top:9px">
+      <button type="button" class="mg-chip ${courseOu==='super'?'actif':''}" data-ou="super">🛒 Au supermarché</button>
+      <button type="button" class="mg-chip ${courseOu==='ailleurs'?'actif':''}" data-ou="ailleurs">🛍️ Ailleurs</button>
+      <button type="button" class="mg-chip ${courseUrgent?'actif':''}" data-urg="1">⚡ Urgent</button>
+    </div>
+    <div id="fc-mag" style="display:${courseOu==='ailleurs'?'':'none'};margin-top:9px">
+      <input type="text" id="fc-magasin" value="${attr(courseMagasin)}" placeholder="Le magasin, si tu le sais — Decathlon, pharmacie…">
+    </div>
     <div style="margin-top:14px;display:flex;gap:8px">
       <button class="btn primaire" id="fc-add" style="flex:1">Ajouter</button>
       <button class="btn" id="fc-fin">Terminé</button>
     </div>
     <p class="discret2" id="fc-note" style="margin-top:12px"></p>`;
+  const majMag=()=>{document.getElementById('fc-mag').style.display=courseOu==='ailleurs'?'':'none'};
+  corps.querySelectorAll('#fc-ou [data-ou]').forEach(b=>{b.onclick=()=>{
+    courseOu=b.dataset.ou;
+    corps.querySelectorAll('#fc-ou [data-ou]').forEach(x=>x.classList.toggle('actif',x===b));
+    majMag();
+  }});
+  const bu=corps.querySelector('#fc-ou [data-urg]');
+  if(bu)bu.onclick=()=>{courseUrgent=!courseUrgent;bu.classList.toggle('actif',courseUrgent)};
   const ajouter=()=>{
     const t=document.getElementById('fc-texte').value.trim();
     if(!t)return;
-    enregistrerObjet(null,'courses',{texte:t,coche:false,achete_le:null});
+    courseMagasin=(document.getElementById('fc-magasin')||{}).value?.trim()||'';
+    enregistrerObjet(null,'courses',{texte:t,coche:false,achete_le:null,
+      ailleurs:courseOu==='ailleurs',
+      magasin:courseOu==='ailleurs'?(courseMagasin||null):null,
+      urgent:courseUrgent});
+    // L'urgence ne se garde pas d'un article à l'autre : on la redemande.
+    // La liste et le magasin, si : on ajoute rarement un seul T-shirt.
+    courseUrgent=false;
+    if(bu)bu.classList.remove('actif');
     document.getElementById('fc-note').textContent='✔ « '+t+' » ajouté — tu peux enchaîner.';
     document.getElementById('fc-texte').value='';
     document.getElementById('fc-texte').focus();
@@ -3142,10 +3171,9 @@ function renderRecettes(){
       <div class="todo-date">${bas}</div></div>
       <div style="color:var(--ink-3)">›</div></div>`;
   });
-  h+=`<button class="btn primaire" id="rc-new" style="width:100%;margin-top:14px">＋ Nouvelle recette</button>`;
   zone.innerHTML=h;
   brancherOngletsMem(zone);
-  document.getElementById('rc-new').onclick=()=>formRecette(null);
+  brancherInvite(zone);
   const rr=document.getElementById('rc-rech');
   if(rr)rr.addEventListener('input',()=>{
     RECH_RECETTE=rr.value; renderRecettes();
@@ -3408,20 +3436,10 @@ function renderCourses(){
   const ailleurs=trierCourses(ouvertes.filter(c=>c.ailleurs));
   const nUrgent=ouvertes.filter(c=>c.urgent).length;
 
-  let h=`  <p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>
-  <div class="ps-ajout"><input type="text" id="course-texte" placeholder="Lait, piles, T-shirts pour Darya…">
-  <button class="btn primaire" id="course-ajouter">Ajouter</button></div>
-  <div class="mg-chips" id="course-ou" style="margin:-8px 0 4px">
-    <button type="button" class="mg-chip ${courseOu==='super'?'actif':''}" data-ou="super">🛒 Au supermarché</button>
-    <button type="button" class="mg-chip ${courseOu==='ailleurs'?'actif':''}" data-ou="ailleurs">🛍️ Ailleurs</button>
-    <button type="button" class="mg-chip ${courseUrgent?'actif':''}" data-urg="1">⚡ Urgent</button>
-  </div>
-  <div id="course-mag" style="display:${courseOu==='ailleurs'?'':'none'};margin-bottom:10px">
-    <input type="text" id="course-magasin" value="${attr(courseMagasin)}" placeholder="Le magasin, si tu le sais — Decathlon, pharmacie…">
-  </div>`;
+  let h=`<p class="discret2">Ajoutez au fil de l'eau — le premier au magasin retrouve tout ici. Ce qui n'est pas acheté se reporte tout seul.</p>`;
 
   if(nUrgent)h+=`<div class="bandeau-urgent">⚡ ${nUrgent} chose${nUrgent>1?'s':''} qui ne peu${nUrgent>1?'vent':'t'} pas attendre</div>`;
-  if(!ouvertes.length&&!caddie.length)h+=`<div class="todo-empty" style="text-align:center;padding:26px 0">Liste vide 🌿</div>`;
+  if(!ouvertes.length&&!caddie.length)h+=inviteVide('Liste vide 🌿','Ajouter aux courses');
 
   if(superm.length){
     h+=`<div class="todo-section"><div class="todo-section-title">🛒 Au supermarché (${superm.length})</div>`;
@@ -3453,33 +3471,9 @@ function renderCourses(){
   zone.innerHTML=h;
   brancherVues(zone,setVueTodo);
 
-  const majMag=()=>{document.getElementById('course-mag').style.display=courseOu==='ailleurs'?'':'none'};
-  zone.querySelectorAll('#course-ou [data-ou]').forEach(b=>{b.onclick=()=>{
-    courseOu=b.dataset.ou;
-    zone.querySelectorAll('#course-ou [data-ou]').forEach(x=>x.classList.toggle('actif',x===b));
-    majMag();
-  }});
-  const bu=zone.querySelector('#course-ou [data-urg]');
-  if(bu)bu.onclick=()=>{courseUrgent=!courseUrgent;bu.classList.toggle('actif',courseUrgent)};
-
+  brancherInvite(zone);
   const bcp=document.getElementById('course-part');
   if(bcp)bcp.onclick=()=>partager(texteCourses(),'Liste de courses');
-  const ajouter=()=>{
-    const texte=document.getElementById('course-texte').value.trim();
-    if(!texte)return;
-    courseMagasin=(document.getElementById('course-magasin')||{}).value?.trim()||'';
-    enregistrerObjet(null,'courses',{texte,coche:false,achete_le:null,
-      ailleurs:courseOu==='ailleurs',
-      magasin:courseOu==='ailleurs'?(courseMagasin||null):null,
-      urgent:courseUrgent});
-    // L'urgence ne se garde pas d'un article à l'autre : on la redemande.
-    // La liste et le magasin, si : on ajoute rarement un seul T-shirt.
-    courseUrgent=false;
-    renderCourses();
-    document.getElementById('course-texte').focus();
-  };
-  document.getElementById('course-ajouter').onclick=ajouter;
-  document.getElementById('course-texte').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
   // Une ligne à l'écran peut porter plusieurs lignes en base : cocher les
   // 9 œufs, c'est cocher les 6 de la quiche ET les 3 du gâteau.
   zone.querySelectorAll('.todo-item [data-act]').forEach(el=>{
@@ -3520,19 +3514,10 @@ function renderCadeaux(zone){
   const q=(RECH_CADEAU||'').trim().toLowerCase();
   const colle=(c)=>!q||((c.idee||'')+' '+(c.magasin||'')+' '+(c.personne||'')).toLowerCase().includes(q);
 
-  let h=`<div class="carte-solo">
-    <div class="grille-form">
-      <div><label>Pour qui ?</label>
-        <input type="text" id="cadeau-personne" list="liste-personnes" placeholder="Tina, Didier, la maîtresse…">
-        <datalist id="liste-personnes">${noms.map(n=>`<option value="${attr(n)}">`).join('')}</datalist></div>
-      <div><label>L'idée</label><input type="text" id="cadeau-idee" placeholder="Coffret céramique"></div>
-    </div>
-    <label>Lien ou magasin (facultatif)</label>
-    <input type="text" id="cadeau-detail" placeholder="amazon.fr/… ou « chez Gibert »">
-    <label class="mem-partage"><input type="checkbox" id="cadeau-partagee"> 👥 Visible par toute la famille <span class="todo-date">(sinon : 🔒 rien que pour toi)</span></label>
-    <button class="btn primaire" id="cadeau-ajouter" style="margin-top:12px;width:100%">Ajouter l'idée</button>
-  </div>`;
-
+  let h='';
+  // La datalist des prénoms sert au formulaire du tiroir : elle reste dans la
+  // page, mais sans le formulaire qui l'entourait.
+  h+=`<datalist id="liste-personnes">${noms.map(n=>`<option value="${attr(n)}">`).join('')}</datalist>`;
   // La recherche n'apparaît qu'au-delà de six idées — la règle des gens.
   if(actifs.length>6){
     h+=`<div style="margin:12px 0 4px"><input type="text" id="cadeau-rech"
@@ -3543,8 +3528,9 @@ function renderCadeaux(zone){
   const parPersonne={};
   gardes.forEach(c=>{const p=(c.personne||'?').trim();(parPersonne[p]=parPersonne[p]||[]).push(c)});
   const cles=Object.keys(parPersonne).sort((a,b)=>a.localeCompare(b));
-  if(!cles.length)h+=`<div class="todo-empty" style="text-align:center;padding:20px 0">${
-    q?'Aucune idée ne correspond à « '+echap(q)+' ».':'Aucune idée notée pour l\'instant.'}</div>`;
+  if(!cles.length)h+=q
+    ? `<div class="todo-empty" style="text-align:center;padding:20px 0">Aucune idée ne correspond à « ${echap(q)} ».</div>`
+    : inviteVide("Aucune idée notée pour l'instant.",'Noter une idée cadeau');
   cles.forEach(p=>{
     const bd=lesBdays().find(b=>b.nom.trim().toLowerCase()===p.toLowerCase());
     h+=`<div class="todo-section"><div class="todo-section-title">${echap(p)}${bd?' · 🎂 le '+bd.jour+' '+MFR[bd.mois-1].toLowerCase():''}</div>`;
@@ -3600,17 +3586,7 @@ function renderCadeaux(zone){
   const ba=document.getElementById('kdo-arch');
   if(ba)ba.onclick=()=>{ARCH_OUVERTE=!ARCH_OUVERTE;renderMemoire()};
 
-  document.getElementById('cadeau-ajouter').onclick=()=>{
-    const personne=document.getElementById('cadeau-personne').value.trim();
-    const idee=document.getElementById('cadeau-idee').value.trim();
-    if(!personne||!idee){toast('Personne et idée obligatoires');return}
-    const partagee=document.getElementById('cadeau-partagee').checked;
-    const [lien,magasin]=lienOuMagasin(document.getElementById('cadeau-detail').value);
-    enregistrerObjet(null,'cadeaux',{personne,idee,lien,magasin,detail:null,offert:false,archive:false,
-      partagee,email_auteur:EMAIL_CONNECTE,ajoute_par:UTILISATEUR});
-    toast(partagee?'Idée notée et partagée ✔':'Idée notée, rien que pour toi 🤫');
-    renderMemoire();
-  };
+  brancherInvite(zone);
 
   zone.querySelectorAll('[data-lien]').forEach(el=>{
     el.addEventListener('click',ev=>{ev.stopPropagation();
@@ -4805,8 +4781,10 @@ function formEnvie(){
   const b=boutonsForm(()=>{
     const titre=document.getElementById('fe-titre').value.trim();
     if(!titre){toast('Dis-moi au moins quoi 🙂');return}
+    const [lienE,precision]=lienOuMagasin(document.getElementById('fe-detail').value);
     enregistrerObjet(null,'envies',{...lireCatEnvie('fe-cat'),titre,
-      detail:document.getElementById('fe-detail').value.trim()||null,faite:false,
+      lien:lienE,detail:precision,archive:false,
+      jusqua:document.getElementById('fe-jusqua').value||null,faite:false,
       partagee:document.getElementById('fe-partagee').checked,
       email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});
     apresEnregistrement('Envie gardée');
@@ -4816,8 +4794,10 @@ function formEnvie(){
     <input type="text" id="fe-titre" placeholder="Le resto Chez Georges, le dernier Ferrante…">
     <label>Catégorie</label>
     ${champCatEnvie('fe-cat','')}
-    <label>Détail ou lien (optionnel)</label>
-    <input type="text" id="fe-detail" placeholder="Conseillé par Caro, https://…">
+    <label>Un lien ou une précision (facultatif)</label>
+    <input type="text" id="fe-detail" placeholder="gibert.com/… ou « conseillé par Caro »">
+    <label>Jusqu'au <span class="discret2">(facultatif — une expo ferme, un festival passe)</span></label>
+    <input type="date" id="fe-jusqua">
     <label class="mem-partage"><input type="checkbox" id="fe-partagee"> 👥 Visible par toute la famille</label>
     ${b.html}`;
   b.wire();
@@ -5528,10 +5508,8 @@ function renderMemoire(){
   };
 
   let h=`<p class="discret2">Ce que tu veux garder sur les gens. 🔒 Ce que tu écris reste pour toi — sauf si tu le partages.</p>
-  <div class="ps-ajout">
-    ${CACHE.personnes.length>6?`<input type="text" id="mem-recherche" placeholder="🔍 Chercher quelqu'un…" value="${attr(rechercheMem)}">`:''}
-    <button class="btn primaire" id="mem-ajouter" style="${CACHE.personnes.length>6?'':'width:100%'}">+ Ajouter</button>
-  </div>`;
+  ${CACHE.personnes.length>6?`<div class="ps-ajout">
+    <input type="text" id="mem-recherche" placeholder="🔍 Chercher quelqu'un…" value="${attr(rechercheMem)}"></div>`:''}`;
   // Fusionner ne se propose qu'à partir de deux fiches, et pas pendant une
   // recherche : on choisit dans la liste qu'on a sous les yeux.
   if(CACHE.personnes.length>1)
@@ -5549,7 +5527,7 @@ function renderMemoire(){
       </div></div>`;
   });
   if(!CACHE.personnes.length){
-    h+=`<div class="todo-empty" style="text-align:center;padding:24px 0">Personne pour l'instant.<br>Commence par celle que tu as peur d'oublier 😉</div>`;
+    h+=inviteVide(`Personne pour l'instant.<br>Commence par celle que tu as peur d'oublier 😉`,'Ajouter quelqu\'un');
   }else if(enRecherche){
     if(!trouves.length)h+=`<div class="todo-empty" style="text-align:center;padding:16px 0">Personne ne correspond à « ${echap(rechercheMem)} »<br>
       <button class="btn mini" id="mem-creer-cherche" style="margin-top:10px">Ajouter « ${echap(rechercheMem.trim())} »</button></div>`;
@@ -5612,7 +5590,7 @@ function renderMemoire(){
     });
   }
   zone.innerHTML=h;
-  document.getElementById('mem-ajouter').onclick=()=>formPersonne(null);
+  brancherInvite(zone);
   const bf=document.getElementById('mem-fusion');
   if(bf)bf.onclick=()=>basculerModeFusion();
   const fl=document.getElementById('fus-lancer');
@@ -5708,20 +5686,8 @@ function renderEnvies(zone){
   const rangee=(e)=>e.archive||e.faite;
   const actives=visibles.filter(e=>!rangee(e));
   const faites=visibles.filter(rangee);
-  let h=`<p class="discret2">Le livre dont on t'a parlé, ce resto, cette expo… Dépose-le ici avant d'oublier. 🔒 Privé par défaut.</p>
-  <div class="carte-solo">
-    <div class="grille-form">
-      <div><label>Quoi ?</label><input type="text" id="env-titre" placeholder="Le resto Chez Georges, le dernier Ferrante…"></div>
-      <div><label>Catégorie</label>${champCatEnvie('env-cat','')}</div>
-    </div>
-    <label>Un lien ou une précision (facultatif)</label>
-    <input type="text" id="env-detail" placeholder="gibert.com/… ou « conseillé par Caro »">
-    <label>Jusqu'au <span class="todo-date">(facultatif — une expo ferme, un festival passe)</span></label>
-    <input type="date" id="env-jusqua">
-    <label class="mem-partage"><input type="checkbox" id="env-partagee"> 👥 Visible par toute la famille</label>
-    <button class="btn primaire" id="env-ajouter" style="margin-top:10px;width:100%">Garder cette envie</button>
-  </div>`;
-  if(!actives.length&&!faites.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">Rien pour l'instant.<br>La prochaine fois que tu dis « faut que je note ça »… c'est ici 😉</div>`;
+  let h=`<p class="discret2">Le livre dont on t'a parlé, ce resto, cette expo… Dépose-le ici avant d'oublier. 🔒 Privé par défaut.</p>`;
+  if(!actives.length&&!faites.length)h+=inviteVide(`Rien pour l'instant.<br>La prochaine fois que tu dis « faut que je note ça »… c'est ici 😉`,'Garder une envie');
   catsEnvies().forEach(([cat,ico,titre])=>{
     const liste=actives.filter(e=>e.categorie===cat).sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?1:-1);
     if(!liste.length)return;
@@ -5766,21 +5732,7 @@ function renderEnvies(zone){
   }
   zone.innerHTML=h;
   brancherOngletsMem(zone);
-  const ajouter=()=>{
-    const titre=document.getElementById('env-titre').value.trim();
-    if(!titre){toast('Dis-moi au moins quoi 🙂');return}
-    const [lienE,precision]=lienOuMagasin(document.getElementById('env-detail').value);
-    enregistrerObjet(null,'envies',{...lireCatEnvie('env-cat'),titre,
-      lien:lienE,detail:precision,jusqua:document.getElementById('env-jusqua').value||null,
-      faite:false,archive:false,
-      partagee:document.getElementById('env-partagee').checked,
-      email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});
-    toast('Envie gardée ✔');
-    renderMemoire();
-  };
-  brancherCatEnvie('env-cat');
-  document.getElementById('env-ajouter').onclick=ajouter;
-  document.getElementById('env-titre').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
+  brancherInvite(zone);
   zone.querySelectorAll('[data-lien]').forEach(el=>{
     el.addEventListener('click',ev=>{ev.stopPropagation();
       window.open(el.dataset.lien,'_blank','noopener')});
@@ -6174,13 +6126,12 @@ function renderEntretiens(zone){
     h+=`<div class="td-sect">Le reste<span class="n">${calme.length}</span></div>`;
     h+=calme.map(ligne).join('');
   }
-  if(!tout.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">
-    Rien à entretenir pour l'instant.<br>Commence par la chaudière ou la voiture 🙂</div>`;
-  h+=`<button class="btn primaire" id="ma-new" style="width:100%;margin-top:14px">＋ Quelque chose à entretenir</button>`;
+  if(!tout.length)h+=inviteVide(`Rien à entretenir pour l'instant.<br>Commence par la chaudière ou la voiture 🙂`,'Quelque chose à entretenir');
   zone.innerHTML=h;
+  brancherInvite(zone);
   brancherVues(zone,setVueMaison);
   brancherMaison(zone);
-  document.getElementById('ma-new').onclick=()=>formEntretien(null);
+
 }
 
 function renderAbonnements(zone){
@@ -6574,11 +6525,27 @@ const AJOUT_MODULE={
   projets:  ()=>formProjet(null),
   sante:    ()=>formTraitement(null),
   gens:     ()=>formPersonne(null),
+  maison:   ()=>formEntretien(null),
+  journee:  ()=>ouvrirAjout(iso(new Date())),
   envies:   ()=>formEnvie(),
   cadeaux:  ()=>formCadeau(),
   recettes: ()=>formRecette(null),
   repas:    ()=>formRecette(null),
 };
+/* L'invite d'un écran vide. Le ＋ flottant est le seul geste d'ajout, mais un
+   écran vide sans rien à quoi s'accrocher est un cul-de-sac : on ne sait pas
+   qu'il y a quelque chose à faire. Une seule formulation, une seule forme,
+   partout — c'est ce qui manquait : neuf boutons d'ajout de neuf formes, à
+   neuf endroits différents. */
+function inviteVide(texte,quoi){
+  return `<div class="todo-empty" style="text-align:center;padding:26px 0 10px">${texte}</div>
+    <button class="btn primaire" id="inv-ajout" style="width:100%;max-width:320px;margin:0 auto;display:block">＋ ${echap(quoi)}</button>`;
+}
+function brancherInvite(zone){
+  const b=zone.querySelector('#inv-ajout');
+  if(b)b.onclick=()=>fabAction();
+}
+
 function fabAction(){
   const f=MODULE_OUVERT&&AJOUT_MODULE[MODULE_OUVERT];
   if(f)return f();
@@ -6844,6 +6811,15 @@ function versBureau(){
    inaccessible : le défilement arrive à son terme avec du contenu encore
    dessous. C'est le défaut qu'on a mis longtemps à voir. */
 function majReservePia(){
+  const lan=document.querySelector('.pia-lanceur');
+  // La largeur du lanceur, pour que le ＋ se pose juste à sa gauche. Elle
+  // change avec le libellé, et le libellé disparaît sur un téléphone étroit :
+  // la deviner reviendrait à faire se chevaucher les deux boutons là où
+  // l'écran est le plus petit.
+  if(lan&&getComputedStyle(lan).display!=='none'){
+    const l=Math.ceil(lan.getBoundingClientRect().width)+10;
+    if(l>30&&l<400)document.documentElement.style.setProperty('--large-pia',l+'px');
+  }
   const hauts=['.pia-lanceur','.fab'].map(sel=>{
     const e=document.querySelector(sel);
     if(!e||getComputedStyle(e).display==='none')return null;
@@ -6962,12 +6938,14 @@ function setSection(s){
   layout.classList.toggle('mode-todo',s==='todo');
   layout.classList.toggle('mode-cal',surCal);
   document.querySelector('.cal-area').style.display=surCal?'':'none';
-  document.getElementById('todoPanel').style.display=(s==='todo'||surCal)?'block':'none';
+  document.getElementById('todoPanel').style.display=(s==='todo')?'block':'none';
   document.getElementById('vueCourses').style.display=(s==='planning'&&vuePlanning!=='mois')?'block':'none';
   document.getElementById('vueMemoire').style.display=s==='memoire'?'block':'none';
   document.getElementById('vueSante').style.display=s==='sante'?'block':'none';
   document.getElementById('vueMaison').style.display=s==='maison'?'block':'none';
-  document.querySelector('.fab').style.display=(s==='maison')?'none':'';
+  // Maison était le seul écran sans ＋ flottant : son bouton d'ajout vivait
+  // dans la page. Maintenant que le ＋ est le seul geste, il doit être partout.
+  document.querySelector('.fab').style.display='';
   majBarreVues();
   majBarreBas();
   render();
@@ -7020,8 +6998,11 @@ function render(){
   if(section==='todo'){projetOuvert?renderProjet():renderTodo();return}
   // ---- Planning ----
   if(vuePlanning==='mois'){
+    // La to-do occupait la colonne de droite du calendrier. C'était la même
+    // liste que l'écran To-do, à côté d'un mois où chaque jour s'ouvre déjà en
+    // volet : deux fois la même chose, et la moitié de la largeur mangée pour
+    // ça. Le calendrier prend toute la place ; la to-do a son icône.
     renderMois();
-    renderListeTaches();     // la to-do, jamais les courses : voir plus haut
     return;
   }
   if(vuePlanning==='repas'){renderRepas(document.getElementById('vueCourses'));return}
