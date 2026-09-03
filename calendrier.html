@@ -3674,10 +3674,14 @@ function renderSanteFiche(zone){
   h+=`<div class="sa-bloc"><div class="sa-bt">📝 À savoir
     <button class="sa-plus" id="sa-new-info" title="Ajouter une info">＋</button></div>`;
   infosDe(p.id).forEach(x=>{
+    // Le crayon était un décor : un <span> sans écouteur, à côté d'un texte
+    // qui, lui, ouvrait le formulaire. On visait donc l'objet le plus évident
+    // de la ligne et il ne se passait rien. C'est un vrai bouton, comme celui
+    // des traitements juste au-dessus — le même geste doit avoir la même forme.
     h+=`<div class="sa-l"><span class="txt" data-modinfo="${attr(x.cle)}">
         <b class="sa-cle">${echap(x.cle)}</b>
         <span class="${x.valeur?'':'sa-vide2'}">${x.valeur?echap(x.valeur):'à renseigner'}</span></span>
-      <span class="quand">✏️</span></div>`;
+      <span class="sa-act"><button data-modinfo="${attr(x.cle)}" title="Modifier">✏️</button></span></div>`;
   });
   h+=`</div>`;
   zone.innerHTML=h;
