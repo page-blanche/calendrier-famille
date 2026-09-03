@@ -31,6 +31,8 @@
 .fus-c{font-size:.8rem;color:var(--ink-2);width:132px;flex:0 0 auto}
 .fus-v{font-size:.88rem;flex:1;min-width:0;overflow-wrap:anywhere}
 .fus-deux{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.fus-vs{margin:6px 0 2px;font-size:.79rem;color:var(--ink-2);line-height:1.5}
+.fus-vs div{display:flex;gap:7px}
 .fus-liste{margin:6px 0 0 18px;font-size:.85rem;color:var(--ink-2)}
 .fus-liste li{margin:2px 0}
 /* La case de sélection : elle n'apparaît qu'en mode fusion, sinon toucher un
@@ -4909,6 +4911,14 @@ const fusMot=(v)=>v===true?'oui':v===false?'non':String(v);
    sudant » sont le même médecin saisi deux fois. */
 const fusClef=(n)=>String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   .toLowerCase().replace(/\s+/g,' ').trim();
+// Les paires écartées pendant cette session. La vérité est en base
+// (`personnes.pas_le_meme`) ; ceci ne sert qu'à faire disparaître la carte
+// tout de suite, sans attendre le rechargement.
+const DOUBLONS_ECARTES=new Set();
+const paireEcartee=(x,y)=>
+  DOUBLONS_ECARTES.has([x.id,y.id].sort().join('|'))
+  ||(x.pas_le_meme||[]).includes(y.id)||(y.pas_le_meme||[]).includes(x.id);
+
 function doublonsDeNom(){
   const par={};
   (CACHE.personnes||[]).forEach(p=>{
@@ -4916,9 +4926,52 @@ function doublonsDeNom(){
     if(!k)return;
     (par[k]=par[k]||[]).push(p);
   });
-  // Une paire à la fois : trois cartes empilées en haut de la liste, ce serait
-  // la liste qu'on voulait nettoyer.
-  return Object.values(par).filter(l=>l.length>1).slice(0,3).map(l=>[l[0],l[1]]);
+  const paires=[];
+  Object.values(par).filter(l=>l.length>1).forEach(l=>{
+    // Toutes les paires du groupe, pas seulement les deux premières : avec
+    // trois homonymes, écarter une paire ne doit pas masquer les autres.
+    for(let i=0;i<l.length;i++)for(let j=i+1;j<l.length;j++)
+      if(!paireEcartee(l[i],l[j]))paires.push([l[i],l[j]]);
+  });
+  // Trois cartes au plus : au-delà, la liste qu'on voulait nettoyer disparaît
+  // sous les cartes.
+  return paires.slice(0,3);
+}
+
+/* « Non, ce sont deux personnes ». Écrit des deux côtés : sinon l'ordre
+   d'affichage déciderait si la question revient ou non. */
+function ecarterDoublon(idX,idY){
+  const x=CACHE.personnes.find(p=>p.id===idX), y=CACHE.personnes.find(p=>p.id===idY);
+  if(!x||!y)return;
+  DOUBLONS_ECARTES.add([idX,idY].sort().join('|'));
+  renderMemoire();
+  const ajoute=(p,autre)=>[...new Set([...(p.pas_le_meme||[]),autre])];
+  x.pas_le_meme=ajoute(x,idY); y.pas_le_meme=ajoute(y,idX);
+  Promise.all([
+    sb.from('personnes').update({pas_le_meme:x.pas_le_meme}).eq('id',idX),
+    sb.from('personnes').update({pas_le_meme:y.pas_le_meme}).eq('id',idY),
+  ]).then(r=>{
+    const e=r.find(z=>z&&z.error);
+    // Sans la migration 3, la colonne n'existe pas : la carte disparaît quand
+    // même pour cette session, mais elle reviendra. Mieux vaut le dire que
+    // laisser croire que c'est réglé.
+    if(e)toast('Écarté ici, mais pas gardé : passe migration-fusion-personnes-3.sql');
+    else toast('Compris, ce sont deux personnes différentes');
+  });
+}
+
+/* Ce qui distingue deux homonymes, en une ligne. Sans cela, la carte demande
+   « c'est la même chose ? » en montrant deux fois le même mot — la question
+   est alors impossible à trancher sans ouvrir les deux fiches. */
+function fusDistingue(p){
+  const b=[];
+  if(String(p.role||'').trim())b.push(String(p.role).trim());
+  if(String(p.categorie||'').trim())b.push(String(p.categorie).trim());
+  if(p.naiss_jour&&p.naiss_mois)b.push(p.naiss_jour+' '+MFR[p.naiss_mois-1].toLowerCase());
+  if(p.foyer)b.push('à la maison');
+  const n=(CACHE.notes||[]).filter(x=>x.personne_id===p.id).length;
+  if(n)b.push(n+(n>1?' notes':' note'));
+  return b.length?b.join(' · '):'rien de noté';
 }
 
 function basculerModeFusion(){
@@ -5135,9 +5188,12 @@ function renderMemoire(){
   if(!modeFusion)doublonsDeNom().forEach(([x,y])=>{
     h+=`<div class="qq-carte" style="margin-bottom:10px">
       <div>Deux fiches s'appellent « ${echap(x.nom)} ».</div>
-      <div class="qq-ind">Le même ${echap(String(x.role||y.role||'').trim()||'nom')}, saisi deux fois ?</div>
+      <div class="fus-vs">
+        <div><b>${echap(x.emoji||'🧑')}</b> ${echap(fusDistingue(x))}</div>
+        <div><b>${echap(y.emoji||'🧑')}</b> ${echap(fusDistingue(y))}</div></div>
       <div class="mg-chips" style="margin-top:8px">
         <button class="mg-chip" data-doubl="${attr(x.id)}|${attr(y.id)}">⇋ Les réunir</button>
+        <button class="mg-chip" data-pasdoubl="${attr(x.id)}|${attr(y.id)}">Ce sont deux personnes</button>
       </div></div>`;
   });
   if(!CACHE.personnes.length){
@@ -5211,6 +5267,9 @@ function renderMemoire(){
   if(fl)fl.onclick=()=>{const [a,b]=[...fusionChoix];formFusion(a,b)};
   zone.querySelectorAll('[data-doubl]').forEach(b=>{
     b.onclick=()=>{const [x,y]=b.dataset.doubl.split('|');formFusion(x,y)};
+  });
+  zone.querySelectorAll('[data-pasdoubl]').forEach(b=>{
+    b.onclick=()=>{const [x,y]=b.dataset.pasdoubl.split('|');ecarterDoublon(x,y)};
   });
   zone.querySelectorAll('[data-defus]').forEach(b=>{
     b.onclick=(e)=>{e.stopPropagation();annulerFusion(b.dataset.defus)};
