@@ -382,15 +382,22 @@
 
 /* --- le mode Parler : un vrai lieu, pas un tiroir --- */
 .page-chat{display:none;flex-direction:column;position:fixed;left:0;right:0;
-  top:var(--haut-chat,116px);bottom:0;background:var(--fond)}
+  /* `var(--fond)` n'a jamais existé : la variable s'appelle `--bg`. Le fond du
+     chat était donc TRANSPARENT depuis toujours — ça ne se voyait pas tant
+     qu'il n'y avait rien derrière. Le bureau est arrivé derrière. */
+  top:var(--haut-chat,116px);bottom:0;background:var(--bg)}
 body.mode-parler .page-chat{display:flex}
 body.mode-parler .barre-bas{display:none}
 body.mode-parler .fab{display:none!important}
-body.mode-parler .main-layout{display:none}
+/* Tout l'atelier, pas seulement `.main-layout` : la grille du bureau vit dans
+   le même bloc et restait affichée derrière la conversation. On cache le
+   parent une fois pour toutes, sinon chaque écran ajouté au fil du temps
+   devra penser à se cacher lui-même — et un jour l'un d'eux oubliera. */
+body.mode-parler .atelier{display:none!important}
 body.mode-parler #navBar{visibility:hidden!important}
 .chat-fil{flex:1 1 0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 6px}
 .chat-saisie{flex:0 0 auto;display:flex;gap:8px;align-items:center;padding:9px 14px;
-  padding-bottom:calc(11px + env(safe-area-inset-bottom));background:var(--fond);
+  padding-bottom:calc(11px + env(safe-area-inset-bottom));background:var(--bg);
   border-top:1px solid var(--border)}
 .chat-saisie input{flex:1;min-width:0}
 .chat-vide{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
