@@ -970,6 +970,9 @@ function actsDuJour(d){
   const js=jSem(d),s=iso(d);
   return lesActs()
     .filter(a=>a.jours.includes(js)&&!enVacances(d)&&(a.feriesAussi||!ferie(d)))
+    // Hors de sa période, l'activité n'existe pas encore ou n'existe plus.
+    // C'est différent d'une pause, qui suspend au milieu.
+    .filter(a=>(!a.debut||s>=a.debut)&&(!a.fin||s<=a.fin))
     .filter(a=>!(a.pauses||[]).some(p=>s>=p.debut&&s<=p.fin))
     .map(a=>(a.annulations||[]).includes(s)?{...a,annuleeCeJour:true}:a);
 }
@@ -2132,26 +2135,26 @@ function ouvrirAjout(datePre){
     <button class="type-card" data-t="evt"><div class="tc-ico">📌</div><div class="tc-titre">Événement</div><div class="tc-sous">Fête, sortie, voyage, absence…</div></button>
     <button class="type-card" data-t="vac"><div class="tc-ico">☀️</div><div class="tc-titre">Vacances scolaires</div><div class="tc-sous">Une période de vacances (zone C)</div></button>
     <button class="type-card" data-t="bday"><div class="tc-ico">🎂</div><div class="tc-titre">Anniversaire</div><div class="tc-sous">Revient chaque année, et génère « souhaiter » (+ cadeau pour les proches)</div></button>
-    <button class="type-card" data-t="act"><div class="tc-ico">🏃</div><div class="tc-titre">Activité récurrente</div><div class="tc-sous">Cours, sport… chaque semaine</div></button>
+    <button class="type-card" data-t="act"><div class="tc-ico">🏃</div><div class="tc-titre">Activité récurrente</div><div class="tc-sous">Cours, sport… chaque semaine, sur la période que tu veux</div></button>
   </div>
   <div class="todo-section-title" style="margin:14px 0 6px">✅ Une chose à faire — ça se coche</div>
   <div class="type-grid">
     <button class="type-card" data-t="tache"><div class="tc-ico">✅</div><div class="tc-titre">Tâche</div><div class="tc-sous">Avec échéance (visible au calendrier) ou reportée chaque mois</div></button>
-    <button class="type-card" data-t="course"><div class="tc-ico">🛒</div><div class="tc-titre">Article de courses</div><div class="tc-sous">Hop, dans la liste partagée</div></button>
-    <button class="type-card" data-t="cadeau"><div class="tc-ico">🎁</div><div class="tc-titre">Idée cadeau</div><div class="tc-sous">Notée avant d'oublier</div></button>
-    <button class="type-card" data-t="note"><div class="tc-ico">🧠</div><div class="tc-titre">Note sur quelqu'un</div><div class="tc-sous">Privée par défaut, dans ta Mémoire</div></button>
-    <button class="type-card" data-t="envie"><div class="tc-ico">✨</div><div class="tc-titre">Envie</div><div class="tc-sous">Livre, resto, film, sortie… avant d'oublier</div></button>
-  </div>`;
+  </div>
+  <!-- Il y avait ici quatre entrées de plus : article de courses, idée cadeau,
+       note sur quelqu'un, envie. Elles datent de l'app à cinq onglets, où ce
+       tiroir était la seule porte d'entrée. Chacune a désormais son icône au
+       bureau, et un ＋ dans son propre écran. Les laisser ici, c'était
+       proposer d'ajouter du lait depuis le calendrier — et surtout donner
+       quatre chances de se tromper d'endroit à chaque ajout.
+       Pia, elle, sait toujours tout ranger : c'est ce que fait la saisie
+       magique en haut du tiroir. -->`;
   corps.querySelector('[data-t="magie"]').onclick=()=>formMagie('');
   corps.querySelector('[data-t="evt"]').onclick=()=>formEvt(null,datePre);
   corps.querySelector('[data-t="vac"]').onclick=()=>formVac(null,datePre);
   corps.querySelector('[data-t="bday"]').onclick=()=>formBday(null,datePre);
   corps.querySelector('[data-t="act"]').onclick=()=>formAct(null);
   corps.querySelector('[data-t="tache"]').onclick=()=>formTache(null);
-  const bc=corps.querySelector('[data-t="course"]');if(bc)bc.onclick=()=>formCourseRapide();
-  const bk=corps.querySelector('[data-t="cadeau"]');if(bk)bk.onclick=()=>formCadeau();
-  const bn=corps.querySelector('[data-t="note"]');if(bn)bn.onclick=()=>formNote();
-  const be=corps.querySelector('[data-t="envie"]');if(be)be.onclick=()=>formEnvie();
 }
 
 function boutonsForm(onSave){
@@ -2537,13 +2540,19 @@ function formAct(id){
   const rang=n=>{const i=(CACHE.membres||[]).indexOf(n);return i<0?99:i};
   const foyer=(CACHE.personnes||[]).filter(p=>p.foyer).sort((x,y)=>rang(x.nom)-rang(y.nom));
   const quiSel=new Set(listeQui({qui:a?.qui,qui_liste:a?.qui_liste}));
-  let ecole=a?.cat==='school';
   const sel=new Set(a?a.jours:[]);
+  /* Une activité peut ne durer que deux mois : le stage de piscine, l'atelier
+     du trimestre. Les deux dates sont facultatives — vides des deux côtés,
+     c'est « chaque semaine, sans fin », soit exactement ce qui existait. */
+  const estAdulteFoyer=(n)=>{const q=foyer.find(x=>x.nom===n);return !q||estAdulte(q)};
+  /* « Qui l'emmène » ne concerne que les enfants. Posée pour une activité
+     d'adulte, la question n'a pas de réponse — et une question sans réponse
+     dans un formulaire, on finit par y répondre n'importe quoi. */
+  const aUnEnfant=()=>[...quiSel].some(n=>!estAdulteFoyer(n));
   let accomp=a&&a.accompagne?a.accompagne:'';
   /* La couleur : celle de la personne quand elle est seule, la couleur
      commune dès qu'ils sont plusieurs. Elle n'est plus choisie à la main. */
   const catDeQui=()=>{
-    if(ecole)return 'school';
     const l=[...quiSel];
     if(l.length===1){
       const c=String(l[0]).trim().toLowerCase();
@@ -2560,17 +2569,20 @@ function formAct(id){
       titre,cat:catDeQui(),jours:[...sel].sort(),
       hd,hf:document.getElementById('f-hf').value.trim()||'',
       lieu:document.getElementById('f-lieu').value.trim()||'',
-      accompagne:accomp,
-      qui:ecole&&!liste.length?'École / crèche':liste.join(', ')});
+      // Un accompagnateur retenu pour une activité d'adulte n'aurait pas de
+      // sens : si la question n'est plus posée, la réponse ne se garde pas.
+      accompagne:aUnEnfant()?accomp:null,
+      debut:document.getElementById('f-adeb').value||null,
+      fin:document.getElementById('f-afin').value||null,
+      qui:liste.join(', ')});
     apresEnregistrement(a?'Activité modifiée':'Activité ajoutée');
   });
   corps.innerHTML=`
     <p style="font-size:.82rem;color:var(--ink-2)">💡 Apparaît chaque semaine automatiquement, sauf vacances scolaires et jours fériés.</p>
     <label>Titre</label><input type="text" id="f-titre" value="${attr(a?.titre)}" placeholder="Judo — Gymnase…">
-    <label class="lbl">Pour qui ? <span class="discret2">(plusieurs possibles — ça donne la couleur)</span></label>
+    <label class="lbl">Pour qui ? <span class="discret2">(plusieurs à la fois — le judo de Darya ET Kyan, c'est une seule activité)</span></label>
     <div class="mg-chips" id="f-qui">
       ${foyer.map(p=>`<button type="button" class="mg-chip ${quiSel.has(p.nom)?'actif':''}" data-q="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')}
-      <button type="button" class="mg-chip ${ecole?'actif':''}" data-ecole="1">🏫 École / crèche</button>
     </div>
     <label>Jours de la semaine</label>
     <div class="jours-picker" id="f-jours">${DS.map((j,i)=>`<span class="jp ${sel.has(i+1)?'on':''}" data-j="${i+1}">${j}</span>`).join('')}</div>
@@ -2581,6 +2593,12 @@ function formAct(id){
     <div class="grille-form">
       <div><label>Lieu (optionnel)</label><input type="text" id="f-lieu" value="${attr(a?.lieu)}"></div>
     </div>
+    <label class="lbl">Sur quelle période ? <span class="discret2">(facultatif — vide, c'est toute l'année)</span></label>
+    <div class="grille-form">
+      <div><label>À partir du</label><input type="date" id="f-adeb" value="${attr(a?.debut||'')}"></div>
+      <div><label>Jusqu'au</label><input type="date" id="f-afin" value="${attr(a?.fin||'')}"></div>
+    </div>
+    <div id="f-aqui-emmene">
     <label class="lbl">Qui l'emmène ? <span class="discret2">(en général — tu pourras changer semaine par semaine)</span></label>
     <div class="mg-chips" id="f-accomp">
       ${accompagnateurs().chips.map(p=>`<button type="button" class="mg-chip ${accomp===p.nom?'actif':''}" data-a="${attr(p.nom)}">${p.emoji||'🧑'} ${echap(p.nom)}</button>`).join('')}
@@ -2590,6 +2608,7 @@ function formAct(id){
       <option value="">Quelqu'un d'autre…</option>
       ${accompagnateurs().menu.map(p=>`<option value="${attr(p.nom)}" ${accomp===p.nom?'selected':''}>${echap(p.nom)}${roleAffiche(p)?' · '+echap(roleAffiche(p)):''}</option>`).join('')}
     </select>`:''}
+    </div>
     ${b.html}`;
   const chAcc=document.getElementById('f-accomp-autre');
   document.querySelectorAll('#f-accomp [data-a]').forEach(bt=>{bt.onclick=()=>{
@@ -2602,18 +2621,15 @@ function formAct(id){
     accomp=chAcc.value;
     document.querySelectorAll('#f-accomp .mg-chip').forEach(x=>x.classList.remove('actif'));
   };
+  const majQuiAct=()=>{
+    document.querySelectorAll('#f-qui [data-q]').forEach(x=>x.classList.toggle('actif',quiSel.has(x.dataset.q)));
+    document.getElementById('f-aqui-emmene').style.display=aUnEnfant()?'':'none';
+  };
   document.querySelectorAll('#f-qui [data-q]').forEach(bt=>{bt.onclick=()=>{
     if(quiSel.has(bt.dataset.q))quiSel.delete(bt.dataset.q);else quiSel.add(bt.dataset.q);
-    if(quiSel.size)ecole=false;
-    document.querySelectorAll('#f-qui [data-q]').forEach(x=>x.classList.toggle('actif',quiSel.has(x.dataset.q)));
-    document.querySelector('#f-qui [data-ecole]').classList.toggle('actif',ecole);
+    majQuiAct();
   }});
-  document.querySelector('#f-qui [data-ecole]').onclick=()=>{
-    ecole=!ecole;
-    if(ecole)quiSel.clear();
-    document.querySelectorAll('#f-qui [data-q]').forEach(x=>x.classList.remove('actif'));
-    document.querySelector('#f-qui [data-ecole]').classList.toggle('actif',ecole);
-  };
+  majQuiAct();
   document.querySelectorAll('#f-jours .jp').forEach(p=>{
     p.onclick=()=>{const n=parseInt(p.dataset.j);if(sel.has(n)){sel.delete(n);p.classList.remove('on')}else{sel.add(n);p.classList.add('on')}};
   });
@@ -5474,8 +5490,13 @@ function renderMemoire(){
 /* Modifier une envie. Elle ne s'ajoutait que d'un coup, sans jamais pouvoir
    se reprendre : une date mal tapée ou un lien oublié obligeait à supprimer et
    à ressaisir. Même tiroir que les projets, les courses et les gens — un
-   crayon ouvre un formulaire, partout pareil. */
-function formEnvie(id){
+   crayon ouvre un formulaire, partout pareil.
+
+   Le nom porte « Modif » parce que `formEnvie()` existe déjà, plus haut, pour
+   la CRÉATION. Les deux avaient le même nom pendant un moment : la seconde
+   déclaration écrasait la première en silence, et le bouton « ✨ Envie » du
+   tiroir d'ajout ne faisait plus rien. Rien ne plantait — c'est le pire cas. */
+function formEnvieModif(id){
   const e=CACHE.envies.find(x=>x.id===id);
   if(!e)return;
   ouvrirTiroirBrut('Modifier cette envie');
@@ -5607,7 +5628,7 @@ function renderEnvies(zone){
       else if(act==='archiver'){enregistrerObjet(id,'envies',{archive:true,motif:'abandonnée',faite:true});
         toast('Archivée');renderMemoire()}
       else if(act==='restaurer'){enregistrerObjet(id,'envies',{archive:false,motif:null,faite:false});renderMemoire()}
-      else if(act==='editer'){formEnvie(id)}
+      else if(act==='editer'){formEnvieModif(id)}
       else if(act==='basculer'){enregistrerObjet(id,'envies',{partagee:!e.partagee});renderMemoire()}
       else if(act==='suppr'){if(confirm('Supprimer cette envie ?')){supprimerObjet(id);renderMemoire()}}
     });
