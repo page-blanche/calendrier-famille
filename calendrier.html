@@ -393,8 +393,49 @@ body.mode-parler .fab{display:none!important}
    le même bloc et restait affichée derrière la conversation. On cache le
    parent une fois pour toutes, sinon chaque écran ajouté au fil du temps
    devra penser à se cacher lui-même — et un jour l'un d'eux oubliera. */
-body.mode-parler .atelier{display:none!important}
-body.mode-parler #navBar{visibility:hidden!important}
+/* Sur téléphone seulement : la conversation prend tout l'écran, donc l'app
+   doit disparaître dessous. Sur grand écran elle reste là, à côté — et surtout
+   on ne touche PAS à `display`, sinon la grille à deux colonnes de l'atelier
+   redevient un bloc et les tuiles s'étirent. */
+@media(max-width:899px){
+  body.mode-parler .atelier{display:none!important}
+  body.mode-parler .modes-bar{display:flex}
+  body.mode-parler #navBar{visibility:hidden!important}
+}
+.chat-tete{display:none}
+
+/* --- Sur grand écran, la conversation est un panneau, pas une page ---
+   Occuper tout l'écran pour parler, c'est quitter ce qu'on regardait : on
+   demande « on a quoi ce week-end » et le planning disparaît au moment
+   précis où la réponse le concerne. Le panneau se pose à droite et laisse
+   l'app derrière — c'est ce qui rend la réponse vérifiable d'un coup d'œil.
+   Sur téléphone, il n'y a pas la place : la conversation garde tout l'écran. */
+@media(min-width:900px){
+  .page-chat{
+    top:auto;left:auto;right:22px;bottom:22px;
+    width:min(430px,calc(100vw - 44px));
+    height:min(660px,calc(100vh - 120px));
+    border:1px solid var(--border);border-radius:20px;overflow:hidden;z-index:90;
+    box-shadow:0 24px 64px rgba(28,27,24,.20),0 2px 10px rgba(28,27,24,.07)}
+  .chat-tete{display:flex;flex:0 0 auto;align-items:center;gap:11px;
+    padding:12px 12px 12px 16px;border-bottom:1px solid var(--border);background:var(--surface)}
+  .chat-tete .ct-av{width:32px;height:32px;border-radius:50%;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;font-size:1rem;
+    background:#f3ecfb;border:1px solid #e7d9f5}
+  .chat-tete .ct-t{flex:1;min-width:0;font-weight:800;font-size:.95rem;line-height:1.2}
+  .chat-tete .ct-t span{display:block;font-weight:600;font-size:.71rem;color:var(--ink-3)}
+  .chat-tete .ct-x{width:30px;height:30px;flex:0 0 auto;border-radius:50%;
+    border:1px solid var(--border);background:var(--surface);color:var(--ink-2);
+    font:inherit;font-size:.9rem;cursor:pointer;display:flex;align-items:center;
+    justify-content:center}
+  .chat-tete .ct-x:hover{border-color:var(--border-strong);color:var(--ink)}
+  .page-chat .chat-fil{padding:14px 14px 6px}
+  .page-chat .chat-saisie{padding-bottom:11px}
+  /* Les bulles se resserrent : 430 px de large, ce n'est pas une page. */
+  .page-chat .mg-b{max-width:88%}
+  .page-chat .chat-vide{padding:0 18px}
+  .page-chat .chat-vide .cv-p{max-width:none}
+}
 .chat-fil{flex:1 1 0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 6px}
 .chat-saisie{flex:0 0 auto;display:flex;gap:8px;align-items:center;padding:9px 14px;
   padding-bottom:calc(11px + env(safe-area-inset-bottom));background:var(--bg);
@@ -474,9 +515,10 @@ body{padding-bottom:var(--bas-pia,80px)}
      ferait mine de commander la grille. */
   body:not(.au-bureau) .pia{left:198px}
 }
-/* --- l'interrupteur des deux modes : il ne sert plus qu'à revenir --- */
+/* --- l'interrupteur des deux modes ---
+   Il ne sert plus qu'à revenir, et seulement sur téléphone : sur grand écran
+   la conversation est un panneau avec sa propre croix. */
 .modes-bar{display:none;background:#eceae6;border-radius:999px;padding:3px;margin:10px 16px 8px;gap:2px}
-body.mode-parler .modes-bar{display:flex}
 .modes-bar button{flex:1;background:none;border:none;font-family:inherit;cursor:pointer;
   font-size:.82rem;font-weight:700;padding:7px 0;border-radius:999px;color:var(--ink-3);transition:all .15s}
 .modes-bar button.actif{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(28,27,24,.09)}
@@ -640,6 +682,14 @@ body:not(.au-bureau) #retourBureau{display:inline-flex}
 </div>
 
 <div class="page-chat" id="vueChat">
+<!-- L'entête n'apparaît que sur grand écran, où la conversation est un
+     panneau posé à côté de l'app. Sur téléphone elle occupe tout l'écran et
+     l'interrupteur du haut suffit à revenir. -->
+<div class="chat-tete">
+<span class="ct-av">🪄</span>
+<div class="ct-t">Pia<span>toujours là</span></div>
+<button class="ct-x" id="chat-fermer" title="Fermer la conversation" aria-label="Fermer la conversation">✕</button>
+</div>
 <div class="chat-fil" id="mg-fil"></div>
 <div class="chat-saisie">
 <button class="btn mini" id="mg-coller" title="Coller un message reçu" style="padding:0 12px;font-size:1.05rem">📋</button>
@@ -6878,6 +6928,7 @@ document.addEventListener('click',(e)=>{
 document.querySelectorAll('#barreBas [data-sec]').forEach(b=>{b.onclick=()=>setSection(b.dataset.sec)});
 document.querySelectorAll('#modesBar [data-mode]').forEach(b=>{b.onclick=()=>setMode(b.dataset.mode)});
 {const p=document.getElementById('piaOuvrir');if(p)p.onclick=()=>setMode('parler')}
+{const x=document.getElementById('chat-fermer');if(x)x.onclick=()=>setMode('famille')}
 document.getElementById('mg-envoyer').onclick=mgEnvoyer;
 document.getElementById('mg-coller').onclick=()=>collerDansChat(document.getElementById('mg-texte'));
 document.getElementById('mg-texte').addEventListener('keydown',e=>{if(e.key==='Enter')mgEnvoyer()});
