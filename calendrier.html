@@ -1579,7 +1579,13 @@ function tachesQuiTePressent(){
 }
 
 let projetOuvert=null;
-function ouvrirProjet(id){projetOuvert=id;renderProjet()}
+function ouvrirProjet(id){
+  // Un projet ouvert depuis la to-do ou depuis Pia doit atterrir dans Projets,
+  // pas laisser l'écran croire qu'on est encore dans la liste des tâches : en
+  // refermant, on retombait alors sur le mauvais écran.
+  vueTodo='projets';MODULE_OUVERT='projets';
+  projetOuvert=id;renderProjet();
+}
 function renderProjet(){
   const p=(CACHE.projets||[]).find(x=>x.id===projetOuvert);
   const zone=document.getElementById('todoPanel');
@@ -1732,8 +1738,40 @@ function setVueTodo(v){vueTodo=v;projetOuvert=null;majBarreVues();render()}
    passage par Courses laissait donc la liste de courses collée au calendrier,
    et rien ne la faisait partir. Le planning appelle maintenant directement le
    corps, sans consulter un état qui ne le concerne pas. */
+/* La liste des projets. Elle vivait au milieu de la to-do, alors que Projets a
+   sa propre icône au bureau : on tombait donc sur la to-do entière en cliquant
+   dessus. Un écran, une chose — c'est la règle qu'on applique depuis le début
+   du bureau, et c'est ici qu'elle manquait. */
+function blocProjets(avecTitre){
+  const projs=lesProjets().slice().sort((a,b)=>String(a.ech||'9999').localeCompare(String(b.ech||'9999')));
+  let h=avecTitre?`<div class="td-sect">Les projets<span class="n">${projs.length||''}</span></div>`:'';
+  if(!projs.length)h+=`<div class="todo-empty" style="padding:14px 0">Rien en cours.<br>
+    Un projet, c'est une chose à plusieurs étapes : un voyage, une rentrée, un déménagement.</div>`;
+  projs.forEach(p=>{
+    const a=avancement(p.id);
+    const suite=prochaineDuProjet(p.id);
+    h+=`<div class="pj-l" data-projet="${p.id}">
+      <span class="ic">${p.emoji||'✨'}</span>
+      <div class="co"><div class="tx">${echap(p.nom)}</div>
+        <div class="barre"><i style="width:${a.total?Math.round(a.faites/a.total*100):0}%"></i></div>
+        ${suite?`<div class="su">à suivre : ${echap(suite.texte)}</div>`:(a.total?'<div class="su">tout est fait 🎉</div>':'<div class="su">aucune tâche pour l\'instant</div>')}
+      </div>
+      <span class="ch">${a.faites} / ${a.total} ›</span></div>`;
+  });
+  h+=`<button class="btn primaire" id="td-new-projet" style="width:100%;margin-top:12px">＋ Nouveau projet</button>`;
+  return h;
+}
+function renderProjets(){
+  const p=document.getElementById('todoPanel');
+  p.innerHTML=blocProjets(false);
+  const bp=document.getElementById('td-new-projet');
+  if(bp)bp.onclick=()=>formProjet(null);
+  p.querySelectorAll('[data-projet]').forEach(el=>{el.onclick=()=>ouvrirProjet(el.dataset.projet)});
+}
+
 function renderTodo(){
   if(vueTodo==='courses')return renderCourses();
+  if(vueTodo==='projets')return renderProjets();
   return renderListeTaches();
 }
 function renderListeTaches(){
@@ -1768,22 +1806,6 @@ function renderListeTaches(){
       h+=`<div class="td-sect rouge">Personne dessus<span class="n">${lA.length}</span></div>`;
       lA.forEach(t=>{h+=ligneTache2(t,{prendre:true})});
     }
-
-    const projs=lesProjets().slice().sort((a,b)=>String(a.ech||'9999').localeCompare(String(b.ech||'9999')));
-    h+=`<div class="td-sect">Les projets<span class="n">${projs.length||''}</span></div>`;
-    if(!projs.length)h+=`<div class="todo-empty" style="padding:10px 0">Rien en cours.</div>`;
-    projs.forEach(p=>{
-      const a=avancement(p.id);
-      const suite=prochaineDuProjet(p.id);
-      h+=`<div class="pj-l" data-projet="${p.id}">
-        <span class="ic">${p.emoji||'✨'}</span>
-        <div class="co"><div class="tx">${echap(p.nom)}</div>
-          <div class="barre"><i style="width:${a.total?Math.round(a.faites/a.total*100):0}%"></i></div>
-          ${suite?`<div class="su">à suivre : ${echap(suite.texte)}</div>`:(a.total?'<div class="su">tout est fait 🎉</div>':'<div class="su">aucune tâche pour l\'instant</div>')}
-        </div>
-        <span class="ch">${a.faites} / ${a.total} ›</span></div>`;
-    });
-    h+=`<button class="btn mini" id="td-new-projet" style="width:100%;margin-top:8px">＋ Nouveau projet</button>`;
 
     const tard=trierTaches(miennes.concat(libres).filter(plusTard));
     if(tard.length){
@@ -6682,7 +6704,7 @@ const MODULES_BUREAU={
   todo:{nom:'To-do', ico:'✅', h:'--h-todo', sec:'todo', sous:['vueTodo','taches'],
     pia:'Rappelle-moi d\'appeler l\'école lundi',
     pastille:()=>(typeof tachesEnRetard==='function'?tachesEnRetard().length:0), rouge:true},
-  projets:{nom:'Projets', ico:'🧩', h:'--h-projets', sec:'todo', sous:['vueTodo','taches'],
+  projets:{nom:'Projets', ico:'🧩', h:'--h-projets', sec:'todo', sous:['vueTodo','projets'],
     pia:'Dans le projet Cabourg, réserver le train',
     pastille:()=>(CACHE.projets||[]).filter(x=>!x.archive).length},
   sante:{nom:'Santé', ico:'🩺', h:'--h-sante', sec:'sante',
