@@ -661,21 +661,50 @@ body.au-bureau .colonne-droite{display:none}
   .atelier{display:grid;grid-template-columns:1fr;gap:18px;align-items:start;
     max-width:1280px;margin:0 auto;padding:0 4px}
   /* Un module ouvert : rail de gauche + écran à droite. */
-  body:not(.au-bureau) .atelier{grid-template-columns:186px minmax(0,1fr)}
-  body:not(.au-bureau) .bureau{display:flex;padding:2px 0 20px 12px;position:sticky;top:8px}
+  body:not(.au-bureau) .atelier{grid-template-columns:170px minmax(0,1fr)}
+  body:not(.au-bureau) .bureau{display:flex;flex-direction:column;padding:2px 0 20px 8px;
+    position:sticky;top:8px}
   body:not(.au-bureau) .bur-presse,body:not(.au-bureau) .bur-astuce,
   body:not(.au-bureau) .bur-bonjour{display:none}
   /* Sauf pendant le rangement : sinon le « Terminé » disparaît avec elle et
      l'on reste enfermé dans un bureau qui frémit. */
   body.bureau-range .bur-astuce{display:block!important}
-  body:not(.au-bureau) .bur-grille{grid-template-columns:1fr 1fr;gap:11px 9px}
-  body:not(.au-bureau) .bur-tuile{font-size:1.35rem;border-radius:15px}
-  body:not(.au-bureau) .bur-nom{font-size:.68rem}
-  body:not(.au-bureau) .bur-pastille{min-width:17px;height:17px;font-size:.62rem;top:-4px}
-  /* Où l'on est : la tuile ouverte se marque, sinon le rail ne sert qu'à partir. */
-  body:not(.au-bureau) .bur-mod.ouvert .bur-tuile{background:color-mix(in oklab,var(--h) 30%,var(--surface));
-    border-color:color-mix(in oklab,var(--h) 70%,var(--surface))}
-  body:not(.au-bureau) .bur-mod.ouvert .bur-nom{color:var(--ink)}
+  /* ---- Le rail : une LISTE, pas une grille de tuiles ----
+     Mandana : « la sidebar prend trop de place ; c'est visuellement très
+     présent alors que ce n'est pas le contenu principal ».
+
+     C'était douze carrés colorés sur deux colonnes — 186 px de large et près
+     de mille de haut, pour un menu. La grille de tuiles est juste au bureau
+     d'accueil, où choisir EST le contenu ; dans un module ouvert, le contenu
+     est à droite, et le rail ne doit dire qu'une chose : où je suis, et où je
+     peux aller. Une ligne par module, l'emoji devant, le compte derrière.
+
+     Le bureau d'accueil, lui, ne change pas d'un pixel : ces règles sont
+     toutes sous `body:not(.au-bureau)`. */
+  body:not(.au-bureau) .bur-grille{display:flex;flex-direction:column;gap:1px}
+  body:not(.au-bureau) .bur-mod{flex-direction:row;align-items:center;gap:9px;
+    width:100%;padding:6px 8px;border-radius:9px;text-align:left;
+    transition:background .12s}
+  body:not(.au-bureau) .bur-mod:hover{background:var(--bg)}
+  /* La tuile redevient ce qu'elle est ici : un emoji. Plus de carré, plus de
+     fond teinté, plus de soulèvement au survol — c'est la ligne entière qui
+     répond maintenant. */
+  body:not(.au-bureau) .bur-tuile{width:auto;aspect-ratio:auto;flex:0 0 auto;
+    font-size:1.05rem;line-height:1;border:none;border-radius:0;
+    background:none;transform:none}
+  body:not(.au-bureau) .bur-mod:hover .bur-tuile{transform:none}
+  body:not(.au-bureau) .bur-nom{font-size:.79rem;font-weight:600;text-align:left;flex:1 1 auto;
+    min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+  /* Le compte passe à droite de la ligne. Il était en pastille flottante sur le
+     coin de la tuile ; `order:3` le renvoie après le nom, dont il précède la
+     balise dans le HTML. */
+  body:not(.au-bureau) .bur-pastille{position:static;order:3;min-width:18px;height:18px;
+    padding:0 5px;font-size:.65rem;border:none;flex:0 0 auto}
+  /* Où l'on est : la ligne ouverte se marque, sinon le rail ne sert qu'à partir.
+     Un fond très clair de la teinte du module — pas une barre de couleur : elle
+     dit une position, pas une décoration. */
+  body:not(.au-bureau) .bur-mod.ouvert{background:color-mix(in oklab,var(--h) 16%,var(--surface))}
+  body:not(.au-bureau) .bur-mod.ouvert .bur-nom{color:var(--ink);font-weight:800}
   /* La flèche de retour ne sert plus : la grille est là, en permanence. */
   body:not(.au-bureau) #retourBureau{display:none}
   /* Le contenu commence au bord du rail et s'étale au lieu de flotter au
