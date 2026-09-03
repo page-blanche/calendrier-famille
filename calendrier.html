@@ -1726,8 +1726,17 @@ let vueTodo='taches';         // 'taches' | 'courses'
    n'avait simplement pas été donnée partout. */
 function setVueTodo(v){vueTodo=v;projetOuvert=null;majBarreVues();render()}
 
+/* Deux fonctions, et c'est la raison d'être de la séparation : le panneau de
+   droite du PLANNING montre la to-do, toujours. Il passait par `renderTodo`,
+   qui commence par regarder `vueTodo` — la sous-vue de l'écran To-do. Un
+   passage par Courses laissait donc la liste de courses collée au calendrier,
+   et rien ne la faisait partir. Le planning appelle maintenant directement le
+   corps, sans consulter un état qui ne le concerne pas. */
 function renderTodo(){
   if(vueTodo==='courses')return renderCourses();
+  return renderListeTaches();
+}
+function renderListeTaches(){
   const p=document.getElementById('todoPanel');
   const autres=autresComptes();
   const ouvertes=tachesOuvertes().filter(t=>!t.projet_id);   // les projets ont leur propre bloc
@@ -4564,7 +4573,7 @@ function magiResume(a){
     }
     case 'cadeau':return {ico:'🎁',type:'Idée cadeau',titre:a.idee,det:'pour '+(a.personne||'?')+' · '+badge(a.partagee)};
     case 'note':return {ico:'🧠',type:'Note',titre:a.texte,det:'sur '+(a.personne||'?')+(a.categorie&&!CACHE.personnes.some(x=>x.nom.trim().toLowerCase()===String(a.personne||'').trim().toLowerCase())?' · '+emojiCat(a.categorie)+' '+a.categorie:'')+' · '+badge(a.partagee)};
-    case 'envie':return {ico:'✨',type:'Envie',titre:a.titre,det:(ENV_CATS.find(c=>c[0]===a.categorie)||[,'','Autre'])[2]+' · '+badge(a.partagee)};
+    case 'envie':return {ico:'✨',type:'Envie',titre:a.titre,det:catEnvie(a.categorie)[2]+' · '+badge(a.partagee)};
     case 'cocher':return {ico:a.faite===false?'↩️':'☑️',type:a.faite===false?'À refaire':'Fait',titre:a.texte||nomDe(a.id),
       det:a.faite===false?'on la remet à faire':'on la coche comme faite'};
     case 'reporter':return {ico:'📆',type:'Reporté',titre:a.texte||nomDe(a.id),
@@ -4722,7 +4731,10 @@ function magiEnregistrer(actions){
       const r=a.recette?(CACHE.recettes||[]).find(x=>x.nom.trim().toLowerCase()===String(a.recette).trim().toLowerCase()):null;
       poserMenu(a.jour,a.moment==='midi'?'midi':'soir',r?r.id:null,r?null:(a.texte||a.recette||''));n++;
     }else if(a.type==='envie'&&a.titre){
-      enregistrerObjet(null,'envies',{categorie:ENV_CATS.some(c=>c[0]===a.categorie)?a.categorie:'autre',titre:a.titre,
+      // Pia peut proposer une catégorie qu'on a inventée : on la garde si elle
+      // existe déjà, sinon « autre ». On n'en crée pas depuis une proposition —
+      // une catégorie naît d'un geste, pas d'une phrase mal comprise.
+      enregistrerObjet(null,'envies',{categorie:rangerCatEnvie(a.categorie)&&catsEnvies().some(c=>c[0].toLowerCase()===String(a.categorie||'').trim().toLowerCase())?rangerCatEnvie(a.categorie):'autre',titre:a.titre,
         detail:a.detail||null,faite:false,partagee:!!a.partagee,email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});n++;
     }
   });
@@ -4758,7 +4770,9 @@ function magiCorriger(a){
     setTimeout(()=>{set('fn-personne',a.personne||'');set('fn-texte',a.texte||'');coche('fn-partagee',a.partagee)},60);
   }else if(a.type==='envie'){
     formEnvie();
-    setTimeout(()=>{set('fe-titre',a.titre||'');set('fe-cat',ENV_CATS.some(c=>c[0]===a.categorie)?a.categorie:'autre');set('fe-detail',a.detail||'');coche('fe-partagee',a.partagee)},60);
+    setTimeout(()=>{set('fe-titre',a.titre||'');
+      set('fe-cat',catsEnvies().some(c=>c[0]===envCle(a.categorie))?envCle(a.categorie):'autre');
+      set('fe-detail',a.detail||'');coche('fe-partagee',a.partagee)},60);
   }
 }
 
@@ -4769,7 +4783,7 @@ function formEnvie(){
   const b=boutonsForm(()=>{
     const titre=document.getElementById('fe-titre').value.trim();
     if(!titre){toast('Dis-moi au moins quoi 🙂');return}
-    enregistrerObjet(null,'envies',{categorie:document.getElementById('fe-cat').value,titre,
+    enregistrerObjet(null,'envies',{...lireCatEnvie('fe-cat'),titre,
       detail:document.getElementById('fe-detail').value.trim()||null,faite:false,
       partagee:document.getElementById('fe-partagee').checked,
       email_auteur:EMAIL_CONNECTE,cree_le:new Date().toISOString()});
@@ -4779,12 +4793,13 @@ function formEnvie(){
     <label>Quoi ?</label>
     <input type="text" id="fe-titre" placeholder="Le resto Chez Georges, le dernier Ferrante…">
     <label>Catégorie</label>
-    <select id="fe-cat">${ENV_CATS.map(c=>`<option value="${c[0]}">${c[1]} ${c[2]}</option>`).join('')}</select>
+    ${champCatEnvie('fe-cat','')}
     <label>Détail ou lien (optionnel)</label>
     <input type="text" id="fe-detail" placeholder="Conseillé par Caro, https://…">
     <label class="mem-partage"><input type="checkbox" id="fe-partagee"> 👥 Visible par toute la famille</label>
     ${b.html}`;
   b.wire();
+  brancherCatEnvie('fe-cat');
 }
 function formNote(){
   ouvrirTiroirBrut('🧠 Note sur quelqu\'un');
@@ -4818,6 +4833,76 @@ function notesVisibles(){return CACHE.notes.filter(n=>n.partagee||((n.email_aute
 function enviesVisibles(){return CACHE.envies.filter(n=>n.partagee||((n.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
 function cadeauxVisibles(){return CACHE.cadeaux.filter(c=>c.partagee||((c.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
 const ENV_CATS=[['lire','📚','À lire'],['regarder','🎬','À regarder'],['resto','🍽️','Restos'],['sortie','🏛️','Sorties & lieux'],['autre','💡','Autre']];
+/* ---------- Des catégories qu'on écrit soi-même ----------
+   Les cinq d'origine restent, et n'importe quel autre mot fait une étagère.
+   Comme pour les gens, la liste se DÉDUIT de ce qui est rangé : une catégorie
+   n'existe que si quelque chose est dedans, donc rien à créer, rien à
+   supprimer, pas d'étagère vide qui traîne. La dernière envie retirée d'une
+   catégorie inventée la fait disparaître — c'est le comportement voulu.
+   L'emoji voyage sur chaque envie (`cat_emoji`) : celui de la plus récente
+   fait foi, ce qui permet de le changer d'avis sans migration. */
+const ENV_EMOJIS=['📚','🎬','🍽️','🏛️','🎵','🎨','✈️','🏃','🧶','🎁','🌱','🍷','🎭','🛍️','💡'];
+const envCle=(v)=>String(v||'').trim();
+function catsEnvies(){
+  const out=ENV_CATS.map(c=>[c[0],c[1],c[2]]);
+  const vues=new Map();
+  // De la plus récente à la plus ancienne : le dernier emoji choisi gagne.
+  (CACHE.envies||[]).slice()
+    .sort((a,b)=>String(b.cree_le||'').localeCompare(String(a.cree_le||'')))
+    .forEach(e=>{
+      const c=envCle(e.categorie);
+      if(!c||ENV_CATS.some(x=>x[0]===c)||vues.has(c.toLowerCase()))return;
+      vues.set(c.toLowerCase(),[c,e.cat_emoji||'💡',c]);
+    });
+  return out.concat([...vues.values()]);
+}
+const catEnvie=(cle)=>catsEnvies().find(c=>c[0]===envCle(cle))||[envCle(cle),'💡',envCle(cle)||'Autre'];
+/* On réutilise l'orthographe déjà employée : « Musique » et « musique » ne
+   doivent pas faire deux étagères. Même règle que pour les gens. */
+function rangerCatEnvie(txt){
+  const v=envCle(txt);
+  if(!v)return null;
+  const deja=catsEnvies().find(c=>c[0].toLowerCase()===v.toLowerCase());
+  return deja?deja[0]:v;
+}
+/* Le choix de catégorie : la liste, plus « ＋ Nouvelle ». Un seul endroit pour
+   les trois formulaires qui la posent — sinon l'un des trois oublierait la
+   nouveauté, comme le tiroir d'ajout a oublié le bureau pendant un mois. */
+function champCatEnvie(id,valeur){
+  const cats=catsEnvies();
+  return `<select id="${id}">${cats.map(c=>
+      `<option value="${attr(c[0])}" ${envCle(valeur)===c[0]?'selected':''}>${c[1]} ${echap(c[2])}</option>`).join('')}
+    <option value="__neuve">＋ Nouvelle catégorie…</option></select>
+  <div id="${id}-neuve" style="display:none;margin-top:8px">
+    <input type="text" id="${id}-nom" placeholder="Musique, voyages, cours…">
+    <div class="mg-chips" id="${id}-emo" style="margin-top:7px">${ENV_EMOJIS.map((e,i)=>
+      `<button type="button" class="mg-chip ${i===0?'actif':''}" data-e="${e}" style="font-size:1.05rem">${e}</button>`).join('')}</div>
+  </div>`;
+}
+/* Ce que le formulaire doit lire au moment d'enregistrer : soit la catégorie
+   choisie, soit celle qu'on vient d'écrire. */
+function lireCatEnvie(id){
+  const sel=document.getElementById(id);
+  if(!sel)return {categorie:'autre',cat_emoji:null};
+  if(sel.value!=='__neuve')
+    return {categorie:sel.value,cat_emoji:catEnvie(sel.value)[1]};
+  const nom=rangerCatEnvie((document.getElementById(id+'-nom')||{}).value);
+  if(!nom)return {categorie:'autre',cat_emoji:null};
+  const emo=document.querySelector('#'+id+'-emo .mg-chip.actif');
+  return {categorie:nom,cat_emoji:emo?emo.dataset.e:'💡'};
+}
+function brancherCatEnvie(id){
+  const sel=document.getElementById(id),bloc=document.getElementById(id+'-neuve');
+  if(!sel||!bloc)return;
+  sel.onchange=()=>{
+    bloc.style.display=sel.value==='__neuve'?'':'none';
+    if(sel.value==='__neuve'){const c=document.getElementById(id+'-nom');if(c)c.focus()}
+  };
+  bloc.querySelectorAll('.mg-chip').forEach(b=>{b.onclick=()=>{
+    bloc.querySelectorAll('.mg-chip').forEach(x=>x.classList.remove('actif'));
+    b.classList.add('actif');
+  }});
+}
 // Même chose en Mémoire : la fiche d'une personne et le rangement passent
 // devant les onglets, qui restaient donc sans effet tant qu'on en avait un
 // d'ouvert.
@@ -5571,8 +5656,7 @@ function formEnvieModif(id){
     <label class="lbl">Quoi ?</label>
     <input type="text" id="fe-titre" value="${attr(e.titre||'')}">
     <label class="lbl">Catégorie</label>
-    <select id="fe-cat">${ENV_CATS.map(c=>
-      `<option value="${c[0]}" ${e.categorie===c[0]?'selected':''}>${c[1]} ${c[2]}</option>`).join('')}</select>
+    ${champCatEnvie('fe-cat',e.categorie)}
     <label class="lbl">Un lien ou une précision <span class="discret2">(facultatif)</span></label>
     <input type="text" id="fe-detail" value="${attr(ensemble)}" placeholder="gibert.com/… ou « conseillé par Caro »">
     <label class="lbl">Jusqu'au <span class="discret2">(facultatif — une expo ferme, un festival passe)</span></label>
@@ -5583,12 +5667,13 @@ function formEnvieModif(id){
     const titre=document.getElementById('fe-titre').value.trim();
     if(!titre){toast('Dis-moi au moins quoi 🙂');return}
     const [lienE,precision]=lienOuMagasin(document.getElementById('fe-detail').value);
-    enregistrerObjet(id,'envies',{titre,categorie:document.getElementById('fe-cat').value,
+    enregistrerObjet(id,'envies',{titre,...lireCatEnvie('fe-cat'),
       lien:lienE,detail:precision,
       jusqua:document.getElementById('fe-jusqua').value||null,
       partagee:document.getElementById('fe-partagee').checked});
     fermerTiroir();toast('Modifiée ✔');renderMemoire();
   };
+  brancherCatEnvie('fe-cat');
   document.getElementById('fe-titre').addEventListener('keydown',ev=>{
     if(ev.key==='Enter')document.getElementById('fe-ok').click();
   });
@@ -5605,7 +5690,7 @@ function renderEnvies(zone){
   <div class="carte-solo">
     <div class="grille-form">
       <div><label>Quoi ?</label><input type="text" id="env-titre" placeholder="Le resto Chez Georges, le dernier Ferrante…"></div>
-      <div><label>Catégorie</label><select id="env-cat">${ENV_CATS.map(c=>`<option value="${c[0]}">${c[1]} ${c[2]}</option>`).join('')}</select></div>
+      <div><label>Catégorie</label>${champCatEnvie('env-cat','')}</div>
     </div>
     <label>Un lien ou une précision (facultatif)</label>
     <input type="text" id="env-detail" placeholder="gibert.com/… ou « conseillé par Caro »">
@@ -5615,7 +5700,7 @@ function renderEnvies(zone){
     <button class="btn primaire" id="env-ajouter" style="margin-top:10px;width:100%">Garder cette envie</button>
   </div>`;
   if(!actives.length&&!faites.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">Rien pour l'instant.<br>La prochaine fois que tu dis « faut que je note ça »… c'est ici 😉</div>`;
-  ENV_CATS.forEach(([cat,ico,titre])=>{
+  catsEnvies().forEach(([cat,ico,titre])=>{
     const liste=actives.filter(e=>e.categorie===cat).sort((a,b)=>(a.cree_le||'')<(b.cree_le||'')?1:-1);
     if(!liste.length)return;
     h+=`<div class="todo-section"><div class="todo-section-title">${ico} ${titre} (${liste.length})</div>`;
@@ -5645,7 +5730,7 @@ function renderEnvies(zone){
       <div class="todo-section-title" style="color:var(--ink-3)">Archivées (${faites.length})</div>`;
     faites.forEach(e=>{
       const aMoi=(e.email_auteur||'').toLowerCase()===EMAIL_CONNECTE;
-      const ico=(ENV_CATS.find(c=>c[0]===e.categorie)||['','💡'])[1];
+      const ico=catEnvie(e.categorie)[1];
       h+=`<div class="todo-item done" data-id="${e.id}">
         <div style="flex-shrink:0">${ico}</div>
         <div class="todo-corps" style="cursor:default"><div class="todo-text">${echap(e.titre)}</div>
@@ -5663,7 +5748,7 @@ function renderEnvies(zone){
     const titre=document.getElementById('env-titre').value.trim();
     if(!titre){toast('Dis-moi au moins quoi 🙂');return}
     const [lienE,precision]=lienOuMagasin(document.getElementById('env-detail').value);
-    enregistrerObjet(null,'envies',{categorie:document.getElementById('env-cat').value,titre,
+    enregistrerObjet(null,'envies',{...lireCatEnvie('env-cat'),titre,
       lien:lienE,detail:precision,jusqua:document.getElementById('env-jusqua').value||null,
       faite:false,archive:false,
       partagee:document.getElementById('env-partagee').checked,
@@ -5671,6 +5756,7 @@ function renderEnvies(zone){
     toast('Envie gardée ✔');
     renderMemoire();
   };
+  brancherCatEnvie('env-cat');
   document.getElementById('env-ajouter').onclick=ajouter;
   document.getElementById('env-titre').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
   zone.querySelectorAll('[data-lien]').forEach(el=>{
@@ -6913,7 +6999,7 @@ function render(){
   // ---- Planning ----
   if(vuePlanning==='mois'){
     renderMois();
-    renderTodo();
+    renderListeTaches();     // la to-do, jamais les courses : voir plus haut
     return;
   }
   if(vuePlanning==='repas'){renderRepas(document.getElementById('vueCourses'));return}
