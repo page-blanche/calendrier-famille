@@ -4830,6 +4830,11 @@ function formNote(){
 }
 
 let persOuverte=null,rechercheMem='',ongletMem='gens',memAutresOuvert=false;
+/* Les fusions passées sont repliées par défaut. Elles doivent rester
+   atteignables — une fusion faite le soir ne doit pas devenir irrattrapable au
+   matin — mais elles ne racontent rien qu'on ait besoin de relire : dépliées,
+   elles allongent la liste des gens d'une ligne à chaque fusion, pour toujours. */
+let memFusionsOuvert=false;
 let rangementOuvert=false,rangementChoix={},rangementLigne=null;
 function notesVisibles(){return CACHE.notes.filter(n=>n.partagee||((n.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
 function enviesVisibles(){return CACHE.envies.filter(n=>n.partagee||((n.email_auteur||'').toLowerCase()===EMAIL_CONNECTE))}
@@ -5550,7 +5555,7 @@ function renderMemoire(){
     });
     const reste=tous.filter(x=>!vus.has(x.id));
     if(reste.length){
-      h+=`<div class="mem-plier" data-plier="1">${memAutresOuvert?'▾':'▸'} Tous les autres
+      h+=`<div class="mem-plier" data-plier="autres">${memAutresOuvert?'▾':'▸'} Tous les autres
         <span class="mg-n">${reste.length}</span></div>`;
       if(memAutresOuvert)reste.forEach(x=>{h+=ligneGens(x)});
     }
@@ -5578,14 +5583,19 @@ function renderMemoire(){
   // Ce qui a été fusionné reste annulable : une fusion faite le soir ne doit
   // pas devenir irrattrapable au matin.
   if((CACHE.fusionnees||[]).length){
-    h+=`<div class="mem-groupe" style="margin-top:18px">↩︎ Fusions récentes
+    h+=`<div class="mem-plier" data-plier="fusions" style="margin-top:18px">${memFusionsOuvert?'▾':'▸'} ↩︎ Fusions récentes
       <span class="mg-n">${CACHE.fusionnees.length}</span></div>`;
-    CACHE.fusionnees.slice().sort((x,y)=>String(y.fusion_le||'').localeCompare(String(x.fusion_le||'')))
+    if(memFusionsOuvert)CACHE.fusionnees.slice()
+      .sort((x,y)=>String(y.fusion_le||'').localeCompare(String(x.fusion_le||'')))
       .forEach(f=>{
       const dans=CACHE.personnes.find(x=>x.id===f.fusionnee_dans);
+      // « Dr Julie Sudant → Dr Julie Sudant » ne dit rien : quand les deux
+      // portaient le même nom, on montre ce qui les distinguait plutôt que de
+      // répéter deux fois le même mot.
+      const meme=fusClef(f.nom)===fusClef(dans?dans.nom:'');
       h+=`<div class="todo-item"><div class="todo-corps">
-        <div class="todo-text">${echap(f.nom)} → ${echap(dans?dans.nom:'?')}</div>
-        <div class="todo-date">${f.fusion_le?echap(jourFr(f.fusion_le)):''}</div></div>
+        <div class="todo-text">${meme?echap(f.nom)+' — deux fiches réunies':echap(f.nom)+' → '+echap(dans?dans.nom:'?')}</div>
+        <div class="todo-date">${f.fusion_le?echap(jourFr(f.fusion_le)):''}${meme&&f.role?' · '+echap(f.role):''}</div></div>
         <button class="todo-act" data-defus="${attr(f.id)}" title="Annuler cette fusion">↩︎</button></div>`;
     });
   }
@@ -5618,8 +5628,14 @@ function renderMemoire(){
     rech.addEventListener('input',()=>{rechercheMem=rech.value;renderMemoire();
       const r2=document.getElementById('mem-recherche');r2.focus();r2.setSelectionRange(r2.value.length,r2.value.length);});
   }
-  const pl=zone.querySelector('[data-plier]');
-  if(pl)pl.onclick=()=>{memAutresOuvert=!memAutresOuvert;renderMemoire()};
+  // Deux sections repliables sur cet écran : `querySelector` n'en branchait
+  // qu'une, et c'était toujours la première. On les branche toutes, chacune
+  // sur son propre état.
+  zone.querySelectorAll('[data-plier]').forEach(b=>{b.onclick=()=>{
+    if(b.dataset.plier==='fusions')memFusionsOuvert=!memFusionsOuvert;
+    else memAutresOuvert=!memAutresOuvert;
+    renderMemoire();
+  }});
   const br=document.getElementById('mem-ranger');
   if(br)br.onclick=()=>formQuiEstQui();
   const cj=document.getElementById('mem-jum');
