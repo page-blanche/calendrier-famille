@@ -4890,6 +4890,26 @@ const FUSION_A_ARBITRER=['email','role_auteur'];
 const fusVide=(v)=>v===null||v===undefined||v===''||(Array.isArray(v)&&!v.length);
 const fusMot=(v)=>v===true?'oui':v===false?'non':String(v);
 
+/* Deux fiches qui portent le même nom, l'app le voit — autant le dire là où
+   on les regarde. Sans ça, il fallait remonter en haut de la liste pour entrer
+   en mode fusion, redescendre chercher les deux doublons, et les cocher. Le
+   bouton restait juste, mais il était loin du problème.
+   On compare sans accents ni casse : « Dr Julie Sudant » et « dr julie
+   sudant » sont le même médecin saisi deux fois. */
+const fusClef=(n)=>String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .toLowerCase().replace(/\s+/g,' ').trim();
+function doublonsDeNom(){
+  const par={};
+  (CACHE.personnes||[]).forEach(p=>{
+    const k=fusClef(p.nom);
+    if(!k)return;
+    (par[k]=par[k]||[]).push(p);
+  });
+  // Une paire à la fois : trois cartes empilées en haut de la liste, ce serait
+  // la liste qu'on voulait nettoyer.
+  return Object.values(par).filter(l=>l.length>1).slice(0,3).map(l=>[l[0],l[1]]);
+}
+
 function basculerModeFusion(){
   modeFusion=!modeFusion;fusionChoix.clear();renderMemoire();
 }
@@ -5101,6 +5121,14 @@ function renderMemoire(){
   if(CACHE.personnes.length>1)
     h+=`<button class="btn mini" id="mem-fusion" style="margin-bottom:10px">${
       modeFusion?'✕ Sortir du mode fusion':'⇋ Fusionner deux fiches'}</button>`;
+  if(!modeFusion)doublonsDeNom().forEach(([x,y])=>{
+    h+=`<div class="qq-carte" style="margin-bottom:10px">
+      <div>Deux fiches s'appellent « ${echap(x.nom)} ».</div>
+      <div class="qq-ind">Le même ${echap(String(x.role||y.role||'').trim()||'nom')}, saisi deux fois ?</div>
+      <div class="mg-chips" style="margin-top:8px">
+        <button class="mg-chip" data-doubl="${attr(x.id)}|${attr(y.id)}">⇋ Les réunir</button>
+      </div></div>`;
+  });
   if(!CACHE.personnes.length){
     h+=`<div class="todo-empty" style="text-align:center;padding:24px 0">Personne pour l'instant.<br>Commence par celle que tu as peur d'oublier 😉</div>`;
   }else if(enRecherche){
@@ -5170,6 +5198,9 @@ function renderMemoire(){
   if(bf)bf.onclick=()=>basculerModeFusion();
   const fl=document.getElementById('fus-lancer');
   if(fl)fl.onclick=()=>{const [a,b]=[...fusionChoix];formFusion(a,b)};
+  zone.querySelectorAll('[data-doubl]').forEach(b=>{
+    b.onclick=()=>{const [x,y]=b.dataset.doubl.split('|');formFusion(x,y)};
+  });
   zone.querySelectorAll('[data-defus]').forEach(b=>{
     b.onclick=(e)=>{e.stopPropagation();annulerFusion(b.dataset.defus)};
   });
