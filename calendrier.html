@@ -393,16 +393,31 @@ body.mode-parler .fab{display:none!important}
    le même bloc et restait affichée derrière la conversation. On cache le
    parent une fois pour toutes, sinon chaque écran ajouté au fil du temps
    devra penser à se cacher lui-même — et un jour l'un d'eux oubliera. */
-/* Sur téléphone seulement : la conversation prend tout l'écran, donc l'app
-   doit disparaître dessous. Sur grand écran elle reste là, à côté — et surtout
-   on ne touche PAS à `display`, sinon la grille à deux colonnes de l'atelier
-   redevient un bloc et les tuiles s'étirent. */
-@media(max-width:899px){
-  body.mode-parler .atelier{display:none!important}
-  body.mode-parler .modes-bar{display:flex}
-  body.mode-parler #navBar{visibility:hidden!important}
-}
-.chat-tete{display:none}
+/* La conversation est une bulle POSÉE SUR l'app, aux deux tailles. Elle
+   occupait tout l'écran : on ne voyait plus ni d'où l'on venait, ni comment en
+   sortir autrement qu'en cherchant un interrupteur en haut. Une bulle, ça se
+   ferme — et son bord dit tout seul qu'il y a quelque chose dessous.
+   Sur téléphone elle s'étale presque partout, sur grand écran elle se range à
+   droite ; c'est la seule différence. */
+.page-chat{left:10px;right:10px;top:auto;bottom:calc(10px + env(safe-area-inset-bottom));
+  height:min(calc(100vh - 96px),720px);
+  border:1px solid var(--border);border-radius:20px;overflow:hidden;z-index:90;
+  box-shadow:0 24px 64px rgba(28,27,24,.28),0 2px 10px rgba(28,27,24,.10)}
+.chat-tete{display:flex;flex:0 0 auto;align-items:center;gap:11px;
+  padding:12px 12px 12px 16px;border-bottom:1px solid var(--border);background:var(--surface)}
+.chat-tete .ct-av{width:32px;height:32px;border-radius:50%;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-size:1rem;
+  background:#f3ecfb;border:1px solid #e7d9f5}
+.chat-tete .ct-t{flex:1;min-width:0;font-weight:800;font-size:.95rem;line-height:1.2}
+.chat-tete .ct-t span{display:block;font-weight:600;font-size:.71rem;color:var(--ink-3)}
+.chat-tete .ct-x{width:32px;height:32px;flex:0 0 auto;border-radius:50%;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink-2);
+  font:inherit;font-size:.95rem;cursor:pointer;display:flex;align-items:center;
+  justify-content:center}
+.chat-tete .ct-x:hover{border-color:var(--border-strong);color:var(--ink)}
+/* L'interrupteur « Parler / La famille » ne sert plus : la croix le remplace,
+   et elle est là où l'œil la cherche — sur la bulle elle-même. */
+body.mode-parler .modes-bar{display:none}
 
 /* --- Sur grand écran, la conversation est un panneau, pas une page ---
    Occuper tout l'écran pour parler, c'est quitter ce qu'on regardait : on
@@ -411,24 +426,10 @@ body.mode-parler .fab{display:none!important}
    l'app derrière — c'est ce qui rend la réponse vérifiable d'un coup d'œil.
    Sur téléphone, il n'y a pas la place : la conversation garde tout l'écran. */
 @media(min-width:900px){
-  .page-chat{
-    top:auto;left:auto;right:22px;bottom:22px;
+  .page-chat{left:auto;right:22px;bottom:22px;
     width:min(430px,calc(100vw - 44px));
     height:min(660px,calc(100vh - 120px));
-    border:1px solid var(--border);border-radius:20px;overflow:hidden;z-index:90;
     box-shadow:0 24px 64px rgba(28,27,24,.20),0 2px 10px rgba(28,27,24,.07)}
-  .chat-tete{display:flex;flex:0 0 auto;align-items:center;gap:11px;
-    padding:12px 12px 12px 16px;border-bottom:1px solid var(--border);background:var(--surface)}
-  .chat-tete .ct-av{width:32px;height:32px;border-radius:50%;flex:0 0 auto;
-    display:flex;align-items:center;justify-content:center;font-size:1rem;
-    background:#f3ecfb;border:1px solid #e7d9f5}
-  .chat-tete .ct-t{flex:1;min-width:0;font-weight:800;font-size:.95rem;line-height:1.2}
-  .chat-tete .ct-t span{display:block;font-weight:600;font-size:.71rem;color:var(--ink-3)}
-  .chat-tete .ct-x{width:30px;height:30px;flex:0 0 auto;border-radius:50%;
-    border:1px solid var(--border);background:var(--surface);color:var(--ink-2);
-    font:inherit;font-size:.9rem;cursor:pointer;display:flex;align-items:center;
-    justify-content:center}
-  .chat-tete .ct-x:hover{border-color:var(--border-strong);color:var(--ink)}
   .page-chat .chat-fil{padding:14px 14px 6px}
   .page-chat .chat-saisie{padding-bottom:11px}
   /* Les bulles se resserrent : 430 px de large, ce n'est pas une page. */
@@ -481,40 +482,45 @@ body.mode-parler .fab{display:none!important}
    marge du bas parce que l'ancienne barre de navigation, elle, ne recouvrait
    rien. Cette barre n'existe plus ; la règle, si, et elle recouvrait la
    réserve de la barre de Pia. Retirée. */
-/* --- Pia, toujours là ---
-   L'interrupteur « 💬 Parler / 🏡 La famille » posait la question à l'envers :
-   il fallait choisir d'aller parler à Pia, comme on change d'application. La
-   barre du bas ne demande plus de choisir — elle attend, en bas de chaque
-   module, et elle sait de quoi on parle : dans Recettes elle propose une
-   recette, dans Courses elle propose du lait. C'est la même fonction derrière
-   (saisie-magique), à qui l'on dit simplement d'où part la phrase. */
-.pia{position:fixed;left:0;right:0;bottom:0;z-index:70;background:#f7f6f3;
-  border-top:1px solid var(--border);padding:9px 12px calc(11px + env(safe-area-inset-bottom))}
-body.mode-parler .pia{display:none}
-.pia-barre{display:flex;align-items:center;gap:9px;width:100%;background:var(--surface);
-  border:1px solid var(--border);border-radius:999px;padding:7px 7px 7px 14px;cursor:pointer;
-  font-family:inherit;text-align:left}
-.pia-barre:hover{border-color:var(--border-strong)}
-.pia-barre .ph{flex:1;color:var(--ink-3);font-size:.85rem;min-width:0;overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap}
-.pia-barre .micro{width:29px;height:29px;border-radius:50%;background:var(--h,var(--ink));color:#fff;
-  display:flex;align-items:center;justify-content:center;font-size:.88rem;flex:0 0 auto}
-/* Ce qui flottait au-dessus du vide flotte maintenant au-dessus de la barre. */
-.fab{bottom:calc(10px + var(--bas-pia,80px))!important}
-/* La réserve se pose sur le DOCUMENT, pas sur `.main-layout`.
-   Posée sur `.main-layout`, elle se faisait écraser par `body.a-barre
-   .main-layout{padding-bottom:0}` — une règle écrite pour l'ancienne barre du
-   bas, plus spécifique que la mienne. Résultat : les derniers centimètres de
-   chaque écran passaient sous la barre de Pia, et aucun défilement n'allait
-   les chercher. On arrivait « en bas » sans voir le bas.
-   Et la hauteur est MESURÉE, pas devinée : la barre grandit de la zone sûre
-   des iPhone, qui n'est pas la même d'un modèle à l'autre. */
-body{padding-bottom:var(--bas-pia,80px)}
-@media(min-width:900px){
-  /* Sur grand écran la barre suit la colonne de droite : sous le rail, elle
-     ferait mine de commander la grille. */
-  body:not(.au-bureau) .pia{left:198px}
+/* --- Le lanceur de Pia ---
+   Un bouton flottant plutôt qu'un bandeau : la conversation est une chose
+   qu'on ouvre, pas un meuble présent à chaque écran. Il se cale au-dessus du
+   ＋ Ajouter — deux boutons flottants dans le même coin doivent former une
+   pile, sinon ils se recouvrent au premier téléphone étroit. */
+.pia-lanceur{position:fixed;right:22px;bottom:calc(22px + env(safe-area-inset-bottom));
+  z-index:82;display:flex;align-items:center;gap:8px;
+  background:var(--h,var(--ink));color:#fff;border:none;border-radius:999px;
+  padding:13px 20px 13px 16px;font-family:inherit;font-size:.92rem;font-weight:700;
+  cursor:pointer;box-shadow:0 6px 24px rgba(28,27,24,.28);transition:transform .15s,box-shadow .15s}
+.pia-lanceur:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(28,27,24,.34)}
+.pia-lanceur .pl-ico{font-size:1.05rem;line-height:1}
+body.mode-parler .pia-lanceur{display:none}
+/* La réserve se pose sur le DOCUMENT, pas sur `.main-layout` — là, une vieille
+   règle `body.a-barre .main-layout{padding-bottom:0}` l'écrasait et les
+   derniers centimètres de chaque écran devenaient inatteignables. Sa hauteur
+   est MESURÉE sur les boutons flottants (voir majReservePia), pas devinée. */
+body{padding-bottom:var(--bas-pia,146px)}
+/* Le ＋ Ajouter monte au-dessus du lanceur. Deux boutons flottants dans le
+   même coin se recouvrent au premier téléphone étroit s'ils ne forment pas une
+   pile — et c'est le ＋ qu'on perdrait, celui dont on se sert le plus. */
+.fab{bottom:calc(84px + env(safe-area-inset-bottom))!important}
+@media(max-width:359px){
+  /* Sous 360 px seulement, le mot passe à la trappe. Pas avant : « Parler à
+     Pia » en toutes lettres vaut mieux qu'une bulle qu'il faut avoir touchée
+     une fois pour savoir ce qu'elle fait. */
+  .pia-lanceur .pl-txt{display:none}
+  .pia-lanceur{padding:14px;border-radius:50%}
 }
+
+/* --- Le voile, sur téléphone seulement ---
+   Il dit deux choses d'un coup : la conversation est POSÉE SUR l'app, et on
+   en sort en touchant à côté. Sur grand écran il n'a pas lieu d'être : le
+   panneau laisse justement travailler derrière lui. */
+.chat-fond{display:none;position:fixed;inset:0;z-index:88;background:rgba(28,27,24,.38);
+  -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+body.mode-parler .chat-fond{display:block}
+@media(min-width:900px){body.mode-parler .chat-fond{display:none}}
+
 /* --- l'interrupteur des deux modes ---
    Il ne sert plus qu'à revenir, et seulement sur téléphone : sur grand écran
    la conversation est un panneau avec sa propre croix. */
@@ -724,12 +730,15 @@ body:not(.au-bureau) #retourBureau{display:inline-flex}
 </div>
 </div>
 
-<!-- Pia attend en bas, dans chaque module. Elle n'est plus un mode où l'on
-     entre : c'est une ligne de texte au bord de l'écran, qui sait déjà de quoi
-     on parle parce qu'elle voit le module ouvert. -->
-<div class="pia" id="piaBarre">
-<button class="pia-barre" id="piaOuvrir"><span class="ph" id="piaPh">Dis-moi tout</span><span class="micro">🎙️</span></button>
-</div>
+<!-- Pia s'ouvre par un bouton flottant, comme l'assistant de n'importe quel
+     outil : un objet qu'on reconnaît, qu'on ouvre et qu'on referme. La barre
+     pleine largeur qu'il remplace mangeait un bandeau au bas de chaque écran
+     pour proposer une chose qu'on ne fait pas à chaque écran. Ce qu'elle
+     apportait vraiment — l'exemple qui change selon le module — est passé
+     dans le champ de saisie de la conversation. -->
+<button class="pia-lanceur" id="piaOuvrir" title="Parler à Pia">
+<span class="pl-ico">💬</span><span class="pl-txt">Parler à Pia</span></button>
+<div class="chat-fond" id="chatFond"></div>
 
 <nav class="barre-bas" id="barreBas">
 <button data-sec="planning"><span class="bb-ico">📅</span><span class="bb-lbl">Planning</span></button>
@@ -6693,15 +6702,20 @@ function versBureau(){
   majPia();
 }
 
-/* Combien de place la barre occupe-t-elle vraiment ? On mesure plutôt que de
-   deviner : sa hauteur dépend de la zone sûre du téléphone. Sans cette
-   réserve, le bas de chaque écran est inaccessible — pas coupé, inaccessible :
-   le défilement arrive à son terme avec du contenu encore dessous. */
+/* Combien de place les boutons flottants occupent-ils vraiment ? On mesure
+   plutôt que de deviner : leur hauteur dépend de la zone sûre du téléphone.
+   Sans cette réserve, le bas de chaque écran est inaccessible — pas coupé,
+   inaccessible : le défilement arrive à son terme avec du contenu encore
+   dessous. C'est le défaut qu'on a mis longtemps à voir. */
 function majReservePia(){
-  const z=document.getElementById('piaBarre');
-  if(!z)return;
-  const h=Math.ceil(z.getBoundingClientRect().height)+10;
-  if(h>20)document.documentElement.style.setProperty('--bas-pia',h+'px');
+  const hauts=['.pia-lanceur','.fab'].map(sel=>{
+    const e=document.querySelector(sel);
+    if(!e||getComputedStyle(e).display==='none')return null;
+    return e.getBoundingClientRect().top;
+  }).filter(x=>x!==null&&x>0);
+  if(!hauts.length)return;
+  const h=Math.ceil(innerHeight-Math.min(...hauts))+14;
+  if(h>20&&h<400)document.documentElement.style.setProperty('--bas-pia',h+'px');
 }
 addEventListener('resize',majReservePia);
 addEventListener('orientationchange',()=>setTimeout(majReservePia,200));
@@ -6717,10 +6731,12 @@ function majPia(){
   // Repas — c'est exactement ce que Mandana reprochait aux onglets.
   const t=document.getElementById('titreAccueil');
   if(t)t.textContent=m?`${m.ico} ${m.nom}`:'🏡 Famille';
-  const ph=document.getElementById('piaPh');
-  if(!ph)return;
-  ph.textContent=m&&m.pia?'« '+m.pia+' »':'Dis-moi tout — « jeudi, c\'est raclette »';
-  const z=document.getElementById('piaBarre');
+  // L'exemple qui change selon le module vivait dans la barre du bas ; il vit
+  // maintenant dans le champ de saisie de la conversation, où il sert
+  // réellement de modèle au moment d'écrire.
+  const saisie=document.getElementById('mg-texte');
+  if(saisie)saisie.placeholder=m&&m.pia?'« '+m.pia+' »':'Écris ou dicte 🎤 …';
+  const z=document.querySelector('.pia-lanceur');
   if(z){
     z.style.setProperty('--h',m?`var(${m.h})`:'var(--ink)');
     majReservePia();
@@ -6929,6 +6945,9 @@ document.querySelectorAll('#barreBas [data-sec]').forEach(b=>{b.onclick=()=>setS
 document.querySelectorAll('#modesBar [data-mode]').forEach(b=>{b.onclick=()=>setMode(b.dataset.mode)});
 {const p=document.getElementById('piaOuvrir');if(p)p.onclick=()=>setMode('parler')}
 {const x=document.getElementById('chat-fermer');if(x)x.onclick=()=>setMode('famille')}
+// Toucher à côté referme : c'est ce qu'on fait d'instinct devant une bulle, et
+// c'est ce que le voile promet en assombrissant l'app.
+{const f=document.getElementById('chatFond');if(f)f.onclick=()=>setMode('famille')}
 document.getElementById('mg-envoyer').onclick=mgEnvoyer;
 document.getElementById('mg-coller').onclick=()=>collerDansChat(document.getElementById('mg-texte'));
 document.getElementById('mg-texte').addEventListener('keydown',e=>{if(e.key==='Enter')mgEnvoyer()});
