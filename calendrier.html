@@ -19,6 +19,31 @@
 .page-solo{flex:1;max-width:620px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px 26px}
 .mem-note{border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:10px;background:var(--surface)}
 .mem-encart{border:1px solid #f3e5c8;border-radius:12px;padding:10px 14px;margin-top:10px;background:#fdf8ef}
+/* --- fusionner deux fiches --- */
+.fus-sens{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f7f6f3;
+  border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;margin-bottom:12px}
+.fus-sens .fus-t{display:block;font-size:.62rem;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3)}
+.fus-sens .fus-fl{font-size:1.1rem;color:var(--ink-3)}
+.fus-bloc{margin-top:14px}
+.fus-l{display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid #f2f0ec}
+.fus-l:first-of-type{border-top:none}
+.fus-c{font-size:.8rem;color:var(--ink-2);width:132px;flex:0 0 auto}
+.fus-v{font-size:.88rem;flex:1;min-width:0;overflow-wrap:anywhere}
+.fus-deux{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.fus-liste{margin:6px 0 0 18px;font-size:.85rem;color:var(--ink-2)}
+.fus-liste li{margin:2px 0}
+/* La case de sélection : elle n'apparaît qu'en mode fusion, sinon toucher un
+   nom ouvrirait tantôt sa fiche, tantôt une case à cocher. */
+.mem-case{width:20px;height:20px;flex:0 0 auto;border:2px solid var(--border-strong);
+  border-radius:6px;position:relative}
+.mem-case.on{background:var(--ink);border-color:var(--ink)}
+.mem-case.on::after{content:'✓';color:#fff;font-size:.72rem;font-weight:800;
+  position:absolute;left:3px;top:-2px}
+.fus-barre{position:sticky;bottom:74px;z-index:5;display:flex;gap:8px;align-items:center;
+  background:var(--surface);border:1px solid var(--border-strong);border-radius:999px;
+  padding:7px 8px 7px 14px;margin-top:12px;box-shadow:var(--shadow)}
+.fus-barre .n{flex:1;font-size:.82rem;color:var(--ink-2)}
 .mem-note-tete{display:flex;gap:10px;align-items:center;font-size:.76rem;color:var(--ink-3);margin-bottom:5px}
 .mem-note-texte{font-size:.92rem;line-height:1.45;white-space:normal}
 .mem-partage{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.86rem;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
@@ -715,7 +740,12 @@ async function chargerTout(){
   s.data.forEach(x=>CACHE.etatsAuto[x.id]=x);
   CACHE.courses=co.error?[]:co.data;
   CACHE.cadeaux=ca.error?[]:ca.data;
-  CACHE.personnes=pe.error?[]:pe.data;
+  // Une fiche fusionnée n'est pas supprimée : elle est rangée. Elle sort donc
+  // de la liste — sinon le doublon qu'on vient de fusionner reste affiché —
+  // mais on la garde sous la main pour proposer d'annuler.
+  const tousGens=pe.error?[]:pe.data;
+  CACHE.personnes=tousGens.filter(x=>!x.fusionnee_dans);
+  CACHE.fusionnees=tousGens.filter(x=>x.fusionnee_dans);
   CACHE.notes=no.error?[]:no.data;
   CACHE.envies=en.error?[]:en.data;
   const comptes=us.error?[]:us.data.map(x=>x.nom).filter(Boolean);
@@ -4818,6 +4848,218 @@ function renderRangement(zone){
   };
 }
 
+/* ============================================================
+   FUSIONNER DEUX FICHES
+   ------------------------------------------------------------
+   Une même personne finit par exister deux fois : « Tina » saisie
+   à la main et « Christina » dictée à Pia, ou le même médecin
+   ajouté par les deux adultes du foyer.
+
+   Le travail lui-même se fait EN BASE (`fusionner_personnes`),
+   pour deux raisons qu'on ne peut pas contourner ici :
+     · une note privée écrite par l'autre adulte est invisible
+       depuis ce compte — la RLS la cache et refuserait l'update.
+       Fusionner depuis l'app la laisserait accrochée à une fiche
+       disparue, sans que personne ne le voie ;
+     · une fusion touche onze tables : à moitié faite, elle laisse
+       la base dans un état que personne ne sait décrire.
+
+   L'app ne fait donc que trois choses : choisir les deux fiches,
+   montrer ce qui va bouger, et proposer d'annuler.
+   ============================================================ */
+let modeFusion=false, fusionChoix=new Set();
+
+// Les libellés des champs de fiche. Ce qui n'est pas listé s'affiche sous son
+// nom de colonne : mieux vaut un mot technique qu'un champ invisible qu'on
+// écraserait sans le savoir.
+const FUSION_LIBELLES={nom:'Prénom',emoji:'Emoji',couleur:'Couleur',role:'Rôle',
+  categorie:'Catégorie',groupe:'Groupe',genre:'On en parle comment',
+  naiss_jour:'Jour de naissance',naiss_mois:'Mois de naissance',naiss_annee:'Année de naissance',
+  email:'Adresse e-mail',foyer:'À la maison',adulte:'Adulte',cadeau:'On lui offre un cadeau',
+  actif:'Fiche active',detail:'Détail',lien_rdv:'Lien de rendez-vous',
+  allergies:'Allergies (ancien champ)',sante_notes:'À savoir (ancien champ)',
+  role_auteur:'Qui a posé le rôle'};
+// Ce qui n'appartient pas à la personne mais à la ligne : on n'arbitre pas.
+const FUSION_TECHNIQUES=['id','ajoute_par','cree_le','fusionnee_dans','fusion_le','fusion_trace'];
+// Deux colonnes ne se reprennent JAMAIS en silence, même quand la fiche gardée
+// est vide : `email` est le pont vers un compte, et `role_auteur` en est un
+// autre. Compléter un trou avec l'adresse de la fiche absorbée rattacherait
+// tranquillement la fiche de Darya au compte de Didier — et c'est cette
+// colonne que lit la RLS pour savoir qui est qui.
+const FUSION_A_ARBITRER=['email','role_auteur'];
+const fusVide=(v)=>v===null||v===undefined||v===''||(Array.isArray(v)&&!v.length);
+const fusMot=(v)=>v===true?'oui':v===false?'non':String(v);
+
+function basculerModeFusion(){
+  modeFusion=!modeFusion;fusionChoix.clear();renderMemoire();
+}
+function basculerChoixFusion(id){
+  if(fusionChoix.has(id))fusionChoix.delete(id);
+  // Deux fiches, pas trois : au-delà, on ne sait plus laquelle absorbe laquelle.
+  else if(fusionChoix.size<2)fusionChoix.add(id);
+  else toast('Deux fiches à la fois — décoche l\'une pour en prendre une autre');
+  renderMemoire();
+}
+
+/* L'écran de choix. Rien n'est écrit avant validation : la simulation appelle
+   EXACTEMENT la même fonction que la fusion, avec p_simuler=true. Un aperçu
+   calculé autrement finirait tôt ou tard par annoncer autre chose que ce qui
+   se passe. */
+async function formFusion(idA,idB){
+  const a=CACHE.personnes.find(x=>x.id===idA);
+  const b=CACHE.personnes.find(x=>x.id===idB);
+  if(!a||!b)return;
+  // Par défaut, la fiche gardée est celle qui a le plus de matière : c'est
+  // celle dont on écrasera le moins.
+  const remplie=(p)=>Object.keys(p).filter(k=>!FUSION_TECHNIQUES.includes(k)&&!fusVide(p[k])).length;
+  let garde=remplie(a)>=remplie(b)?a:b, vire=(garde===a)?b:a;
+  const choix={};          // cle → 'garde' | 'vire'
+
+  ouvrirTiroirBrut('Fusionner deux fiches');
+  const zone=document.getElementById('dbd');
+  const dessiner=async()=>{
+    const cles=[...new Set([...Object.keys(garde),...Object.keys(vire)])]
+      .filter(c=>!FUSION_TECHNIQUES.includes(c))
+      .filter(c=>!fusVide(garde[c])||!fusVide(vire[c]));
+    const valeur=(c)=>{
+      const g=garde[c],v=vire[c];
+      if(choix[c]==='vire')return v;
+      if(choix[c]==='garde')return g;
+      // Par défaut : la fiche gardée, complétée par l'autre là où elle est
+      // vide — sauf pour les ponts vers un compte, qui restent tels quels
+      // tant qu'on n'a pas choisi.
+      if(FUSION_A_ARBITRER.includes(c))return g;
+      return fusVide(g)?v:g;
+    };
+    const nomFinal=String(valeur('nom')||garde.nom).trim();
+
+    let h='';
+    // Le garde-fou : deux comptes différents, ce n'est probablement pas la
+    // même personne. On ne bloque pas — on le dit, en haut, avant tout.
+    if(!fusVide(garde.email)&&!fusVide(vire.email)
+       &&String(garde.email).toLowerCase()!==String(vire.email).toLowerCase())
+      h+=`<div class="qq-carte" style="margin-bottom:12px"><div class="qq-ind">⚠️ Ces deux fiches portent
+        deux comptes différents (${echap(garde.email)} et ${echap(vire.email)}). C'est plutôt le signe
+        qu'il s'agit de deux personnes.</div></div>`;
+
+    h+=`<div class="fus-sens">
+      <div><span class="fus-t">On garde</span><b>${echap(garde.emoji||'🧑')} ${echap(garde.nom)}</b></div>
+      <div class="fus-fl">←</div>
+      <div><span class="fus-t">On absorbe</span><b>${echap(vire.emoji||'🧑')} ${echap(vire.nom)}</b></div>
+      <button class="btn mini" id="fus-inverser">⇄ Inverser</button></div>`;
+
+    h+=`<div class="fus-bloc"><div class="st-h-tete">Ce que garde la fiche fusionnée</div>`;
+    cles.forEach(c=>{
+      const g=garde[c],v=vire[c];
+      const conflit=(!fusVide(g)&&!fusVide(v)&&String(g)!==String(v))
+        ||(FUSION_A_ARBITRER.includes(c)&&!fusVide(v)&&String(g||'')!==String(v));
+      const lab=FUSION_LIBELLES[c]||c;
+      if(!conflit){
+        h+=`<div class="fus-l"><span class="fus-c">${echap(lab)}</span>
+          <span class="fus-v">${echap(fusMot(valeur(c)))}</span></div>`;
+        return;
+      }
+      // Un conflit ne se tranche pas tout seul : deux dates de naissance
+      // différentes, c'est soit une faute de frappe, soit deux personnes.
+      const pris=choix[c]||'garde';
+      h+=`<div class="fus-l fus-conflit"><span class="fus-c">${echap(lab)}</span>
+        <span class="fus-deux">
+          <button class="mg-chip ${pris==='garde'?'actif':''}" data-fc="${attr(c)}" data-fv="garde">${fusVide(g)?'<i>rien</i>':echap(fusMot(g))}</button>
+          <button class="mg-chip ${pris==='vire'?'actif':''}" data-fc="${attr(c)}" data-fv="vire">${fusVide(v)?'<i>rien</i>':echap(fusMot(v))}</button>
+        </span></div>`;
+    });
+    h+=`</div><div class="fus-bloc" id="fus-effet"><div class="st-h-tete">Ce qui va bouger ailleurs</div>
+      <div class="todo-empty">On regarde…</div></div>
+      <button class="btn primaire" id="fus-ok" style="width:100%;margin-top:14px">Fusionner</button>
+      <button class="btn" id="fus-non" style="width:100%;margin-top:8px">Annuler</button>`;
+    zone.innerHTML=h;
+
+    document.getElementById('fus-inverser').onclick=()=>{const t=garde;garde=vire;vire=t;dessiner()};
+    zone.querySelectorAll('[data-fc]').forEach(b=>{
+      b.onclick=()=>{choix[b.dataset.fc]=b.dataset.fv;dessiner()};
+    });
+    document.getElementById('fus-non').onclick=()=>fermerTiroir();
+    document.getElementById('fus-ok').onclick=()=>lancerFusion(garde,vire,nomFinal,champsRetenus());
+
+    function champsRetenus(){
+      const out={};
+      cles.forEach(c=>{if(c!=='nom')out[c]=valeur(c)});
+      return out;
+    }
+
+    // L'aperçu : la même fonction, en mode simulation.
+    const {data,error}=await sb.rpc('fusionner_personnes',{
+      p_garde:garde.id,p_vire:vire.id,p_nom_final:nomFinal,
+      p_champs:champsRetenus(),p_simuler:true});
+    const z=document.getElementById('fus-effet');
+    if(!z)return;                     // l'écran a été redessiné entre-temps
+    if(error){z.innerHTML=`<div class="st-h-tete">Ce qui va bouger ailleurs</div>
+      <div class="todo-empty">Impossible de le savoir : ${echap(error.message)}</div>`;return}
+    z.innerHTML=`<div class="st-h-tete">Ce qui va bouger ailleurs</div>`+resumeEffet(data,nomFinal);
+  };
+  dessiner();
+}
+
+/* Ce que la simulation raconte, en français. Le nombre compte plus que la
+   liste : « 12 événements seront renommés » se vérifie d'un coup d'œil après
+   coup, « des événements seront renommés » ne se vérifie pas. */
+function resumeEffet(d,nomFinal){
+  // Singulier et pluriel écrits à la main : « lien avec un soignant » ne prend
+  // pas son « s » à la fin, et une liste qui dit « 3 traitements » à côté de
+  // « 1 notes » n'inspire pas confiance dans le reste.
+  const NOMS={evenements:['événement','événements'],activites:['activité','activités'],
+    accompagnements:['trajet','trajets'],taches:['tâche','tâches'],
+    cadeaux:['idée cadeau','idées cadeau'],sante_infos:['information de santé','informations de santé'],
+    sante_medecins:['soignant rattaché','soignants rattachés'],sante_suivis:['suivi','suivis'],
+    sante_traitements:['traitement','traitements'],notes_personnes:['note','notes'],
+    etats_auto:['action automatique','actions automatiques'],
+    pour_info:['message « pour info »','messages « pour info »']};
+  const pl=(n,t)=>{const m=NOMS[t]||[t,t];return n+' '+(n>1?m[1]:m[0])};
+  const compte={};
+  (d.deplaces||[]).forEach(x=>{
+    const n=(x.ids||[]).length;if(!n)return;
+    compte[x.table]=(compte[x.table]||0)+n;
+  });
+  (d.renommes||[]).forEach(x=>{
+    const n=(x.lignes||[]).length;if(!n)return;
+    compte[x.table]=(compte[x.table]||0)+n;
+  });
+  const bouts=Object.keys(compte).sort().map(t=>pl(compte[t],t));
+  let h='';
+  const reec=(d.noms_reecrits||[]);
+  if(reec.length)h+=`<div class="discret2">Le prénom « ${echap(reec.join(' » et « '))} »
+    devient « ${echap(nomFinal)} » partout où il est écrit.</div>`;
+  h+=bouts.length
+    ? `<ul class="fus-liste">${bouts.map(b=>`<li>${echap(b)}</li>`).join('')}</ul>`
+    : `<div class="todo-empty">Rien d'autre à déplacer : la fiche absorbée est vide.</div>`;
+  return h;
+}
+
+async function lancerFusion(garde,vire,nomFinal,champs){
+  const bt=document.getElementById('fus-ok');
+  if(bt){bt.disabled=true;bt.textContent='On fusionne…'}
+  const {data,error}=await sb.rpc('fusionner_personnes',{
+    p_garde:garde.id,p_vire:vire.id,p_nom_final:nomFinal,p_champs:champs,p_simuler:false});
+  if(error){
+    if(bt){bt.disabled=false;bt.textContent='Fusionner'}
+    toast('⚠️ Fusion refusée : '+error.message);return;
+  }
+  fermerTiroir();
+  modeFusion=false;fusionChoix.clear();
+  await chargerTout();
+  render();
+  const n=(data&&data.lignes_renommees)||0;
+  toast(`Fusionnées${n?` · ${n} ligne${n>1?'s':''} renommée${n>1?'s':''}`:''} — annulable en bas de la liste`);
+}
+
+async function annulerFusion(id){
+  const {error}=await sb.rpc('annuler_fusion',{p_vire:id});
+  if(error){toast('⚠️ '+error.message);return}
+  await chargerTout();
+  render();
+  toast('Fusion annulée, les deux fiches sont revenues');
+}
+
 function renderMemoire(){
   const zone=document.getElementById('vueMemoire');
   const p=persOuverte?CACHE.personnes.find(x=>x.id===persOuverte):null;
@@ -4842,6 +5084,7 @@ function renderMemoire(){
     const kdo=cadeauxVisibles().filter(c=>!c.offert&&(c.personne||'').trim().toLowerCase()===x.nom.trim().toLowerCase()).length;
     if(kdo)bouts.push(kdo+' idée'+(kdo>1?'s':'')+' gardée'+(kdo>1?'s':''));
     return `<div class="todo-item" data-id="${x.id}" style="cursor:pointer">
+      ${modeFusion?`<div class="mem-case ${fusionChoix.has(x.id)?'on':''}"></div>`:''}
       <div style="flex-shrink:0;font-size:1.15rem">${x.emoji||'🧑'}</div>
       <div class="todo-corps"><div class="todo-text">${echap(x.nom)}${roleAffiche(x)?` <span class="todo-date">· ${echap(roleAffiche(x))}</span>`:''}</div>
       <div class="todo-date">${bouts.length?echap(bouts.join(' · ')):'On n\'a encore rien noté'}</div></div>
@@ -4853,6 +5096,11 @@ function renderMemoire(){
     ${CACHE.personnes.length>6?`<input type="text" id="mem-recherche" placeholder="🔍 Chercher quelqu'un…" value="${attr(rechercheMem)}">`:''}
     <button class="btn primaire" id="mem-ajouter" style="${CACHE.personnes.length>6?'':'width:100%'}">+ Ajouter</button>
   </div>`;
+  // Fusionner ne se propose qu'à partir de deux fiches, et pas pendant une
+  // recherche : on choisit dans la liste qu'on a sous les yeux.
+  if(CACHE.personnes.length>1)
+    h+=`<button class="btn mini" id="mem-fusion" style="margin-bottom:10px">${
+      modeFusion?'✕ Sortir du mode fusion':'⇋ Fusionner deux fiches'}</button>`;
   if(!CACHE.personnes.length){
     h+=`<div class="todo-empty" style="text-align:center;padding:24px 0">Personne pour l'instant.<br>Commence par celle que tu as peur d'oublier 😉</div>`;
   }else if(enRecherche){
@@ -4895,8 +5143,36 @@ function renderMemoire(){
     if(sansCat.length>=5)
       h+=`<button class="btn" id="mem-ranger" style="width:100%;margin-top:14px">🗂️ Dire qui est qui — ${sansCat.length} personnes</button>`;
   }
+  if(modeFusion){
+    const pris=[...fusionChoix].map(id=>CACHE.personnes.find(x=>x.id===id)).filter(Boolean);
+    h+=`<div class="fus-barre"><span class="n">${pris.length<2
+      ? 'Coche deux fiches à réunir'
+      : echap(pris[0].nom)+' et '+echap(pris[1].nom)}</span>
+      <button class="btn primaire mini" id="fus-lancer" ${pris.length<2?'disabled':''}>Fusionner</button></div>`;
+  }
+  // Ce qui a été fusionné reste annulable : une fusion faite le soir ne doit
+  // pas devenir irrattrapable au matin.
+  if((CACHE.fusionnees||[]).length){
+    h+=`<div class="mem-groupe" style="margin-top:18px">↩︎ Fusions récentes
+      <span class="mg-n">${CACHE.fusionnees.length}</span></div>`;
+    CACHE.fusionnees.slice().sort((x,y)=>String(y.fusion_le||'').localeCompare(String(x.fusion_le||'')))
+      .forEach(f=>{
+      const dans=CACHE.personnes.find(x=>x.id===f.fusionnee_dans);
+      h+=`<div class="todo-item"><div class="todo-corps">
+        <div class="todo-text">${echap(f.nom)} → ${echap(dans?dans.nom:'?')}</div>
+        <div class="todo-date">${f.fusion_le?echap(jourFr(f.fusion_le)):''}</div></div>
+        <button class="todo-act" data-defus="${attr(f.id)}" title="Annuler cette fusion">↩︎</button></div>`;
+    });
+  }
   zone.innerHTML=h;
   document.getElementById('mem-ajouter').onclick=()=>formPersonne(null);
+  const bf=document.getElementById('mem-fusion');
+  if(bf)bf.onclick=()=>basculerModeFusion();
+  const fl=document.getElementById('fus-lancer');
+  if(fl)fl.onclick=()=>{const [a,b]=[...fusionChoix];formFusion(a,b)};
+  zone.querySelectorAll('[data-defus]').forEach(b=>{
+    b.onclick=(e)=>{e.stopPropagation();annulerFusion(b.dataset.defus)};
+  });
   const cc=document.getElementById('mem-creer-cherche');
   if(cc)cc.onclick=()=>{
     const nom=rechercheMem.trim();
@@ -4921,7 +5197,10 @@ function renderMemoire(){
     else refuserFusion(cj.dataset.cle);
   }});
   zone.querySelectorAll('.todo-item[data-id]').forEach(el=>{
-    el.onclick=()=>{persOuverte=el.dataset.id;renderMemoire()};
+    el.onclick=()=>{
+      if(modeFusion){basculerChoixFusion(el.dataset.id);return}
+      persOuverte=el.dataset.id;renderMemoire();
+    };
   });
 }
 
