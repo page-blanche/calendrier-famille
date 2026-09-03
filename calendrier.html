@@ -19,6 +19,21 @@
 .page-solo{flex:1;max-width:620px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px 26px}
 .mem-note{border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:10px;background:var(--surface)}
 .mem-encart{border:1px solid #f3e5c8;border-radius:12px;padding:10px 14px;margin-top:10px;background:#fdf8ef}
+/* --- les bulles d'aide ---
+   Les icônes disent mal ce qu'elles font : 🗄️ range-t-il ou jette-t-il ? Le
+   navigateur sait déjà l'expliquer avec `title`, mais il attend une à deux
+   secondes, pose une étiquette système qu'on ne peut pas coiffer, et la met
+   parfois hors de l'écran. On garde `title` — les lecteurs d'écran et le
+   tactile en dépendent — et on l'emprunte le temps du survol. */
+.bulle{position:fixed;z-index:200;pointer-events:none;max-width:230px;
+  background:var(--ink);color:#fff;font-size:.75rem;font-weight:600;line-height:1.35;
+  padding:6px 10px;border-radius:8px;box-shadow:0 4px 16px rgba(28,27,24,.22);
+  opacity:0;transform:translateY(3px);transition:opacity .11s ease,transform .11s ease}
+.bulle.on{opacity:1;transform:none}
+.bulle::after{content:'';position:absolute;left:var(--fleche,50%);margin-left:-4px;
+  border:4px solid transparent}
+.bulle.dessus::after{top:100%;border-top-color:var(--ink)}
+.bulle.dessous::after{bottom:100%;border-bottom-color:var(--ink)}
 /* --- fusionner deux fiches --- */
 .fus-sens{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f7f6f3;
   border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;margin-bottom:12px}
@@ -672,7 +687,7 @@ body:not(.au-bureau) #retourBureau{display:inline-flex}
 
 <div class="overlay" id="ov" onclick="fermerTiroir()"></div>
 <div class="detail-panel" id="dp">
-<div class="dh"><h2 id="dt"></h2><button class="dc" onclick="fermerTiroir()">✕</button></div>
+<div class="dh"><h2 id="dt"></h2><button class="dc" onclick="fermerTiroir()" title="Fermer sans enregistrer" aria-label="Fermer">✕</button></div>
 <div class="db" id="dbd"></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -816,6 +831,50 @@ function estFaite(id){
   const t=CACHE.taches.find(x=>x.id===id);
   return !!(t&&t.faite);
 }
+/* ================== UNE ÉTAPE DANS LE CADDIE ==================
+   « Acheter les ballons » est une étape du projet ET un article de courses.
+   Écrit deux fois, il se coche une fois sur deux — et c'est toujours l'autre
+   qu'on oublie.
+
+   Toute la synchronisation tient dans les deux fonctions ci-dessous. Deux
+   sens écrits à deux endroits différents finissent par se contredire : l'un
+   traite le cas de « Courses terminées », l'autre l'oublie, et plus personne
+   ne sait laquelle des deux listes dit vrai. */
+const courseDeTache=(id)=>(CACHE.courses||[]).find(c=>c.tache_id===id&&!c.achete_le)
+  ||(CACHE.courses||[]).find(c=>c.tache_id===id);
+
+function versLesCourses(t){
+  const deja=courseDeTache(t.id);
+  if(deja){
+    // Le même bouton fait l'aller et le retour : deux boutons pour un seul
+    // état, c'est une case à cocher déguisée.
+    supprimerObjet(deja.id);
+    toast('Retiré de la liste de courses');
+    return;
+  }
+  enregistrerObjet(null,'courses',{texte:sansEmoji(t.texte).trim()||t.texte,
+    coche:!!estFaite(t.id),achete_le:null,tache_id:t.id,cree_le:new Date().toISOString()});
+  toast('Dans la liste de courses 🛒 — cocher là-bas cochera ici');
+}
+
+/* Cocher l'étape → cocher l'article. */
+function syncTacheVersCourse(idTache,faite){
+  const c=courseDeTache(idTache);
+  if(!c||c.achete_le)return;                 // déjà archivé : on n'y revient pas
+  if(!!c.coche===!!faite)return;             // rien à dire
+  enregistrerObjet(c.id,'courses',{coche:!!faite,coche_par:faite?EMAIL_CONNECTE:null});
+}
+/* Cocher l'article → cocher l'étape. C'est le sens que Mandana a demandé ;
+   l'autre existe pour que les deux listes ne puissent pas se contredire. */
+function syncCourseVersTache(c,coche){
+  if(!c||!c.tache_id)return;
+  const t=(CACHE.taches||[]).find(x=>x.id===c.tache_id);
+  if(!t||!!t.faite===!!coche)return;
+  t.faite=!!coche;
+  t.faite_par=coche?EMAIL_CONNECTE:null;
+  pousser(sb.from('taches').update({faite:t.faite,faite_par:t.faite_par}).eq('id',t.id));
+}
+
 function basculerFaite(id){
   if(id.startsWith('auto-')){
     const e=CACHE.etatsAuto[id]||{id,faite:false,supprimee:false};
@@ -829,6 +888,7 @@ function basculerFaite(id){
     // le poney ». Sans ça la base sait que c'est fait, jamais par qui.
     t.faite_par=t.faite?EMAIL_CONNECTE:null;
     pousser(sb.from('taches').update({faite:t.faite,faite_par:t.faite_par}).eq('id',id));
+    syncTacheVersCourse(id,t.faite);
   }
 }
 function enregistrerObjet(id,coll,donnees){
@@ -1352,16 +1412,24 @@ function ligneTache2(t,opts){
     const info=trouverParId(t.lien);
     if(info)bouts.push('🔗 '+echap((info.titre||info.nom||'').substring(0,26)));
   }
+  // À QUI. « je prends » disait qu'une étape était libre, mais rien ne disait
+  // à qui allaient les autres : il fallait ouvrir chacune pour le savoir.
+  const eti=etiquettePersonne(t.qui);
+  const enCourses=courseDeTache(t.id);
+  if(enCourses)bouts.push('🛒 '+(enCourses.coche||enCourses.achete_le?'pris':'dans la liste'));
   return `<div class="todo-item ${faite?'done':''}" data-id="${t.id}">
     <div class="todo-check" data-act="cocher"></div>
     <div class="todo-corps" data-act="cocher">
       <div class="todo-text">${emojiTache(t)}${echap(t.texte)}</div>
-      ${bouts.length?`<div class="todo-date">${bouts.join(' · ')}</div>`:''}
+      ${bouts.length||eti?`<div class="todo-date">${[eti,...bouts].filter(Boolean).join(' · ')}</div>`:''}
     </div>
     ${opts&&opts.prendre?`<button class="td-prendre" data-act="prendre">je prends</button>`:''}
     <div class="todo-actions">
-      <button class="todo-act" data-act="modif" title="Modifier">✏️</button>
-      <button class="todo-act" data-act="suppr" title="Supprimer">🗑️</button>
+      ${opts&&opts.courses?`<button class="todo-act" data-act="courses" title="${enCourses
+        ?'Retirer de la liste de courses'
+        :'Mettre dans la liste de courses — cocher là-bas cochera ici'}">${enCourses?'🛒✓':'🛒'}</button>`:''}
+      <button class="todo-act" data-act="modif" title="Modifier cette étape">✏️</button>
+      <button class="todo-act" data-act="suppr" title="Supprimer cette étape">🗑️</button>
     </div>
   </div>`;
 }
@@ -1467,10 +1535,10 @@ function renderProjet(){
     <div class="barre"><i style="width:${a.total?Math.round(a.faites/a.total*100):0}%"></i></div></div></div>`;
   h+=`<div class="td-sect">Ce qu'il reste<span class="n">${restent.length}</span></div>`;
   if(!restent.length)h+=`<div class="todo-empty">${a.total?'Tout est fait 🎉':'Rien encore — ajoute la première étape.'}</div>`;
-  restent.forEach(t=>{h+=ligneTache2(t,{prendre:estAPersonne(t)})});
+  restent.forEach(t=>{h+=ligneTache2(t,{prendre:estAPersonne(t),courses:true})});
   if(faites.length){
     h+=`<div class="td-plier" data-plier="pjfaites">${todoPlie.pjfaites?'▾':'▸'} Déjà fait (${faites.length})</div>`;
-    if(todoPlie.pjfaites)faites.forEach(t=>{h+=ligneTache2(t,{})});
+    if(todoPlie.pjfaites)faites.forEach(t=>{h+=ligneTache2(t,{courses:true})});
   }
   h+=`<div style="display:flex;gap:8px;margin-top:14px">
     <button class="btn" id="pj-ajout" style="flex:1">＋ Ajouter une étape</button>
@@ -1491,8 +1559,15 @@ function renderProjet(){
       if(!id)return;
       if(act==='cocher'){basculerFaite(id);renderProjet()}
       else if(act==='prendre'){enregistrerObjet(id,'taches',{qui:UTILISATEUR||''});toast('C\'est à toi maintenant ✔');renderProjet()}
+      else if(act==='courses'){const t=(CACHE.taches||[]).find(x=>x.id===id);
+        if(t){versLesCourses(t);renderProjet()}}
       else if(act==='modif'){formTache(id)}
-      else if(act==='suppr'){if(confirm('Supprimer cette étape ?')){supprimerObjet(id);renderProjet()}}
+      else if(act==='suppr'){if(confirm('Supprimer cette étape ?')){
+        // L'article de courses, lui, reste : quelqu'un en a peut-être encore
+        // besoin. Mais il perd son fil, sinon il pointerait dans le vide.
+        const c=courseDeTache(id);
+        if(c)enregistrerObjet(c.id,'courses',{tache_id:null});
+        supprimerObjet(id);renderProjet()}}
     });
   });
 }
@@ -3131,6 +3206,13 @@ function sourcesCourses(items){
       if(k){const q='🎁 pour '+(k.personne||'?');if(!v.includes(q))v.push(q)}
       return;
     }
+    if(c.tache_id){
+      const t=(CACHE.taches||[]).find(x=>x.id===c.tache_id);
+      const pj=t&&t.projet_id?(CACHE.projets||[]).find(x=>x.id===t.projet_id):null;
+      const q=pj?(pj.emoji||'🧩')+' '+pj.nom:'';
+      if(q&&!v.includes(q))v.push(q);
+      return;
+    }
     if(!c.recette_id)return;
     const r=recetteDe(c.recette_id);
     const d=c.pour_le?deIso(c.pour_le):null;
@@ -3291,7 +3373,8 @@ function renderCourses(){
       if(!items.length)return;
       const act=el.dataset.act;
       if(act==='cocher'){const v=!items[0].coche;
-        items.forEach(c=>enregistrerObjet(c.id,'courses',{coche:v,coche_par:v?EMAIL_CONNECTE:null}));render()}
+        items.forEach(c=>{enregistrerObjet(c.id,'courses',{coche:v,coche_par:v?EMAIL_CONNECTE:null});
+          syncCourseVersTache(c,v)});render()}
       else if(act==='urgent'){const v=!items[0].urgent;items.forEach(c=>enregistrerObjet(c.id,'courses',{urgent:v}));renderCourses()}
       else if(act==='editer'){formCourse(items[0].id)}
       else if(act==='suppr'){items.forEach(c=>supprimerObjet(c.id));render()}
@@ -3301,7 +3384,9 @@ function renderCourses(){
   if(fin)fin.onclick=()=>{
     const auj=iso(new Date());
     const n=caddie.length;
-    caddie.forEach(c=>enregistrerObjet(c.id,'courses',{achete_le:auj}));
+    // « Courses terminées » vaut coché : sans cette ligne, une étape restait
+    // ouverte alors que l'article était acheté et rangé.
+    caddie.forEach(c=>{enregistrerObjet(c.id,'courses',{achete_le:auj});syncCourseVersTache(c,true)});
     toast(n+' article'+(n>1?'s':'')+' archivé'+(n>1?'s':'')+' — le reste est reporté ✔');
     renderCourses();
   };
@@ -4861,6 +4946,80 @@ function renderRangement(zone){
   };
 }
 
+/* ================== LES BULLES D'AIDE ==================
+   Une icône ne s'explique qu'au survol, et l'étiquette du navigateur arrive
+   trop tard pour servir : le temps qu'elle apparaisse, on a déjà cliqué pour
+   voir. Celle-ci sort en 240 ms — assez pour ne pas clignoter quand la souris
+   traverse la barre d'actions, assez peu pour répondre à la question au moment
+   où on se la pose.
+
+   On n'invente pas un second système : c'est `title` qui reste la source, donc
+   rien à tenir à jour en double, et rien ne se perd pour un lecteur d'écran.
+   On l'emprunte pendant le survol pour que le navigateur n'affiche pas la
+   sienne par-dessus, et on le rend en partant. */
+const BULLE_DELAI=240;
+let BULLE=null,BULLE_TIMER=null,BULLE_EL=null;
+
+function cacherBulle(){
+  clearTimeout(BULLE_TIMER);
+  if(BULLE_EL){
+    // Rendre le `title` emprunté. Si l'élément a été redessiné entre-temps il
+    // n'est plus dans la page : le nouveau porte déjà le sien.
+    if(BULLE_EL.dataset.bulle!==undefined){
+      BULLE_EL.setAttribute('title',BULLE_EL.dataset.bulle);
+      delete BULLE_EL.dataset.bulle;
+    }
+    BULLE_EL=null;
+  }
+  if(BULLE)BULLE.classList.remove('on');
+}
+
+function montrerBulle(el,texte){
+  if(!BULLE){BULLE=document.createElement('div');BULLE.className='bulle';
+    document.body.appendChild(BULLE)}
+  BULLE.textContent=texte;
+  BULLE.classList.remove('dessus','dessous');
+  BULLE.style.left='0px';BULLE.style.top='0px';
+  BULLE.classList.add('on');
+  const r=el.getBoundingClientRect(),b=BULLE.getBoundingClientRect();
+  // Au-dessus par défaut ; en dessous s'il n'y a pas la place. Une bulle
+  // coupée par le haut de l'écran ne renseigne personne.
+  const dessus=r.top>b.height+10;
+  const y=dessus?r.top-b.height-7:r.bottom+7;
+  // Recentrée puis ramenée dans l'écran — et la flèche suit, sinon elle
+  // désigne un bouton voisin.
+  const idealX=r.left+r.width/2-b.width/2;
+  const x=Math.max(8,Math.min(idealX,innerWidth-b.width-8));
+  BULLE.style.left=Math.round(x)+'px';
+  BULLE.style.top=Math.round(y)+'px';
+  BULLE.style.setProperty('--fleche',Math.round(r.left+r.width/2-x)+'px');
+  BULLE.classList.add(dessus?'dessus':'dessous');
+}
+
+document.addEventListener('pointerover',(ev)=>{
+  // Au doigt, il n'y a pas de survol : une bulle apparaîtrait au moment du
+  // clic, pile devant ce qu'on vient de toucher.
+  if(ev.pointerType==='touch')return;
+  const el=ev.target&&ev.target.closest?ev.target.closest('[title]'):null;
+  if(el===BULLE_EL)return;
+  cacherBulle();
+  if(!el)return;
+  const t=el.getAttribute('title');
+  if(!t||!t.trim())return;
+  BULLE_EL=el;
+  el.dataset.bulle=t;
+  el.removeAttribute('title');       // sinon le navigateur double la nôtre
+  BULLE_TIMER=setTimeout(()=>{
+    if(BULLE_EL===el&&document.contains(el))montrerBulle(el,t);
+  },BULLE_DELAI);
+});
+document.addEventListener('pointerout',(ev)=>{
+  if(BULLE_EL&&(!ev.relatedTarget||!BULLE_EL.contains(ev.relatedTarget)))cacherBulle();
+});
+// Un clic, un défilement, une touche : la question ne se pose plus.
+['pointerdown','scroll','keydown'].forEach(e=>
+  addEventListener(e,cacherBulle,{capture:true,passive:true}));
+
 /* ============================================================
    FUSIONNER DEUX FICHES
    ------------------------------------------------------------
@@ -5305,6 +5464,45 @@ function renderMemoire(){
   });
 }
 
+/* Modifier une envie. Elle ne s'ajoutait que d'un coup, sans jamais pouvoir
+   se reprendre : une date mal tapée ou un lien oublié obligeait à supprimer et
+   à ressaisir. Même tiroir que les projets, les courses et les gens — un
+   crayon ouvre un formulaire, partout pareil. */
+function formEnvie(id){
+  const e=CACHE.envies.find(x=>x.id===id);
+  if(!e)return;
+  ouvrirTiroirBrut('Modifier cette envie');
+  // Le lien et la précision sont deux colonnes mais un seul champ à l'écran :
+  // c'est `lienOuMagasin` qui tranche, comme à la saisie. Les remettre séparés
+  // ici obligerait à expliquer une distinction que personne n'a demandée.
+  const ensemble=[e.lien||'',e.detail||''].filter(Boolean).join(' · ');
+  document.getElementById('dbd').innerHTML=`
+    <label class="lbl">Quoi ?</label>
+    <input type="text" id="fe-titre" value="${attr(e.titre||'')}">
+    <label class="lbl">Catégorie</label>
+    <select id="fe-cat">${ENV_CATS.map(c=>
+      `<option value="${c[0]}" ${e.categorie===c[0]?'selected':''}>${c[1]} ${c[2]}</option>`).join('')}</select>
+    <label class="lbl">Un lien ou une précision <span class="discret2">(facultatif)</span></label>
+    <input type="text" id="fe-detail" value="${attr(ensemble)}" placeholder="gibert.com/… ou « conseillé par Caro »">
+    <label class="lbl">Jusqu'au <span class="discret2">(facultatif — une expo ferme, un festival passe)</span></label>
+    <input type="date" id="fe-jusqua" value="${attr(e.jusqua||'')}">
+    <label class="mem-partage" style="margin-top:10px"><input type="checkbox" id="fe-partagee" ${e.partagee?'checked':''}> 👥 Visible par toute la famille</label>
+    <button class="btn primaire" id="fe-ok" style="width:100%;margin-top:14px">Enregistrer</button>`;
+  document.getElementById('fe-ok').onclick=()=>{
+    const titre=document.getElementById('fe-titre').value.trim();
+    if(!titre){toast('Dis-moi au moins quoi 🙂');return}
+    const [lienE,precision]=lienOuMagasin(document.getElementById('fe-detail').value);
+    enregistrerObjet(id,'envies',{titre,categorie:document.getElementById('fe-cat').value,
+      lien:lienE,detail:precision,
+      jusqua:document.getElementById('fe-jusqua').value||null,
+      partagee:document.getElementById('fe-partagee').checked});
+    fermerTiroir();toast('Modifiée ✔');renderMemoire();
+  };
+  document.getElementById('fe-titre').addEventListener('keydown',ev=>{
+    if(ev.key==='Enter')document.getElementById('fe-ok').click();
+  });
+}
+
 function renderEnvies(zone){
   const visibles=enviesVisibles();
   // Deux temps : `archive` est la vérité neuve, `faite` reste écrite pour le
@@ -5343,8 +5541,9 @@ function renderEnvies(zone){
               (!e.lien&&!e.detail&&e.detail)?linkifie(e.detail):''].filter(Boolean).join(' · ');
           })()}</div></div>
         ${aMoi?`<div class="todo-actions">
-          <button class="todo-act" data-act="archiver" title="Archiver — on laisse tomber">🗄️</button>
-          <button class="todo-act" data-act="basculer" title="${e.partagee?'Repasser en privée':'Partager avec la famille'}">${e.partagee?'👥':'🔒'}</button>
+          <button class="todo-act" data-act="editer" title="Modifier cette envie">✏️</button>
+          <button class="todo-act" data-act="archiver" title="Archiver : on laisse tomber, mais on la retrouve">🗄️</button>
+          <button class="todo-act" data-act="basculer" title="${e.partagee?'Repasser en privée : toi seule la verras':'Partager : toute la famille la verra'}">${e.partagee?'👥':'🔒'}</button>
         </div>`:''}
       </div>`;
     });
@@ -5401,6 +5600,7 @@ function renderEnvies(zone){
       else if(act==='archiver'){enregistrerObjet(id,'envies',{archive:true,motif:'abandonnée',faite:true});
         toast('Archivée');renderMemoire()}
       else if(act==='restaurer'){enregistrerObjet(id,'envies',{archive:false,motif:null,faite:false});renderMemoire()}
+      else if(act==='editer'){formEnvie(id)}
       else if(act==='basculer'){enregistrerObjet(id,'envies',{partagee:!e.partagee});renderMemoire()}
       else if(act==='suppr'){if(confirm('Supprimer cette envie ?')){supprimerObjet(id);renderMemoire()}}
     });
