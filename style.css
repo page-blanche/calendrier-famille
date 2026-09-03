@@ -100,12 +100,18 @@ button{font-family:inherit}
 .filter-sep{width:1px;height:18px;background:var(--border-strong);margin:0 5px}
 
 /* ---------- Mise en page ---------- */
-.main-layout{display:flex;gap:20px;max-width:1380px;margin:0 auto;padding:6px 16px 90px;align-items:flex-start}
-.cal-area{flex:1;min-width:0}
+.main-layout{display:flex;gap:20px;max-width:1380px;margin:0 auto;padding:6px 16px 90px}
+.cal-area{min-width:0}
+/* `.todo-panel` ne dit plus que l'habillage de la carte. Sa géométrie — 305 px
+   de large, collée à droite du calendrier, `position:sticky` et son propre
+   ascenseur — datait du temps où elle était la colonne latérale du mois. Elle
+   est un écran à part entière depuis, et ces quatre lignes lui donnaient un
+   ascenseur DANS l'ascenseur de la page. La largeur et la place viennent
+   maintenant de `.ecran`, comme pour les onze autres. */
 .todo-panel{
-  width:305px;flex-shrink:0;background:var(--surface);
+  background:var(--surface);
   border:1px solid var(--border);border-radius:var(--radius);
-  padding:16px;position:sticky;top:66px;max-height:calc(100vh - 90px);overflow-y:auto;
+  padding:16px;
 }
 
 /* ---------- To-do ---------- */
@@ -379,7 +385,6 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
 }
 @media(max-width:1000px){
   .main-layout{flex-direction:column}
-  .todo-panel{width:100%;max-height:none;position:static}
   .year-sidebar{width:auto;position:static;margin:12px 0}
   #yearLayout{flex-direction:column}
   .year-grid{grid-template-columns:repeat(3,1fr)}
