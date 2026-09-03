@@ -412,7 +412,10 @@ body.mode-parler #navBar{visibility:hidden!important}
    cachaient sept. On la laisse dans le code le temps d'un déploiement — si
    le bureau déçoit, une ligne suffit à la rendre. */
 .barre-bas{display:none!important}
-body.a-barre .main-layout{padding-bottom:0}
+/* `body.a-barre .main-layout{padding-bottom:0}` vivait ici : elle annulait la
+   marge du bas parce que l'ancienne barre de navigation, elle, ne recouvrait
+   rien. Cette barre n'existe plus ; la règle, si, et elle recouvrait la
+   réserve de la barre de Pia. Retirée. */
 /* --- Pia, toujours là ---
    L'interrupteur « 💬 Parler / 🏡 La famille » posait la question à l'envers :
    il fallait choisir d'aller parler à Pia, comme on change d'application. La
@@ -432,8 +435,16 @@ body.mode-parler .pia{display:none}
 .pia-barre .micro{width:29px;height:29px;border-radius:50%;background:var(--h,var(--ink));color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:.88rem;flex:0 0 auto}
 /* Ce qui flottait au-dessus du vide flotte maintenant au-dessus de la barre. */
-.fab{bottom:calc(74px + env(safe-area-inset-bottom))!important}
-.main-layout,.bureau{padding-bottom:76px}
+.fab{bottom:calc(10px + var(--bas-pia,80px))!important}
+/* La réserve se pose sur le DOCUMENT, pas sur `.main-layout`.
+   Posée sur `.main-layout`, elle se faisait écraser par `body.a-barre
+   .main-layout{padding-bottom:0}` — une règle écrite pour l'ancienne barre du
+   bas, plus spécifique que la mienne. Résultat : les derniers centimètres de
+   chaque écran passaient sous la barre de Pia, et aucun défilement n'allait
+   les chercher. On arrivait « en bas » sans voir le bas.
+   Et la hauteur est MESURÉE, pas devinée : la barre grandit de la zone sûre
+   des iPhone, qui n'est pas la même d'un modèle à l'autre. */
+body{padding-bottom:var(--bas-pia,80px)}
 @media(min-width:900px){
   /* Sur grand écran la barre suit la colonne de droite : sous le rail, elle
      ferait mine de commander la grille. */
@@ -6345,6 +6356,19 @@ function versBureau(){
   majPia();
 }
 
+/* Combien de place la barre occupe-t-elle vraiment ? On mesure plutôt que de
+   deviner : sa hauteur dépend de la zone sûre du téléphone. Sans cette
+   réserve, le bas de chaque écran est inaccessible — pas coupé, inaccessible :
+   le défilement arrive à son terme avec du contenu encore dessous. */
+function majReservePia(){
+  const z=document.getElementById('piaBarre');
+  if(!z)return;
+  const h=Math.ceil(z.getBoundingClientRect().height)+10;
+  if(h>20)document.documentElement.style.setProperty('--bas-pia',h+'px');
+}
+addEventListener('resize',majReservePia);
+addEventListener('orientationchange',()=>setTimeout(majReservePia,200));
+
 /* La barre de Pia prend la couleur et l'exemple du module ouvert. C'est la
    seule chose qui change : la phrase part au même endroit, avec en plus le nom
    du module — « ajoute du lait » depuis Courses n'a pas besoin de dire où. */
@@ -6360,7 +6384,10 @@ function majPia(){
   if(!ph)return;
   ph.textContent=m&&m.pia?'« '+m.pia+' »':'Dis-moi tout — « jeudi, c\'est raclette »';
   const z=document.getElementById('piaBarre');
-  if(z)z.style.setProperty('--h',m?`var(${m.h})`:'var(--ink)');
+  if(z){
+    z.style.setProperty('--h',m?`var(${m.h})`:'var(--ink)');
+    majReservePia();
+  }
   // Le liseré de couleur, en haut de l'écran du module.
   let l=document.querySelector('.mod-liseré');
   const hote=document.querySelector('.colonne-droite');
