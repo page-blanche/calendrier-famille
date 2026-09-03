@@ -2770,7 +2770,11 @@ function formCourseRapide(){
   document.getElementById('fc-add').onclick=ajouter;
   document.getElementById('fc-texte').addEventListener('keydown',e=>{if(e.key==='Enter')ajouter()});
   document.getElementById('fc-fin').onclick=()=>{fermerTiroir();render()};
-  setTimeout(()=>document.getElementById('fc-texte').focus(),150);
+  // Le champ peut avoir disparu entre-temps : on ouvre un autre formulaire, on
+  // ferme le tiroir. Sans ce garde, une erreur part dans la console pour une
+  // situation parfaitement normale — et une console qui crie pour rien, c'est
+  // une console qu'on cesse de lire.
+  setTimeout(()=>{const c=document.getElementById('fc-texte');if(c)c.focus()},150);
 }
 
 /* ---------- Ajout rapide : idée cadeau ---------- */
@@ -6447,7 +6451,31 @@ function poserReglage(champ,valeur){
 
 const ONGLETS=['planning','todo','memoire','sante','maison'];
 
+/* Le ＋ ajoute ce que l'écran contient.
+   ------------------------------------------------------------------
+   Il se réglait sur la SECTION, héritée de l'app à cinq onglets : Envies,
+   Cadeaux et Recettes vivaient toutes dans « Mémoire », donc le ＋ y ouvrait
+   « Ajouter quelqu'un ». Depuis le bureau, ce n'est plus la section qui dit où
+   l'on est — c'est le module. Chaque module nomme donc son propre geste, et
+   celui qui n'en nomme pas retombe sur le tiroir du calendrier.
+   Le tableau vit à côté de MODULES_BUREAU : une entrée ajoutée là sans son ＋
+   ici se verrait tout de suite, plutôt que d'ouvrir le formulaire du voisin. */
+const AJOUT_MODULE={
+  courses:  ()=>formCourseRapide(),
+  todo:     ()=>formTache(null),
+  projets:  ()=>formProjet(null),
+  sante:    ()=>formTraitement(null),
+  gens:     ()=>formPersonne(null),
+  envies:   ()=>formEnvie(),
+  cadeaux:  ()=>formCadeau(),
+  recettes: ()=>formRecette(null),
+  repas:    ()=>formRecette(null),
+};
 function fabAction(){
+  const f=MODULE_OUVERT&&AJOUT_MODULE[MODULE_OUVERT];
+  if(f)return f();
+  // Sans module ouvert on retombe sur les anciennes sections : le ＋ garde un
+  // sens même si l'on arrive par un chemin qui ne passe pas par le bureau.
   if(section==='todo')return formTache(null);
   if(section==='memoire')return formPersonne(null);
   if(section==='sante')return formTraitement(null);
