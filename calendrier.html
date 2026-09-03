@@ -459,8 +459,22 @@ body.au-bureau .fab{display:none!important}
 @media(min-width:620px){.bur-grille{grid-template-columns:repeat(4,1fr)}}
 @media(min-width:900px){.bur-grille{grid-template-columns:repeat(6,1fr)}}
 .bur-mod{display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;
-  font:inherit;color:inherit;cursor:pointer;padding:0;position:relative;touch-action:none;
-  -webkit-user-select:none;user-select:none}
+  font:inherit;color:inherit;cursor:pointer;padding:0;position:relative;
+  -webkit-user-select:none;user-select:none;
+  /* `touch-action:none` disait au navigateur « je m'occupe de tous les gestes
+     sur cette tuile ». Comme les tuiles couvrent presque tout le bureau, le
+     défilement au doigt ne partait jamais : il fallait viser l'ascenseur. Le
+     défilement appartient au navigateur, sauf pendant le rangement. */
+  touch-action:manipulation}
+body.bureau-range .bur-mod,body.bureau-range .bur-grille{touch-action:none}
+/* Le rangement se voit : sans cela, on ne sait pas qu'on y est entré, ni
+   comment en sortir. C'est le geste de l'écran d'accueil d'un téléphone. */
+@keyframes frémir{0%{transform:rotate(-1.1deg)}100%{transform:rotate(1.1deg)}}
+body.bureau-range .bur-mod{animation:frémir .16s ease-in-out infinite alternate}
+body.bureau-range .bur-mod:nth-child(even){animation-delay:.08s}
+.bur-fini{font:inherit;font-size:.78rem;font-weight:800;border:1px solid var(--border-strong);
+  background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 15px;cursor:pointer;
+  margin-left:8px}
 /* Chaque tuile prend la teinte de son module — une trace de couleur sur fond
    blanc, pas un aplat : douze aplats saturés côte à côte, c'est un jouet.
    `color-mix` n'existe pas sur les vieux Safari : la valeur de repli juste
@@ -508,6 +522,9 @@ body.au-bureau .colonne-droite{display:none}
   body:not(.au-bureau) .bureau{display:flex;padding:2px 0 20px 12px;position:sticky;top:8px}
   body:not(.au-bureau) .bur-presse,body:not(.au-bureau) .bur-astuce,
   body:not(.au-bureau) .bur-bonjour{display:none}
+  /* Sauf pendant le rangement : sinon le « Terminé » disparaît avec elle et
+     l'on reste enfermé dans un bureau qui frémit. */
+  body.bureau-range .bur-astuce{display:block!important}
   body:not(.au-bureau) .bur-grille{grid-template-columns:1fr 1fr;gap:11px 9px}
   body:not(.au-bureau) .bur-tuile{font-size:1.35rem;border-radius:15px}
   body:not(.au-bureau) .bur-nom{font-size:.68rem}
@@ -5903,6 +5920,7 @@ const MODULES_BUREAU={
 };
 const ORDRE_DEFAUT=Object.keys(MODULES_BUREAU);
 let MODULE_OUVERT=null;
+let RANGE_BUREAU=false;   // le bureau est-il en mode rangement ?
 let ORDRE_BUREAU=ORDRE_DEFAUT.slice();
 
 /* L'ordre appartient à la personne, pas au foyer : Didier ne veut pas la même
@@ -5963,10 +5981,35 @@ function renderBureau(){
         :(al?'<span class="bur-pastille alerte">!</span>':'')}
       <span class="bur-nom">${m.nom}</span></button>`;
   });
-  h+=`</div><p class="bur-astuce">Garde une icône appuyée pour changer l'ordre.</p>`;
+  h+=`</div><p class="bur-astuce">${RANGE_BUREAU
+    ?`Glisse une icône sur une autre pour les échanger.<button class="bur-fini" id="burFini">Terminé</button>`
+    :`Garde une icône appuyée pour ranger le bureau.`}</p>`;
   z.innerHTML=h;
   z.querySelectorAll('[data-va]').forEach(b=>{b.onclick=()=>setModule(b.dataset.va)});
+  const fini=document.getElementById('burFini');
+  if(fini)fini.onclick=sortirRangement;
   brancherGlisserBureau();
+}
+
+/* Ranger, c'est un mode, comme sur l'écran d'accueil d'un téléphone.
+   ------------------------------------------------------------------
+   Avant, l'appui long déplaçait directement, ce qui obligeait à réserver au
+   code TOUS les gestes sur les tuiles (`touch-action:none`) — et donc à
+   confisquer le défilement, alors que défiler est ce qu'on fait cent fois par
+   jour et ranger trois fois par an. Le mode sépare les deux : hors rangement
+   le doigt appartient au navigateur, dedans il appartient au bureau. */
+function entrerRangement(){
+  if(RANGE_BUREAU)return;
+  RANGE_BUREAU=true;
+  document.body.classList.add('bureau-range');
+  if(navigator.vibrate)navigator.vibrate(8);
+  renderBureau();
+}
+function sortirRangement(){
+  if(!RANGE_BUREAU)return;
+  RANGE_BUREAU=false;
+  document.body.classList.remove('bureau-range');
+  renderBureau();
 }
 
 function setModule(cle){
@@ -6022,45 +6065,62 @@ function majPia(){
 function brancherGlisserBureau(){
   const grille=document.getElementById('burGrille');
   if(!grille)return;
-  let attrape=null,timer=null,parti=false;
-  const finir=()=>{
-    clearTimeout(timer);
-    grille.querySelectorAll('.bur-mod').forEach(x=>x.classList.remove('attrape','cible'));
-    attrape=null;parti=false;
-  };
-  grille.querySelectorAll('.bur-mod').forEach(b=>{
-    b.addEventListener('pointerdown',(ev)=>{
-      attrape=b;parti=false;
-      timer=setTimeout(()=>{parti=true;b.classList.add('attrape');
-        if(navigator.vibrate)navigator.vibrate(8)},350);
-    });
-    b.addEventListener('pointerup',()=>{
-      if(!parti){clearTimeout(timer);const c=b.dataset.mod;finir();setModule(c)}
-    });
-    b.addEventListener('pointermove',(ev)=>{
-      if(!attrape)return;
-      if(!parti){clearTimeout(timer);return}
-      ev.preventDefault();
-      const sous=document.elementFromPoint(ev.clientX,ev.clientY);
-      const cible=sous&&sous.closest?sous.closest('.bur-mod'):null;
-      grille.querySelectorAll('.bur-mod').forEach(x=>x.classList.toggle('cible',x===cible&&x!==attrape));
-    });
+  // `dep` : d'où le doigt est parti, et s'il a bougé. Un appui qui glisse est
+  // un défilement, pas un choix : sans ce seuil, faire défiler la page ouvrait
+  // le module sous le doigt en relâchant.
+  let dep=null,attrape=null,timer=null;
+  const tuiles=()=>grille.querySelectorAll('.bur-mod');
+  const finir=()=>{clearTimeout(timer);
+    tuiles().forEach(x=>x.classList.remove('attrape','cible'));attrape=null;dep=null};
+  const sous=(x,y)=>{const e=document.elementFromPoint(x,y);
+    return e&&e.closest?e.closest('.bur-mod'):null};
+
+  grille.addEventListener('pointerdown',(ev)=>{
+    const b=ev.target&&ev.target.closest?ev.target.closest('.bur-mod'):null;
+    if(!b)return;
+    dep={x:ev.clientX,y:ev.clientY,bouge:false,mod:b.dataset.mod};
+    if(RANGE_BUREAU){attrape=b;b.classList.add('attrape');return}
+    // Hors rangement, l'appui long n'attrape rien : il ouvre le rangement.
+    // C'est ce qui permet de rendre le défilement au navigateur le reste du
+    // temps — le geste de déplacement commence après, sur un appui neuf.
+    timer=setTimeout(()=>{if(dep&&!dep.bouge)entrerRangement()},500);
   });
-  grille.addEventListener('pointerup',(ev)=>{
-    if(!parti||!attrape)return finir();
-    const sous=document.elementFromPoint(ev.clientX,ev.clientY);
-    const cible=sous&&sous.closest?sous.closest('.bur-mod'):null;
-    if(cible&&cible!==attrape){
-      const de=ORDRE_BUREAU.indexOf(attrape.dataset.mod);
-      const vers=ORDRE_BUREAU.indexOf(cible.dataset.mod);
-      ORDRE_BUREAU.splice(de,1);ORDRE_BUREAU.splice(vers,0,attrape.dataset.mod);
-      garderOrdreBureau();
-      finir();renderBureau();return;
+
+  grille.addEventListener('pointermove',(ev)=>{
+    if(!dep)return;
+    if(Math.abs(ev.clientX-dep.x)>8||Math.abs(ev.clientY-dep.y)>8){
+      dep.bouge=true;clearTimeout(timer);
     }
-    finir();
+    if(!attrape)return;
+    ev.preventDefault();
+    const c=sous(ev.clientX,ev.clientY);
+    tuiles().forEach(x=>x.classList.toggle('cible',x===c&&x!==attrape));
   });
+
+  grille.addEventListener('pointerup',(ev)=>{
+    clearTimeout(timer);
+    if(!dep)return finir();
+    if(RANGE_BUREAU){
+      const c=attrape?sous(ev.clientX,ev.clientY):null;
+      if(attrape&&c&&c!==attrape){
+        const de=ORDRE_BUREAU.indexOf(attrape.dataset.mod);
+        const vers=ORDRE_BUREAU.indexOf(c.dataset.mod);
+        ORDRE_BUREAU.splice(de,1);ORDRE_BUREAU.splice(vers,0,attrape.dataset.mod);
+        garderOrdreBureau();
+        finir();renderBureau();return;
+      }
+      finir();return;      // en rangement, un simple appui n'ouvre rien
+    }
+    const m=dep.mod,bouge=dep.bouge;
+    finir();
+    if(!bouge)setModule(m);
+  });
+  // Le navigateur prend la main pour faire défiler : il envoie pointercancel
+  // et jamais pointerup. Sans cette ligne, la tuile restait « attrapée ».
   grille.addEventListener('pointercancel',finir);
 }
+// Une porte de sortie qui ne dépend pas d'un bouton qu'on n'aurait pas vu.
+document.addEventListener('keydown',(e)=>{if(e.key==='Escape')sortirRangement()});
 
 function setSection(s){
   if(!ONGLETS.includes(s))s='planning';
