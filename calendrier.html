@@ -101,6 +101,66 @@
 .ps-ajout{display:flex;gap:8px;margin:12px 0 18px}
 .ps-ajout input{flex:1}
 .carte-solo{border:1px solid var(--border);border-radius:var(--radius-s);padding:14px 16px;margin:12px 0 20px;background:#fdfcfa}
+
+/* ================== ☀️ MA JOURNÉE, EN CARTES ==================
+   L'écran de la journée n'est plus une page, c'est un plan de travail : ce
+   sont les cartes qui portent le fond blanc, pas leur conteneur. D'où
+   `.sans-carte`, qui rend l'écran transparent quand il les accueille —
+   sinon on empile une carte dans une carte, et les deux bordures se
+   répètent à 3 px l'une de l'autre. */
+.page-solo.sans-carte{background:none;border:none;padding:0}
+.jw{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}
+.jw-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+/* Deux colonnes seulement quand il y a la place : le fil à gauche, les cinq
+   petites cartes à droite. En dessous, tout s'empile dans l'ordre où on se
+   pose les questions. */
+@media(min-width:1024px){
+  .jw{grid-template-columns:minmax(0,1.32fr) minmax(0,1fr)}
+}
+.jw-c{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:13px 15px 15px;min-width:0}
+.jw-t{display:flex;align-items:center;gap:7px;margin:0 0 9px}
+.jw-lbl{font-size:.68rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.jw-n{margin-left:auto;font-size:.7rem;font-weight:800;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.jw-n.urg{color:var(--alert)}
+.jw-pied{margin-top:14px}
+/* Dans une carte, le premier intertitre n'a rien au-dessus de lui : sa marge
+   haute creuse un trou sous le libellé de la carte. */
+.jw-c .tj-sect:first-child{margin-top:0}
+.jw-c .tj-ctx{margin-bottom:8px}
+
+/* À table — le vide est l'information, et il se touche pour poser un repas. */
+.jw-repas{display:flex;align-items:baseline;gap:9px;padding:4px 0;font-size:.88rem}
+.jw-repas .q{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--ink-3);width:38px;flex:0 0 auto}
+.jw-repas .v{font-weight:600;cursor:pointer;min-width:0}
+.jw-repas .v:hover{text-decoration:underline}
+.jw-repas .v.vide{color:var(--alert)}
+
+/* Ce qui presse — quatre modules, une seule liste. */
+.jw-presse{display:flex;gap:9px;padding:4px 0;font-size:.85rem;align-items:baseline;cursor:pointer}
+.jw-presse:hover .q{text-decoration:underline}
+.jw-presse .h{font-size:.72rem;font-weight:800;color:var(--ink-3);flex:0 0 auto;width:96px;
+  line-height:1.35;font-variant-numeric:tabular-nums}
+.jw-presse .h.urg{color:var(--alert)}
+.jw-presse .q{min-width:0}
+
+/* Les courses — de quoi savoir s'il y a une liste, pas de quoi la cocher. */
+.jw-puces{display:flex;flex-wrap:wrap;gap:5px}
+.jw-p{font-size:.76rem;border:1px solid var(--border);border-radius:999px;padding:2px 9px;color:var(--ink-2)}
+.jw-p.creuse{border-style:dashed;color:var(--ink-3)}
+.jw-mini{display:inline-flex;align-items:center;gap:5px;margin-top:10px;font:inherit;font-size:.75rem;
+  font-weight:700;border:1px solid var(--border-strong);background:var(--surface);border-radius:999px;
+  padding:4px 12px;color:var(--ink-2);cursor:pointer}
+.jw-mini:hover{color:var(--ink);border-color:var(--ink-3)}
+
+/* À préparer ce soir — la seule carte qui regarde demain. */
+.jw-prep{display:flex;gap:9px;padding:5px 0;font-size:.85rem;align-items:flex-start;cursor:pointer}
+.jw-prep:hover .tx b{text-decoration:underline}
+.jw-prep .e{flex:0 0 auto;font-size:.95rem;line-height:1.45}
+.jw-prep .tx{min-width:0}
+.jw-prep .tx b{font-weight:600}
+.jw-prep .pq{display:block;font-size:.75rem;color:var(--ink-2)}
 /* ================== UN SEUL CADRE, DOUZE ÉCRANS ==================
    Mandana : « parfois elles sont centrées à gauche, parfois bien centrées,
    parfois mal centrées ; elles n'ont pas toutes la même taille ».
@@ -689,7 +749,13 @@ body.au-bureau .colonne-droite{display:none}
   /* La tuile redevient ce qu'elle est ici : un emoji. Plus de carré, plus de
      fond teinté, plus de soulèvement au survol — c'est la ligne entière qui
      répond maintenant. */
-  body:not(.au-bureau) .bur-tuile{width:auto;aspect-ratio:auto;flex:0 0 auto;
+  /* `.bur-mod .bur-tuile` et non `.bur-tuile` : la règle du bureau qui teinte
+     la tuile s'écrit `.bur-mod[style*="--h"] .bur-tuile`, et pesait plus lourd
+     que ma version. Le fond teinté est donc resté en place dans le rail —
+     invisible à 15 %, mais mon commentaire disait « plus de fond teinté »
+     alors que le code en gardait un. Un commentaire qui ment sur le code est
+     pire qu'une absence de commentaire. */
+  body:not(.au-bureau) .bur-mod .bur-tuile{width:auto;aspect-ratio:auto;flex:0 0 auto;
     font-size:1.05rem;line-height:1;border:none;border-radius:0;
     background:none;transform:none}
   body:not(.au-bureau) .bur-mod:hover .bur-tuile{transform:none}
@@ -2050,11 +2116,30 @@ function choisirAccompagnateur(actId,sJour){
 }
 /* Le corps de « Ta journée ». Sert deux fois : dans le tiroir quand on
    ouvre un jour du calendrier, et en pleine page sur l'onglet Planning. */
-function corpsJournee(d,pleinePage){
-  const sJ=iso(d),sAuj=iso(new Date());
-  const v=enVacances(d),f=ferie(d);
-  const items=elementsJour(d);
+/* ================== LES MORCEAUX D'UNE JOURNÉE ==================
+   Une journée s'écrit à deux endroits : le VOLET qu'on ouvre en touchant
+   une case du calendrier, et l'ÉCRAN « Ma journée », qui est désormais la
+   page d'accueil sur ordinateur. Les deux montrent les mêmes choses, dans
+   deux arrangements — le volet à la file, l'écran en cartes.
 
+   D'où ces quatre morceaux. Les écrire une fois et les assembler deux fois,
+   plutôt que deux versions qui divergeront au premier correctif : c'est
+   exactement le défaut qu'on a passé la session à retirer ailleurs (Projets
+   qui partageait l'écran de la to-do, le panneau du planning qui rappelait
+   renderTodo). */
+
+/* Le contexte : férié, vacances. Ce qui colore la journée entière. */
+function jourContexte(d){
+  const v=enVacances(d),f=ferie(d);
+  const ctx=[f?'🇫🇷 '+echap(f):'',v?'☀️ '+echap(v.nom):''].filter(Boolean).join(' · ');
+  if(!ctx)return '';
+  return `<div class="tj-ctx">${ctx}${v?` <span data-modif-vac="${v.id}" style="cursor:pointer;opacity:.55" title="Modifier cette période">✏️</span>`:''}</div>`;
+}
+
+/* La chronologie, et le trait « maintenant ». */
+function jourFil(d,avecTitre){
+  const sJ=iso(d),sAuj=iso(new Date());
+  const items=elementsJour(d);
   // Ce qui est derrière nous : tout un jour passé, rien un jour futur,
   // et l'heure qui tranche pour aujourd'hui.
   const mnt=new Date().getHours()*60+new Date().getMinutes();
@@ -2068,35 +2153,37 @@ function corpsJournee(d,pleinePage){
   const dernierPasse=etats.lastIndexOf(true);
   const montrerMaintenant=(sJ===sAuj)&&dernierPasse>=0&&dernierPasse<items.length-1;
 
+  if(!items.length)return `<div class="tj-vide">Rien de prévu ce jour-là 🌿</div>`;
   let h='';
-  const ctx=[f?'🇫🇷 '+echap(f):'',v?'☀️ '+echap(v.nom):''].filter(Boolean).join(' · ');
-  if(ctx)h+=`<div class="tj-ctx">${ctx}${v?` <span data-modif-vac="${v.id}" style="cursor:pointer;opacity:.55" title="Modifier cette période">✏️</span>`:''}</div>`;
+  if(avecTitre!==false)h+=`<div class="tj-sect">Au programme<span class="tj-n">${items.length}</span></div>`;
+  items.forEach((it,i)=>{
+    const cls=[ 'tj-li',
+      i===0?'tj-premier':'', i===items.length-1?'tj-dernier':'',
+      it.recur?'tj-rec':'', it.annulee?'tj-annulee':'',
+      (i<=dernierPasse)?'tj-plein':'' ].filter(Boolean).join(' ');
+    const pa=['tj-pa',it.recur?'tj-rec':'',etats[i]?'tj-passe':''].filter(Boolean).join(' ');
+    h+=`<div class="${cls}" data-detail="${it.id}">
+      <div class="tj-rail"><span class="${pa}"></span></div>
+      <div class="tj-co"><div class="tj-ti">${echap(it.titre)}</div>
+        ${it.sous?`<div class="tj-su">${echap(it.sous)}</div>`:''}
+        ${it.type==='act'?pastilleAccomp(it.id,d):''}</div>
+      ${etiquettePersonne(it.qui)}</div>`;
+    if(montrerMaintenant&&i===dernierPasse){
+      h+=`<div class="tj-mnt"><div class="tj-rail"><span class="tj-pt"></span></div>
+        <span class="tj-lb">${p2(new Date().getHours())}:${p2(new Date().getMinutes())} · maintenant</span></div>`;
+    }
+  });
+  return h;
+}
 
-  // ---- La chronologie ----
-  if(items.length){
-    h+=`<div class="tj-sect">Au programme<span class="tj-n">${items.length}</span></div>`;
-    items.forEach((it,i)=>{
-      const cls=[ 'tj-li',
-        i===0?'tj-premier':'', i===items.length-1?'tj-dernier':'',
-        it.recur?'tj-rec':'', it.annulee?'tj-annulee':'',
-        (i<=dernierPasse)?'tj-plein':'' ].filter(Boolean).join(' ');
-      const pa=['tj-pa',it.recur?'tj-rec':'',etats[i]?'tj-passe':''].filter(Boolean).join(' ');
-      h+=`<div class="${cls}" data-detail="${it.id}">
-        <div class="tj-rail"><span class="${pa}"></span></div>
-        <div class="tj-co"><div class="tj-ti">${echap(it.titre)}</div>
-          ${it.sous?`<div class="tj-su">${echap(it.sous)}</div>`:''}
-          ${it.type==='act'?pastilleAccomp(it.id,d):''}</div>
-        ${etiquettePersonne(it.qui)}</div>`;
-      if(montrerMaintenant&&i===dernierPasse){
-        h+=`<div class="tj-mnt"><div class="tj-rail"><span class="tj-pt"></span></div>
-          <span class="tj-lb">${p2(new Date().getHours())}:${p2(new Date().getMinutes())} · maintenant</span></div>`;
-      }
-    });
-  }else{
-    h+=`<div class="tj-vide">Rien de prévu ce jour-là 🌿</div>`;
-  }
-
-  // ---- Les tâches, rangées par personne ----
+/* Les tâches du jour, PLUS celles accrochées à un de ses éléments.
+   Le nom `tachesDuJour` était déjà pris, 800 lignes plus haut, par la
+   fonction qui alimente les emojis d'une case du calendrier. Ma version
+   l'avait écrasée en silence : mêmes symptômes que la collision `formEnvie`
+   de l'autre jour — aucune erreur, un écran qui ne dit plus la vérité.
+   C'est `verifier-doublons.py` qui l'a vue, et c'est pour ça qu'il existe. */
+function tachesDuJourEtLiees(d){
+  const sJ=iso(d);
   const vus=new Set();
   const taches=[];
   toutesTaches().forEach(t=>{if(t.ech===sJ&&!vus.has(t.id)){vus.add(t.id);taches.push(t)}});
@@ -2105,52 +2192,68 @@ function corpsJournee(d,pleinePage){
      Mais pas celles qui visent l'an prochain : un anniversaire porte aussi la
      tâche de l'année suivante, et on voyait « (11 ans) » et « (12 ans) » l'un
      sous l'autre le même jour. */
-  items.forEach(it=>tachesLiees(it.id).forEach(t=>{
+  elementsJour(d).forEach(it=>tachesLiees(it.id).forEach(t=>{
     if(t.ech&&t.ech>sJ)return;
     if(!vus.has(t.id)){vus.add(t.id);taches.push(t)}
   }));
-  if(taches.length){
-    const moi=String(UTILISATEUR||'').trim().toLowerCase();
-    const membres=(CACHE.membres||[]).slice()
-      .sort((a,b)=>(String(a).trim().toLowerCase()===moi?-1:0)-(String(b).trim().toLowerCase()===moi?-1:0));
-    const groupes=[];
-    const pris=new Set();
-    membres.forEach(m=>{
-      const bas=String(m).trim().toLowerCase();
-      const lot=taches.filter(t=>{const q=String(t.qui||'').trim().toLowerCase();
-        return q&&(q===bas||q.includes(bas))&&!pris.has(t.id)});
-      lot.forEach(t=>pris.add(t.id));
-      if(lot.length)groupes.push({nom:bas===moi?'Toi':String(m).trim(),lot,aMoi:bas===moi});
+  return taches;
+}
+function groupesTaches(taches){
+  const moi=String(UTILISATEUR||'').trim().toLowerCase();
+  const membres=(CACHE.membres||[]).slice()
+    .sort((a,b)=>(String(a).trim().toLowerCase()===moi?-1:0)-(String(b).trim().toLowerCase()===moi?-1:0));
+  const groupes=[];
+  const pris=new Set();
+  membres.forEach(m=>{
+    const bas=String(m).trim().toLowerCase();
+    const lot=taches.filter(t=>{const q=String(t.qui||'').trim().toLowerCase();
+      return q&&(q===bas||q.includes(bas))&&!pris.has(t.id)});
+    lot.forEach(t=>pris.add(t.id));
+    if(lot.length)groupes.push({nom:bas===moi?'Toi':String(m).trim(),lot,aMoi:bas===moi});
+  });
+  const reste=taches.filter(t=>!pris.has(t.id)&&String(t.qui||'').trim());
+  if(reste.length)groupes.push({nom:'Autres',lot:reste,aMoi:false});
+  const libres=taches.filter(t=>!String(t.qui||'').trim());
+  if(libres.length)groupes.push({nom:'À prendre',lot:libres,aMoi:false,libre:true});
+  return groupes;
+}
+function jourTaches(d){
+  const taches=tachesDuJourEtLiees(d);
+  if(!taches.length)return '';
+  let h='';
+  groupesTaches(taches).forEach(g=>{
+    const faites=g.lot.filter(t=>estFaite(t.id)).length;
+    h+=`<div class="tj-sect">${echap(g.nom)}<span class="tj-n">${g.libre?g.lot.length:faites+' sur '+g.lot.length}</span></div>`;
+    g.lot.forEach(t=>{
+      const fa=estFaite(t.id);
+      h+=`<div class="tj-t ${fa?'tj-faite':''} ${g.aMoi?'':'tj-autre'}">
+        <span class="tj-cb ${fa?'on':''}" data-coche="${t.id}"></span>
+        <span class="tj-tt" data-ouvrir-tache="${t.id}">${echap(t.texte)}</span></div>`;
     });
-    const reste=taches.filter(t=>!pris.has(t.id)&&String(t.qui||'').trim());
-    if(reste.length)groupes.push({nom:'Autres',lot:reste,aMoi:false});
-    const libres=taches.filter(t=>!String(t.qui||'').trim());
-    if(libres.length)groupes.push({nom:'À prendre',lot:libres,aMoi:false,libre:true});
-    groupes.forEach(g=>{
-      const faites=g.lot.filter(t=>estFaite(t.id)).length;
-      h+=`<div class="tj-sect">${echap(g.nom)}<span class="tj-n">${g.libre?g.lot.length:faites+' sur '+g.lot.length}</span></div>`;
-      g.lot.forEach(t=>{
-        const fa=estFaite(t.id);
-        h+=`<div class="tj-t ${fa?'tj-faite':''} ${g.aMoi?'':'tj-autre'}">
-          <span class="tj-cb ${fa?'on':''}" data-coche="${t.id}"></span>
-          <span class="tj-tt" data-ouvrir-tache="${t.id}">${echap(t.texte)}</span></div>`;
-      });
-    });
-  }
+  });
+  return h;
+}
 
-  // Les traitements du jour : une case par prise, comme dans la fiche santé
+/* Les traitements du jour : une case par prise, comme dans la fiche santé. */
+function jourDoses(d){
   const doses=dosesDuJour(d);
-  if(doses.length){
-    const restantes=doses.filter(x=>!x.faite).length;
-    h+=`<div class="tj-sect">💊 Traitements<span class="tj-n">${doses.length-restantes} sur ${doses.length}</span></div>`;
-    doses.forEach(x=>{
-      const def=MOMENTS.find(m=>m[0]===x.moment)||[x.moment,'💊',x.moment];
-      h+=`<div class="tj-t ${x.faite?'tj-faite':''}">
-        <span class="tj-cb ${x.faite?'on':''}" data-dosej="${x.trait.id}|${x.moment}"></span>
-        <span class="tj-tt">${def[1]} ${echap(x.trait.medicament)}${x.trait.dose?' '+echap(x.trait.dose):''}
-          <span class="tj-su">· ${echap(x.profil.nom)} · ${def[2]}</span></span></div>`;
-    });
-  }
+  if(!doses.length)return '';
+  const restantes=doses.filter(x=>!x.faite).length;
+  let h=`<div class="tj-sect">💊 Traitements<span class="tj-n">${doses.length-restantes} sur ${doses.length}</span></div>`;
+  doses.forEach(x=>{
+    const def=MOMENTS.find(m=>m[0]===x.moment)||[x.moment,'💊',x.moment];
+    h+=`<div class="tj-t ${x.faite?'tj-faite':''}">
+      <span class="tj-cb ${x.faite?'on':''}" data-dosej="${x.trait.id}|${x.moment}"></span>
+      <span class="tj-tt">${def[1]} ${echap(x.trait.medicament)}${x.trait.dose?' '+echap(x.trait.dose):''}
+        <span class="tj-su">· ${echap(x.profil.nom)} · ${def[2]}</span></span></div>`;
+  });
+  return h;
+}
+
+/* Le volet d'un jour : les mêmes morceaux, à la file. */
+function corpsJournee(d,pleinePage){
+  const sJ=iso(d),sAuj=iso(new Date());
+  let h=jourContexte(d)+jourFil(d)+jourTaches(d)+jourDoses(d);
   if(sJ===sAuj){
     const rtd=tachesEnRetard();
     if(rtd.length)h+=`<div class="tj-retard" data-voir-todo="1">🚨 ${rtd.length} tâche${rtd.length>1?'s':''} en retard — voir la to-do ›</div>`;
@@ -6872,12 +6975,26 @@ function setModule(cle){
   renderBureau();          // le rail doit savoir où l'on est
   majPia();
 }
+/* Sur grand écran, le rail est le menu : il est là en permanence, à gauche de
+   tout. La grille de douze grandes tuiles n'a donc plus de rôle d'accueil —
+   elle proposerait de choisir ce que le rail propose déjà, en prenant l'écran
+   entier pour le dire. L'accueil, c'est la journée.
+   Sur téléphone il n'y a pas de rail : la grille reste l'accueil, et elle ne
+   change pas d'un pixel. */
+const GRAND_ECRAN=()=>window.matchMedia('(min-width:900px)').matches;
 function versBureau(){
+  if(GRAND_ECRAN())return setModule('journee');
   MODULE_OUVERT=null;
   document.body.classList.add('au-bureau');
   renderBureau();
   majPia();
 }
+/* On passe du téléphone à l'ordinateur — fenêtre agrandie, tablette tournée —
+   alors qu'on est sur la grille : sans cela on resterait sur un écran d'accueil
+   qui n'existe plus de ce côté, avec le rail à côté qui dit la même chose. */
+window.matchMedia('(min-width:900px)').addEventListener('change',(e)=>{
+  if(e.matches&&document.body.classList.contains('au-bureau'))setModule('journee');
+});
 
 /* Combien de place les boutons flottants occupent-ils vraiment ? On mesure
    plutôt que de deviner : leur hauteur dépend de la zone sûre du téléphone.
@@ -7060,6 +7177,11 @@ function montrerMois(){
 }
 function render(){
   if(typeof montrerPriseSiBesoin==='function')montrerPriseSiBesoin();
+  // `#vueCourses` accueille deux écrans très différents : la journée en cartes
+  // et les repas de la semaine. Le premier ne veut pas du fond blanc, l'autre
+  // si. On le dit ici, une fois, plutôt qu'au début de chaque render.
+  {const zc=document.getElementById('vueCourses');
+   if(zc)zc.classList.toggle('sans-carte',section==='planning'&&vuePlanning==='jour');}
   if(section==='memoire'){renderMemoire();return}
   if(section==='sante'){renderSante();return}
   if(section==='maison'){renderMaison();return}
@@ -7077,33 +7199,190 @@ function render(){
   renderAujourdhui();
 }
 
-/* ☀️ Aujourd'hui — la chronologie du jour, en pleine page.
-   Même corps que le tiroir : on n'entretient qu'une seule version. */
+/* ================== ☀️ MA JOURNÉE, EN CARTES ==================
+   C'est l'écran d'accueil sur ordinateur. Il répond à six questions, dans
+   l'ordre où on se les pose : qu'est-ce qui arrive aujourd'hui, qu'est-ce
+   qu'on mange, qu'est-ce qui se coche, qu'est-ce qui presse, y a-t-il une
+   liste de courses, et — la seule qui regarde ailleurs qu'aujourd'hui —
+   qu'est-ce qu'il faut préparer ce soir pour demain.
+
+   Ce qui n'y est PAS, et c'est la moitié du travail : Envies, Cadeaux,
+   Recettes, Les gens, Projets, Planning. Rien de ce qu'ils contiennent n'a
+   de date. « 7 envies » n'est pas une information du jeudi 3 septembre,
+   c'est un inventaire — et un inventaire coûterait ici un tiers de l'écran
+   pour ne rien dire. Ils restent dans le rail, à un clic.
+   Santé garde ses prises du jour, qui sont datées ; Maison n'a pas de carte
+   mais ce qu'elle réclame vraiment monte dans « ce qui presse ». */
+
+/* Une carte. Vide, elle ne s'affiche pas — sauf « À table », dont le vide
+   EST l'information. */
+function carteJour(lbl,compte,corps,opts){
+  const o=opts||{};
+  if(!corps&&!o.garder)return '';
+  return `<section class="jw-c${o.cls?' '+o.cls:''}">
+    <div class="jw-t"><span class="jw-lbl">${lbl}</span>
+      ${compte?`<span class="jw-n${o.urg?' urg':''}">${compte}</span>`:''}</div>
+    ${corps}</section>`;
+}
+
+/* Ce qui presse : quatre modules répondent, une seule liste les rassemble.
+   Le petit « ce qui presse » du bureau disait déjà cela — mais il disparaît
+   dès qu'on ouvre quoi que ce soit, c'est-à-dire tout le temps. */
+function cePresse(){
+  const out=[];
+  tachesEnRetard().forEach(t=>out.push({j:-9999,h:'en retard',urg:true,
+    q:echap(sansEmoji(t.texte)),va:'todo'}));
+  maisonReclame().filter(x=>x.jours<=30).forEach(x=>out.push({j:x.jours,
+    h:echap(delaiFr(x.jours)),urg:x.jours<=7,
+    q:echap(x.nom)+(x.montant?' · '+euros(x.montant)+'/mois':''),va:'maison'}));
+  // À partir d'après-demain seulement : aujourd'hui et demain sont déjà dits,
+  // l'un dans le fil, l'autre dans « à préparer ce soir ». Sans ce filtre, un
+  // anniversaire du lendemain s'affichait TROIS fois sur le même écran.
+  annivProches(14).filter(b=>b.jours>=2).forEach(b=>out.push({j:b.jours,h:echap(delaiFr(b.jours)),urg:b.jours<=3,
+    q:'Anniversaire de '+echap(b.nom)+(b.cadeau&&!b.aUnCadeau?' · <b>pas de cadeau noté</b>':''),
+    va:b.cadeau&&!b.aUnCadeau?'cadeaux':'gens'}));
+  return out.sort((a,b)=>a.j-b.j);
+}
+/* Le prochain anniversaire de chacun, à moins de n jours. Il tombe cette
+   année, ou l'an prochain si la date est déjà passée. */
+function annivProches(nJours){
+  const sAuj=iso(new Date()),an=new Date().getFullYear(),out=[];
+  const cadeauxOuverts=(CACHE.cadeaux||[]).filter(c=>!c.offert&&!c.archive)
+    .map(c=>String(c.personne||'').trim().toLowerCase());
+  lesBdays().forEach(b=>{
+    if(b.type==='evenement'||!b.jour||!b.mois)return;
+    let s=an+'-'+p2(b.mois)+'-'+p2(b.jour);
+    if(s<sAuj)s=(an+1)+'-'+p2(b.mois)+'-'+p2(b.jour);
+    const j=joursAvant(s);
+    if(j===null||j>nJours)return;
+    out.push({nom:b.nom,jours:j,cadeau:!!b.cadeau,
+      aUnCadeau:cadeauxOuverts.includes(String(b.nom||'').trim().toLowerCase())});
+  });
+  return out.sort((a,b)=>a.jours-b.jours);
+}
+
+/* ---------- À préparer ce soir ----------
+   La seule carte qui n'existait nulle part, et celle qui a fait dire
+   « génial » : à 21 h, ce qu'on veut savoir n'est pas ce qui s'est passé
+   aujourd'hui, c'est ce qui va manquer demain.
+
+   La règle, en quatre lignes — c'est celle que j'ai proposée, et elle se
+   corrige ici, à un seul endroit :
+     · les activités récurrentes de demain — elles demandent presque toujours
+       des affaires : le sac de judo, le maillot, l'instrument ;
+     · un anniversaire demain — c'est ce soir qu'on emballe ;
+     · tout ce qui commence avant 8 h — un départ à 7 h 15 quand on se lève à
+       7 h 30 se prépare la veille, pas le matin même ;
+     · une tâche dont l'échéance tombe demain.
+   Rien de tout cela n'invente de donnée : c'est la journée de demain, lue
+   ce soir. */
+const PREP_TOT='08:00';
+function aPreparerCeSoir(d){
+  const dem=new Date((d||new Date()).getTime()+86400000);
+  const sDem=iso(dem),out=[];
+  // Un seul emoji par ligne, et c'est le mien : il dit de quel GENRE de
+  // préparation il s'agit. Les titres portent souvent le leur — « 🥋 Judo »,
+  // « 🎂 Anniv Léa » — et les deux côte à côte donnaient « 🎒 🥋 Judo ».
+  const net=(t)=>sansEmoji(String(t||'').split('—')[0]).trim();
+  const anniv=bdaysDuJour(dem);
+  actsDuJour(dem).forEach(a=>{
+    if(a.annuleeCeJour)return;
+    const bouts=[String(a.qui||'').trim(),a.hd?'demain '+a.hd:'demain'].filter(Boolean);
+    out.push({e:'🎒',quoi:net(a.titre),pq:bouts.join(' · '),va:'planning'});
+  });
+  anniv.forEach(b=>out.push({e:'🎂',quoi:net(b.titre),pq:'Demain',va:'gens'}));
+  evtsDuJour(dem).forEach(ev=>{
+    if(!ev.heure||ev.heure>=PREP_TOT)return;
+    out.push({e:'⏰',quoi:net(ev.titre),pq:'Demain '+ev.heure+' — plus tôt que d\'habitude',va:'planning'});
+  });
+  toutesTaches().forEach(t=>{
+    if(t.ech!==sDem||estFaite(t.id))return;
+    // « 🎂 Souhaiter l'anniversaire de Léa » est une tâche générée PAR
+    // l'anniversaire : la lister sous celui-ci, c'est écrire deux fois la même
+    // chose. L'app connaît déjà ce piège — `tachesDuJour` le désamorce pareil.
+    if(anniv.length&&String(t.id).startsWith('auto-souhait-'))return;
+    out.push({e:'✅',quoi:net(t.texte),pq:'À faire demain',va:'todo'});
+  });
+  return out;
+}
+
 function renderAujourdhui(){
   const zone=document.getElementById('vueCourses');
   const auj=deIso(jourVu);
-  // Le contexte (férié, vacances) est déjà écrit par corpsJournee : le
-  // répéter ici donnait deux lignes presque identiques l'une sous l'autre.
-  const rec=maisonReclame().filter(x=>x.jours<=30);
-  let bas='';
-  if(rec.length){
-    bas=`<div class="tj-sect" style="color:var(--alert)">🏠 La maison réclame<span class="tj-n">${rec.length}</span></div>`
-      +rec.map(x=>`<div class="todo-item" data-recl="${x.genre}|${x.id}" style="cursor:pointer">
-        <div style="flex-shrink:0;font-size:1.1rem">${x.emoji}</div>
-        <div class="todo-corps"><div class="todo-text">${echap(x.nom)}</div>
-        <div class="todo-date"><span style="color:var(--alert);font-weight:700">${echap(delaiFr(x.jours))}</span>${x.montant?' · '+euros(x.montant)+'/mois':''}</div></div>
-        <div style="color:var(--ink-3)">›</div></div>`).join('');
+  const sJ=jourVu,sAuj=iso(new Date());
+  const cartes=[];
+
+  // ---- 1. Le fil du jour ----
+  const items=elementsJour(auj);
+  cartes.push({col:'a',h:carteJour('Le fil du jour',items.length||'',
+    jourContexte(auj)+jourFil(auj,false)
+    +`<div class="jw-pied">${boutonPartage('tj-part-p','Envoyer la journée')}</div>`,
+    {garder:true})});
+
+  // ---- 2. À table ----
+  // Le vide est l'information : c'est la question de 18 h.
+  const dit=(m)=>{const x=menuDuJour(sJ,m);
+    if(!x)return null;
+    return x.recette_id?((recetteDe(x.recette_id)||{}).nom||'—'):(x.texte||'—')};
+  const midi=dit('midi'),soir=dit('soir');
+  const ligneRepas=(q,v,m)=>`<div class="jw-repas">
+    <span class="q">${q}</span>
+    <span class="v${v?'':' vide'}" data-poser="${sJ}|${m}">${v?echap(v):'Rien de prévu'}</span></div>`;
+  cartes.push({col:'b',h:carteJour('À table','',
+    ligneRepas('Midi',midi,'midi')+ligneRepas('Soir',soir,'soir'),{garder:true})});
+
+  // ---- 3. Ça se coche aujourd'hui ----
+  const taches=tachesDuJourEtLiees(auj),doses=dosesDuJour(auj);
+  const nTout=taches.length+doses.length;
+  const nFaits=taches.filter(t=>estFaite(t.id)).length+doses.filter(x=>x.faite).length;
+  // Colonne de gauche avec le fil : ce sont les deux seules cartes dont on
+  // fait quelque chose maintenant, et à elles deux elles tiennent la hauteur
+  // des quatre autres. Toutes à droite, la gauche restait vide au tiers.
+  cartes.push({col:'a',h:carteJour('Ça se coche aujourd\'hui',
+    nTout?nFaits+' sur '+nTout:'', jourTaches(auj)+jourDoses(auj))});
+
+  // ---- 4. Ce qui presse ----
+  if(sJ===sAuj){
+    const pr=cePresse();
+    cartes.push({col:'b',h:carteJour('Ce qui presse',pr.length||'',
+      pr.map(x=>`<div class="jw-presse" data-va="${x.va}">
+        <span class="h${x.urg?' urg':''}">${x.h}</span><span class="q">${x.q}</span></div>`).join(''),
+      {urg:pr.some(x=>x.urg)})});
   }
-  // La date est déjà écrite dans la barre de période, juste au-dessus.
-  zone.innerHTML=`<h2 class="ps-titre">${jourVu===iso(new Date())?'Ma journée':'Cette journée'}</h2>`
-    +corpsJournee(auj,true)+bas;
+
+  // ---- 5. Les courses ----
+  const cr=(CACHE.courses||[]).filter(c=>!c.achete_le&&!c.coche);
+  if(cr.length){
+    const sup=cr.filter(c=>!c.ailleurs),ail=cr.length-sup.length;
+    cartes.push({col:'b',h:carteJour('Les courses',cr.length,
+      `<div class="jw-puces">${sup.slice(0,5).map(c=>`<span class="jw-p">${echap(c.texte||'')}</span>`).join('')}
+        ${sup.length>5?`<span class="jw-p creuse">+ ${sup.length-5}</span>`:''}
+        ${ail?`<span class="jw-p creuse">${ail} ailleurs</span>`:''}</div>
+       <button type="button" class="jw-mini" data-va="courses">Ouvrir la liste</button>`)});
+  }
+
+  // ---- 6. À préparer ce soir ----
+  if(sJ===sAuj){
+    const pr=aPreparerCeSoir(auj);
+    cartes.push({col:'b',h:carteJour('À préparer ce soir',pr.length||'',
+      pr.map(x=>`<div class="jw-prep" data-va="${x.va}">
+        <span class="e">${x.e}</span>
+        <span class="tx"><b>${echap(x.quoi)}</b><span class="pq">${echap(x.pq)}</span></span></div>`).join(''))});
+  }
+
+  zone.innerHTML=`<div class="jw">
+    <div class="jw-col">${cartes.filter(c=>c.col==='a').map(c=>c.h).join('')}</div>
+    <div class="jw-col">${cartes.filter(c=>c.col==='b').map(c=>c.h).join('')}</div>
+  </div>`;
+
   brancherJournee2(zone,auj,()=>{render()});
-  zone.querySelectorAll('[data-recl]').forEach(el=>{
-    el.onclick=()=>{const [g,id]=el.dataset.recl.split('|');
-      maisonOuvert={genre:g,id};setSection('maison')};
+  zone.querySelectorAll('[data-va]').forEach(el=>{
+    el.onclick=(ev)=>{ev.stopPropagation();setModule(el.dataset.va)};
+  });
+  zone.querySelectorAll('[data-poser]').forEach(el=>{
+    el.onclick=(ev)=>{ev.stopPropagation();const [j,m]=el.dataset.poser.split('|');formMenu(j,m)};
   });
 }
-
 
 /* ================== POPOVER (sélecteur de mois) ================== */
 function fermerPopovers(){
