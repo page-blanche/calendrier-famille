@@ -1713,7 +1713,11 @@ function ouvrirProjet(id){
   // Un projet ouvert depuis la to-do ou depuis Pia doit atterrir dans Projets,
   // pas laisser l'écran croire qu'on est encore dans la liste des tâches : en
   // refermant, on retombait alors sur le mauvais écran.
-  vueTodo='projets';MODULE_OUVERT='projets';
+  // Les deux variables étaient posées à la main, sans redessiner le rail :
+  // l'état était juste, la ligne surlignée à gauche restait sur To-do.
+  // `setModule` fait les deux — mais il remet `projetOuvert` à zéro, donc on
+  // le repose après lui.
+  setModule('projets');
   projetOuvert=id;renderProjet();
 }
 function renderProjet(){
@@ -2294,7 +2298,12 @@ function brancherJournee2(corps,d,rafraichir){
   });
   corps.querySelectorAll('[data-modif-vac]').forEach(b=>{b.onclick=(ev)=>{ev.stopPropagation();formVac(b.dataset.modifVac)}});
   const rt=corps.querySelector('[data-voir-todo]');
-  if(rt)rt.onclick=()=>{fermerTiroir();setSection('todo')};
+  // `setSection('todo')` changeait de SECTION sans toucher à la sous-vue : on
+  // atterrissait sur celle qu'on avait laissée — la liste de courses, si l'on
+  // en venait. Le titre disait « To-do », l'écran montrait le lait.
+  // `setModule` est le seul geste qui sache poser la sous-vue ET rafraîchir le
+  // rail. Tous les renvois internes passent par lui.
+  if(rt)rt.onclick=()=>{fermerTiroir();setModule('todo')};
   const aj=corps.querySelector('[data-ajout-ici]');
   if(aj)aj.onclick=()=>ouvrirAjout(iso(d));
 }
@@ -3202,7 +3211,7 @@ function renderRepas(zone){
   zone.querySelectorAll('[data-sem]').forEach(b=>{b.onclick=()=>{semaineRepas+=Number(b.dataset.sem);render()}});
   zone.querySelectorAll('[data-jour]').forEach(el=>{
     el.onclick=()=>formMenu(el.dataset.jour,el.dataset.moment)});
-  document.getElementById('rp-recettes').onclick=()=>{ongletMem='recettes';setSection('memoire')};
+  document.getElementById('rp-recettes').onclick=()=>setModule('recettes');
   document.getElementById('rp-part').onclick=()=>partager(texteRepas(lundi),'Les repas de la semaine');
 }
 function formMenu(sJour,moment){
@@ -6796,12 +6805,18 @@ function brancherVues(zone,poser){
   b.querySelectorAll('[data-v]').forEach(el=>{el.onclick=()=>poser(el.dataset.v)});
 }
 
+/* Les trois sous-vues du planning SONT trois modules du bureau : Ma journée,
+   Planning, Repas. Y aller par `setSection` changeait bien l'écran, mais
+   laissait `MODULE_OUVERT` sur le précédent : le rail surlignait Planning
+   pendant qu'on lisait les repas. */
+const MODULE_DE_VUE={jour:'journee',mois:'planning',repas:'repas'};
 function setVuePlanning(v){
   vuePlanning=v;
-  // Passer d'une vue à l'autre change de conteneur : « Aujourd'hui » et
-  // « Repas » vivent dans une page, le mois dans la zone calendrier.
-  // C'est setSection qui sait lequel montrer — sinon on redessine dans
-  // un élément resté caché.
+  const cle=MODULE_DE_VUE[v];
+  if(cle&&MODULES_BUREAU[cle])return setModule(cle);
+  // Une sous-vue sans module : on se contente de montrer le bon conteneur.
+  // « Aujourd'hui » et « Repas » vivent dans une page, le mois dans la zone
+  // calendrier — sans cela on redessine dans un élément resté caché.
   setSection('planning');
 }
 
@@ -7109,6 +7124,10 @@ function brancherGlisserBureau(){
 // Une porte de sortie qui ne dépend pas d'un bouton qu'on n'aurait pas vu.
 document.addEventListener('keydown',(e)=>{if(e.key==='Escape')sortirRangement()});
 
+/* Le geste BAS NIVEAU : il montre le bon conteneur, rien de plus. Il ne pose
+   aucune sous-vue et ne touche pas au rail, donc l'appeler pour aller quelque
+   part laisse l'app à moitié déplacée — c'est le défaut de « voir la to-do »,
+   qui ouvrait la liste de courses. Pour NAVIGUER, c'est `setModule`. */
 function setSection(s){
   if(!ONGLETS.includes(s))s='planning';
   section=s;
