@@ -5,10 +5,10 @@
   --bg:#fafaf9; --surface:#ffffff; --border:#e9e7e2; --border-strong:#d9d6cf;
   --ink:#1c1b18; --ink-2:#6f6b62; --ink-3:#a3a099;
   --vac-bg:#fdf8e7; --radius:12px; --radius-s:8px;
-  /* La couleur porte le module : sa tuile au bureau, sa pastille, le liserÃ© en
-     haut de son Ã©cran. C'est le seul fil qui relie l'accueil au module ouvert â€”
-     sans lui, douze icÃ´nes grises se ressemblent toutes et on ne reconnaÃ®t plus
-     la sienne du coin de l'Å“il. Reprises telles quelles de la maquette. */
+  /* La couleur porte le module : sa tuile au bureau, sa pastille, le liseré en
+     haut de son écran. C'est le seul fil qui relie l'accueil au module ouvert —
+     sans lui, douze icônes grises se ressemblent toutes et on ne reconnaît plus
+     la sienne du coin de l'œil. Reprises telles quelles de la maquette. */
   --h-journee:#d98a2b; --h-planning:#41649c; --h-repas:#bd6636;  --h-courses:#2f6b4f;
   --h-todo:#6f55a0;    --h-projets:#b0402a;  --h-sante:#2f7f8b;  --h-maison:#846838;
   --h-gens:#9c4570;    --h-envies:#c2851f;   --h-cadeaux:#b83f63; --h-recettes:#5f8639;
@@ -36,7 +36,7 @@ button{font-family:inherit}
 .h-centre{flex:1;justify-content:center;min-width:0}
 .h-droite{gap:8px}
 /* .month-title-btn et .fleche habillaient la navigation du mois dans
-   l'en-tÃªte. Cette barre-lÃ  faisait doublon avec celle sous les onglets et
+   l'en-tête. Cette barre-là faisait doublon avec celle sous les onglets et
    ne la tenait pas au courant : elle est partie, son habillage aussi.
    Ce qui subsistait de `.fleche` ailleurs est sous `.nav .fleche`. */
 .today-btn{
@@ -68,7 +68,7 @@ button{font-family:inherit}
 .view-btn:hover{color:var(--ink)}
 .view-btn.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
 
-/* ---------- Bandeau premiÃ¨re visite ---------- */
+/* ---------- Bandeau première visite ---------- */
 .hint-banner{
   max-width:900px;margin:10px auto 0;padding:9px 16px;border-radius:var(--radius-s);
   background:#eef4ee;color:#2e5e3a;font-size:.83rem;
@@ -76,11 +76,11 @@ button{font-family:inherit}
 }
 .hint-banner button{border:none;background:none;cursor:pointer;font-size:.9rem;color:#2e5e3a;opacity:.7}
 
-/* Il y avait ici un bloc `.nav` complet â€” flÃ¨ches, titre du mois, bouton
-   Â« Aujourd'hui Â». C'Ã©tait la navigation d'une troisiÃ¨me Ã©poque : plus aucun
-   Ã©lÃ©ment ne portait la classe `nav` dans la page. */
+/* Il y avait ici un bloc `.nav` complet — flèches, titre du mois, bouton
+   « Aujourd'hui ». C'était la navigation d'une troisième époque : plus aucun
+   élément ne portait la classe `nav` dans la page. */
 
-/* ---------- Filtres unifiÃ©s ---------- */
+/* ---------- Filtres unifiés ---------- */
 .filter-bar{
   padding:10px 16px 2px;display:flex;flex-wrap:wrap;gap:6px;
   justify-content:center;align-items:center;
@@ -102,10 +102,10 @@ button{font-family:inherit}
 /* ---------- Mise en page ---------- */
 .main-layout{display:flex;gap:20px;max-width:1380px;margin:0 auto;padding:6px 16px 90px}
 .cal-area{min-width:0}
-/* `.todo-panel` ne dit plus que l'habillage de la carte. Sa gÃ©omÃ©trie â€” 305 px
-   de large, collÃ©e Ã  droite du calendrier, `position:sticky` et son propre
-   ascenseur â€” datait du temps oÃ¹ elle Ã©tait la colonne latÃ©rale du mois. Elle
-   est un Ã©cran Ã  part entiÃ¨re depuis, et ces quatre lignes lui donnaient un
+/* `.todo-panel` ne dit plus que l'habillage de la carte. Sa géométrie — 305 px
+   de large, collée à droite du calendrier, `position:sticky` et son propre
+   ascenseur — datait du temps où elle était la colonne latérale du mois. Elle
+   est un écran à part entière depuis, et ces quatre lignes lui donnaient un
    ascenseur DANS l'ascenseur de la page. La largeur et la place viennent
    maintenant de `.ecran`, comme pour les onze autres. */
 .todo-panel{
@@ -142,7 +142,7 @@ button{font-family:inherit}
   transition:.15s;background:var(--surface);cursor:pointer;
 }
 .todo-item.done .todo-check{background:var(--ink);border-color:var(--ink)}
-.todo-item.done .todo-check::after{content:'âœ“';color:#fff;font-size:.62rem;font-weight:800}
+.todo-item.done .todo-check::after{content:'✓';color:#fff;font-size:.62rem;font-weight:800}
 .todo-item.done .todo-text{text-decoration:line-through;opacity:.45}
 .todo-text{flex:1;line-height:1.35}
 .todo-corps{flex:1;min-width:0;cursor:pointer}
@@ -168,8 +168,8 @@ button{font-family:inherit}
   display:grid;grid-template-columns:repeat(7,1fr);text-align:center;
   font-size:.7rem;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;padding:8px 0 6px;
 }
-/* Six rangÃ©es de sept, et non plus 42 cases en vrac : c'est la rangÃ©e qui
-   sert de repÃ¨re aux sÃ©jours, posÃ©s en travers de la semaine. */
+/* Six rangées de sept, et non plus 42 cases en vrac : c'est la rangée qui
+   sert de repère aux séjours, posés en travers de la semaine. */
 .month-grid{display:flex;flex-direction:column;gap:4px}
 .sem-row{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;position:relative}
 .zone-tag,.zone-voies{pointer-events:none}
@@ -180,8 +180,8 @@ button{font-family:inherit}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   pointer-events:auto;cursor:pointer;
 }
-/* Un sÃ©jour qui dÃ©borde de la semaine ne se coupe pas net contre la bordure :
-   il s'estompe. Le regard comprend Â« Ã§a continue Â» sans qu'on lui colle un signe. */
+/* Un séjour qui déborde de la semaine ne se coupe pas net contre la bordure :
+   il s'estompe. Le regard comprend « ça continue » sans qu'on lui colle un signe. */
 .barre-sejour.suite-g{
   border-top-left-radius:0;border-bottom-left-radius:0;padding-left:16px;
   -webkit-mask-image:linear-gradient(to right,transparent 0,#000 14px);
@@ -241,7 +241,7 @@ button{font-family:inherit}
 .ligne-ev .corps{flex:1;min-width:0}
 .ligne-ev .qui{color:var(--ink-3);font-size:.75rem}
 
-/* ---------- Vue annÃ©e ---------- */
+/* ---------- Vue année ---------- */
 .year-overview{padding:12px;display:none}
 .year-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
 .mini-month{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px;cursor:pointer;transition:.15s}
@@ -404,9 +404,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
   .fab{bottom:16px;right:16px;padding:12px 18px}
 }
 
-/* ---------- ðŸ›’ Les deux listes de courses ---------- */
-/* L'urgent reste dans sa liste â€” il monte en haut et se signale, sans
-   partir dans un tas Ã  part oÃ¹ on ne le verrait plus au magasin. */
+/* ---------- 🛒 Les deux listes de courses ---------- */
+/* L'urgent reste dans sa liste — il monte en haut et se signale, sans
+   partir dans un tas à part où on ne le verrait plus au magasin. */
 .bandeau-urgent{
   background:#fff4e6;border:1px solid #ffd8a8;color:#b34508;
   border-radius:var(--radius-s);padding:8px 12px;margin:6px 0 12px;
@@ -418,7 +418,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
   color:var(--ink-3);margin:12px 0 4px;
 }
 
-/* ---------- âš™ï¸ RÃ©glages ---------- */
+/* ---------- ⚙️ Réglages ---------- */
 .pm-moi{display:flex;align-items:center;gap:11px;padding:2px 0 4px}
 .pm-moi .pm-rond{width:38px;height:38px;border-radius:50%;background:#f2f1ee;
   display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--ink-2)}
@@ -432,29 +432,29 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
 .pm-l:first-of-type{border-top:none;padding-top:2px}
 .pm-n{flex:1;font-size:.9rem}
 .pm-n small{display:block;color:var(--ink-3);font-size:.76rem;margin-top:1px}
-/* Trois puces et un libellÃ© ne tiennent pas sur une ligne : on empile. */
+/* Trois puces et un libellé ne tiennent pas sur une ligne : on empile. */
 .pm-l.pm-bloc{display:block}
 .pm-volet{border:1px solid var(--border);border-radius:var(--radius-s);background:#fdfcfa;margin-bottom:9px}
 .pm-volet summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;
   padding:13px 15px;font-weight:700;font-size:.9rem}
 .pm-volet summary::-webkit-details-marker{display:none}
-.pm-volet summary::after{content:"âŒ„";margin-left:auto;color:var(--ink-3);font-size:1rem;
+.pm-volet summary::after{content:"⌄";margin-left:auto;color:var(--ink-3);font-size:1rem;
   transition:transform .15s;flex:0 0 auto}
 .pm-volet[open] summary::after{transform:rotate(180deg)}
 .pm-vt{flex:0 0 auto}
-/* Le rÃ©sumÃ© sur la ligne repliÃ©e : savoir s'il faut ouvrir sans ouvrir. */
+/* Le résumé sur la ligne repliée : savoir s'il faut ouvrir sans ouvrir. */
 .pm-vr{margin-left:auto;font-weight:600;font-size:.78rem;color:var(--ink-3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm-vd{padding:0 15px 14px;border-top:1px solid var(--border);margin-top:2px;padding-top:10px}
-/* `input[type=number]` porte un width:100% et pÃ¨se plus lourd qu'une simple
-   classe : sans sÃ©lecteur plus fort, le champ s'Ã©tirait et le libellÃ© se
-   retrouvait Ã  un mot par ligne. */
+/* `input[type=number]` porte un width:100% et pèse plus lourd qu'une simple
+   classe : sans sélecteur plus fort, le champ s'étirait et le libellé se
+   retrouvait à un mot par ligne. */
 .pm-l input.pm-nb{width:62px;flex:0 0 62px;text-align:center;padding:5px 6px;font-weight:600}
 .pm-n{min-width:0}
 
-/* ---------- La barre de pÃ©riode ---------- */
-/* MÃªme place, mÃªme forme, quelle que soit la vue : un jour, un mois ou une
-   semaine se parcourent du mÃªme geste. */
+/* ---------- La barre de période ---------- */
+/* Même place, même forme, quelle que soit la vue : un jour, un mois ou une
+   semaine se parcourent du même geste. */
 .nav-periode{display:flex;align-items:center;gap:8px;margin:8px 0 2px;
   border:1px solid var(--border);border-radius:99px;padding:5px 6px;background:#fdfcfa}
 .np-f{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:#fff;
@@ -462,9 +462,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
 .np-f:hover{border-color:var(--border-strong)}
 .np-q{flex:1;text-align:center;font-weight:700;font-size:.87rem;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* Le titre du mois est cliquable : il ouvre le sÃ©lecteur de mois. Il doit
-   rester un titre Ã  l'Å“il â€” pas de bordure, pas de fond â€” et n'annoncer
-   qu'il est un bouton qu'au survol, par le chevron et un fond lÃ©ger. */
+/* Le titre du mois est cliquable : il ouvre le sélecteur de mois. Il doit
+   rester un titre à l'œil — pas de bordure, pas de fond — et n'annoncer
+   qu'il est un bouton qu'au survol, par le chevron et un fond léger. */
 .np-titre{border:none;background:none;color:inherit;font-family:inherit;
   cursor:pointer;border-radius:99px;padding:3px 8px;display:inline-flex;
   align-items:center;justify-content:center;gap:6px}
