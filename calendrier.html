@@ -12,21 +12,17 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Famille">
 
-<!-- Le `?v=` n'est pas décoratif : sans lui, le navigateur garde la feuille de
-     style qu'il a déjà et l'app s'affiche avec les règles d'avant, sans rien
-     dire. On le change à chaque fois que style.css change. -->
-<link rel="stylesheet" href="style.css?v=2026-09-07c">
+<!-- Le `?v=` empêche le navigateur de resservir la feuille qu'il a déjà. Il
+     change à chaque fois que style.css change, et c'est tout ce qu'il fait :
+     il travaille sans se montrer.
+     Il y a eu ici, un moment, un bandeau qui comparait un tampon de la feuille
+     à un tampon de la page et criait quand les deux différaient. Il criait
+     juste — les fichiers n'étaient pas la même paire — mais pour une
+     différence qui ne se voyait nulle part ailleurs : l'app marchait. Une
+     alarme qu'on ne peut pas fermer, pour un écart sans conséquence, coûte
+     plus que ce qu'elle rapporte. Elle est partie. -->
+<link rel="stylesheet" href="style.css?v=2026-09-07d">
 <style>
-/* ---------- L'alerte « feuille de style d'un autre jour » ----------
-   Elle est ICI, dans la page, et pas dans style.css : c'est justement quand
-   cette feuille-là manque qu'il faut pouvoir lire l'alerte. Une alerte qui
-   dépend de ce dont elle annonce l'absence ne s'affiche jamais. */
-#feuille-vieille{position:fixed;left:0;right:0;top:0;z-index:9999;
-  background:#8a3a12;color:#fff;padding:10px 14px;line-height:1.45;font-size:.82rem;
-  font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
-#feuille-vieille b{display:block;font-size:.9rem;margin-bottom:2px}
-#feuille-vieille code{background:rgba(255,255,255,.18);border-radius:4px;padding:0 4px}
-#feuille-vieille .d{display:block;opacity:.75;font-size:.74rem;margin-top:3px}
 .wk2-h.auj{background:var(--ink);color:#fff}
 /* Pages To-do / Courses / Cadeaux */
 /* `.page-solo` ne dit plus que l'habillage : le fond, le trait, le coin
@@ -7829,34 +7825,6 @@ document.addEventListener('click',(e)=>{
 });
 
 /* ================== INIT ================== */
-
-/* ---------- Les deux fichiers sont-ils du même jour ? ----------
-   calendrier.html et style.css se déposent à la main sur GitHub, l'un après
-   l'autre. Quand un seul des deux monte — ou que le navigateur garde l'ancienne
-   feuille en cache — l'app ne casse pas : elle s'affiche de travers. Des puces
-   sous les ingrédients, des cases bleues, un bouton nu. C'est ce que Mandana a
-   vu, et rien à l'écran ne disait pourquoi ; il fallait le deviner.
-   La feuille porte donc un tampon, la page sait lequel elle attend, et le dit
-   quand ils ne s'accordent pas. */
-const FEUILLE_ATTENDUE='2026-09-07c';
-(function verifierFeuille(){
-  const v=getComputedStyle(document.documentElement)
-    .getPropertyValue('--feuille').trim().replace(/^["']|["']$/g,'');
-  if(v===FEUILLE_ATTENDUE)return;
-  const b=document.createElement('div');
-  b.id='feuille-vieille';
-  const t=document.createElement('b');
-  t.textContent='La feuille de style n\'est pas celle de cette page.';
-  const p=document.createElement('span');
-  p.innerHTML='Dépose <code>style.css</code> sur GitHub en même temps que '
-    +'<code>calendrier.html</code>, puis recharge la page.';
-  const d=document.createElement('span');
-  d.className='d';
-  d.textContent='attendue : '+FEUILLE_ATTENDUE+' · trouvée : '+(v||'aucune');
-  b.append(t,p,d);
-  document.body.appendChild(b);
-})();
-
 document.querySelectorAll('#barreBas [data-sec]').forEach(b=>{b.onclick=()=>setSection(b.dataset.sec)});
 document.querySelectorAll('#modesBar [data-mode]').forEach(b=>{b.onclick=()=>setMode(b.dataset.mode)});
 {const p=document.getElementById('piaOuvrir');if(p)p.onclick=()=>setMode('parler')}
