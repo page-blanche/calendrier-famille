@@ -3274,9 +3274,16 @@ function renderRepas(zone){
     const poses=servicesDuJour(sJ);
     const aMontrer=poses.length?poses:[SERVICE_DEFAUT];
     const manquants=SERVICES.map(s=>s[0]).filter(q=>!aMontrer.includes(q));
-    /* L'étiquette du service ne se nomme que s'il y en a plusieurs : un seul
-       repas dans la journée, c'est la ligne d'avant, sans rien autour. */
-    const nommer=aMontrer.length>1;
+    /* Le service est TOUJOURS nommé.
+       Il ne l'était que quand la journée en comptait plusieurs — un reste de
+       l'époque où un jour portait une ligne et où l'étiquette n'aurait rien
+       appris. Mais depuis qu'une ligne peut porter un rôle, on lisait
+       « PLAT · Quiche lorraine » sans savoir de quel repas il s'agissait.
+       Mandana : « quand on spécifie si c'est une entrée ou un plat, on ne sait
+       plus si c'est midi, le soir, un goûter ou quoi que ce soit ».
+       Et la colonne de gauche cessait d'être une colonne : mercredi affichait
+       MIDI et SOIR, lundi rien, l'œil n'avait plus de repère vertical. Un mot
+       gris dans une colonne qui existe déjà coûte moins que cette ambiguïté. */
     const service=(q)=>{
       const lignes=menusDuJour(sJ,q);
       const dedans=lignes.length
@@ -3287,7 +3294,7 @@ function renderRepas(zone){
         : `<button type="button" class="rp-p vide" data-jour="${sJ}" data-moment="${q}">
             <span class="rp-q">rien de prévu</span></button>`;
       return `<div class="rp-svc">
-        ${nommer?`<span class="rp-m">${echap(defService(q)[2])}</span>`:''}
+        <span class="rp-m">${echap(defService(q)[2])}</span>
         <div class="rp-l">${dedans}
           ${lignes.length?`<button type="button" class="rp-add" data-jour="${sJ}" data-moment="${q}"
               title="Ajouter un plat à ce service">＋</button>`:''}</div></div>`;
