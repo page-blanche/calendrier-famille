@@ -259,7 +259,7 @@
 .pj-tete .ic{font-size:1.6rem}
 .pj-tete .nom{font-size:1.28rem;font-weight:800;line-height:1.15}
 .pj-tete .sous{font-size:.79rem;color:var(--ink-3)}
-.rp-j{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
+.rp-j{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
 .rp-j:first-of-type{border-top:none}
 .rp-j.passe{opacity:.5}
 .rp-j.auj .rp-d b{color:var(--alert)}
@@ -269,18 +269,14 @@
 .rp-d b{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rp-d span{font-size:1.05rem;font-weight:700}
-/* Un jour porte un repas, parfois deux : la colonne de droite les empile.
-   Les jours à un seul repas gardent exactement l'allure d'avant — c'est la
-   règle par défaut, et elle ne doit rien coûter à l'œil. */
+/* Un jour porte un ou plusieurs SERVICES, chacun une ou plusieurs LIGNES.
+   `.rp-l` `.rp-m` `.rp-q` `.rp-ch` décrivaient ici le balisage d'avant — une
+   ligne = un service = un plat. Ce balisage n'existe plus, et ces règles,
+   posées après la feuille de style, écrasaient les nouvelles : le ＋ d'un
+   service se retrouvait centré au milieu du vide et la note poussée au bord
+   droit de la carte. Elles sont parties ; tout ce qui décrit les repas vit
+   maintenant dans style.css, en un seul endroit. */
 .rp-s{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.rp-l{display:flex;align-items:center;gap:8px;width:100%;padding:2px 0;
-  border:none;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
-.rp-l:active{opacity:.65}
-.rp-m{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);
-  width:34px;flex-shrink:0}
-.rp-q{flex:1;font-size:.95rem;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.rp-l.vide .rp-q{color:var(--ink-3);font-style:italic}
-.rp-ch{color:var(--ink-3)}
 .rp-plus{align-self:flex-start;margin-top:2px;padding:1px 9px;border-radius:99px;
   border:1px dashed var(--border-strong);background:none;color:var(--ink-3);
   font-size:.72rem;font-weight:600;cursor:pointer}
@@ -3121,86 +3117,187 @@ function lundiDe(d){
   x.setDate(x.getDate()-j);
   return x;
 }
-/* Un jour peut porter deux repas. Sans précision on parle du soir : c'est
-   celui qu'on prévoit par défaut, et tout ce qui a été noté avant l'arrivée
-   du midi est du soir — d'où le `||'soir'` sur les lignes anciennes. */
-function menuDuJour(sJour,moment){
-  const q=moment||'soir';
-  return (CACHE.menus||[]).find(m=>m.jour===sJour&&(m.moment||'soir')===q)||null;
+/* ================== LES REPAS : UN SERVICE, PLUSIEURS LIGNES ==================
+   Mandana : « le mardi soir, il y a quiche lorraine pour les enfants, mais
+   pour nous, ça sera resto — il faut que je puisse mettre plusieurs lignes »,
+   « je voudrais pouvoir mettre une entrée, un plat, un dessert », et
+   « afficher un petit commentaire : déjà prêt dans le congélateur ».
+
+   Trois demandes, un seul changement : un service cesse de porter UN plat
+   pour en porter plusieurs.
+
+   Ce qui l'interdisait n'était pas la base mais une clé calculée ici même —
+   chaque repas s'enregistrait sous `menu-<jour>-<moment>`. Le jour et le
+   service ÉTAIENT l'identifiant, donc il ne pouvait pas y en avoir deux. Les
+   nouvelles lignes prennent un identifiant ordinaire ; les anciennes gardent
+   le leur et continuent d'être lues. Rien à réécrire. */
+
+/* Les quatre services, dans l'ordre où on les mange. `moment` est du texte
+   libre en base : ajouter le goûter ne demandait aucune migration. */
+const SERVICES=[['petitdej','🥣','Petit déj'],['midi','🕛','Midi'],
+                ['gouter','🍪','Goûter'],['soir','🌙','Soir']];
+/* Sans précision on parle du soir : c'est celui qu'on prévoit par défaut, et
+   tout ce qui a été noté avant l'arrivée du midi est du soir — d'où le
+   `||'soir'` partout où l'on lit une ligne ancienne. */
+const SERVICE_DEFAUT='soir';
+const defService=(q)=>SERVICES.find(s=>s[0]===(q||SERVICE_DEFAUT))||[q,'🍽️',q];
+const rangService=(q)=>{const i=SERVICES.findIndex(s=>s[0]===(q||SERVICE_DEFAUT));return i<0?9:i};
+
+/* Les rôles ORDONNENT le service : une entrée posée après le dessert
+   s'affiche quand même avant lui. C'est leur raison d'être — sans ça, un
+   simple mot libre aurait suffi. */
+const ROLES=[['entree','Entrée'],['plat','Plat'],['dessert','Dessert']];
+const rangRole=(r)=>{const i=ROLES.findIndex(x=>x[0]===r);return i<0?9:i};
+const nomRole=(r)=>{const x=ROLES.find(y=>y[0]===r);return x?x[1]:''};
+
+/* Toutes les lignes d'un service, dans l'ordre : les rôles d'abord, puis la
+   place où on les a posées. */
+function menusDuJour(sJour,moment){
+  const q=moment||SERVICE_DEFAUT;
+  return (CACHE.menus||[]).filter(m=>m.jour===sJour&&(m.moment||SERVICE_DEFAUT)===q)
+    .sort((a,b)=>(rangRole(a.role)-rangRole(b.role))
+      ||((a.ordre==null?0:a.ordre)-(b.ordre==null?0:b.ordre)));
+}
+/* La première ligne d'un service. Les endroits qui n'affichent qu'un titre —
+   la pastille du bureau, la carte « À table » — n'ont pas besoin du reste. */
+function menuDuJour(sJour,moment){return menusDuJour(sJour,moment)[0]||null}
+
+/* Les services POSÉS ce jour-là, dans l'ordre du repas. Un service vide ne
+   s'affiche pas : c'est ce qui garde la semaine aussi courte qu'avant tant
+   qu'on ne s'en sert pas. */
+function servicesDuJour(sJour){
+  const vus=new Set((CACHE.menus||[]).filter(m=>m.jour===sJour)
+    .map(m=>m.moment||SERVICE_DEFAUT));
+  return SERVICES.map(s=>s[0]).filter(q=>vus.has(q));
 }
 function recetteDe(id){return (CACHE.recettes||[]).find(r=>r.id===id)||null}
-/* Poser un repas : les ingrédients rejoignent la liste, en gardant d'où ils viennent. */
-/* `garder` : les lignes d'ingrédients qu'on veut vraiment acheter. Absent =
-   tout. C'est ce qui permet de dire « le beurre, je l'ai » sans toucher à la
-   recette : elle garde ses ingrédients, c'est la liste qui n'en prend que
-   ce qui manque. */
-function poserMenu(sJour,moment,recetteId,texte,garder){
-  const q=moment||'soir';
-  const id='menu-'+sJour+'-'+q;
-  const avant=menuDuJour(sJour,q);
-  if(avant)retirerIngredients(sJour,q);
-  const l={id,jour:sJour,moment:q,recette_id:recetteId||null,texte:texte||null,ajoute_par:UTILISATEUR||null};
-  const i=(CACHE.menus||[]).findIndex(m=>m.id===id);
-  if(i>=0){CACHE.menus[i]={...CACHE.menus[i],...l};pousser(sb.from('menus').update(l).eq('id',id))}
-  else{CACHE.menus.push(l);pousser(sb.from('menus').insert(l))}
-  const r=recetteId?recetteDe(recetteId):null;
+/* Ce qu'une ligne donne à lire : une recette, ou un simple mot. */
+function direMenu(m){
+  if(!m)return '';
+  const r=m.recette_id?recetteDe(m.recette_id):null;
+  return r?((r.emoji||'🍽️')+' '+r.nom):(m.texte||'');
+}
+
+/* Les ingrédients d'une ligne partent dans les courses, en gardant d'où ils
+   viennent — la LIGNE, désormais, pas seulement le jour et le service.
+   `garder` : les indices qu'on veut vraiment acheter. Absent = tout. C'est ce
+   qui permet de dire « le beurre, je l'ai » sans toucher à la recette : elle
+   garde ses ingrédients, c'est la liste qui n'en prend que ce qui manque. */
+function envoyerIngredients(l,garder){
+  const r=l.recette_id?recetteDe(l.recette_id):null;
   const retenus=(r?(r.ingredients||[]):[]).map(x=>String(x||'').trim()).filter(Boolean)
     .filter((t,i)=>!garder||garder.includes(i));
   retenus.forEach(t=>{
     enregistrerObjet(null,'courses',{texte:t,coche:false,achete_le:null,
-      recette_id:r.id,pour_le:sJour,pour_moment:q});
+      recette_id:r.id,pour_le:l.jour,pour_moment:l.moment,menu_id:l.id});
   });
   return retenus.length;
 }
-/* Enlever un repas : on ne retire QUE ce qui n'a pas encore été acheté ni
-   coché — et QUE les ingrédients de ce repas-là. Sans le moment, changer le
-   midi viderait aussi les courses du soir : même jour, même filtre. */
-function retirerIngredients(sJour,moment){
-  const q=moment||'soir';
-  const aJeter=CACHE.courses.filter(c=>c.pour_le===sJour&&c.recette_id&&!c.coche&&!c.achete_le
-    &&(c.pour_moment||'soir')===q);
+
+/* Ajouter une ligne à un service. Elle s'AJOUTE — c'est toute la demande. */
+function ajouterMenu(sJour,moment,recetteId,texte,garder,extra){
+  const q=moment||SERVICE_DEFAUT;
+  const e=extra||{};
+  const l={id:genId(),jour:sJour,moment:q,recette_id:recetteId||null,texte:texte||null,
+    ajoute_par:UTILISATEUR||null,ordre:menusDuJour(sJour,q).length,
+    role:e.role||null,note:e.note||null};
+  CACHE.menus.push(l);
+  pousser(sb.from('menus').insert(l));
+  return {ligne:l,n:envoyerIngredients(l,garder)};
+}
+function majMenu(id,champs){
+  const i=(CACHE.menus||[]).findIndex(m=>m.id===id);
+  if(i<0)return;
+  CACHE.menus[i]={...CACHE.menus[i],...champs};
+  pousser(sb.from('menus').update(champs).eq('id',id));
+}
+
+/* Enlever une ligne : on ne retire QUE ce qui n'a pas encore été acheté ni
+   coché, et QUE les ingrédients de CETTE ligne.
+
+   C'est le piège de toute cette refonte. Le filtre d'avant était
+   `pour_le + pour_moment`, ce qui suffit tant qu'un service ne porte qu'un
+   plat. Avec deux recettes le même soir, retirer l'une emportait les
+   ingrédients de l'autre — sans erreur, sans rien à l'écran, juste des
+   articles qui s'évaporent de la liste de courses.
+
+   Les articles d'avant la migration n'ont pas de `menu_id`. On ne les reprend
+   que lorsqu'ils ne peuvent venir que d'ici : même recette, même jour, même
+   service, et aucune autre ligne du service ne les revendique. Dans le doute,
+   on préfère laisser un article de trop dans la liste qu'en faire disparaître
+   un dont on avait besoin. */
+function retirerIngredients(menuId,l){
+  const libre=(c)=>!c.coche&&!c.achete_le;
+  let aJeter=CACHE.courses.filter(c=>c.menu_id===menuId&&libre(c));
+  if(l&&l.recette_id){
+    const rivales=menusDuJour(l.jour,l.moment)
+      .filter(x=>x.id!==menuId&&x.recette_id===l.recette_id);
+    if(!rivales.length){
+      aJeter=aJeter.concat(CACHE.courses.filter(c=>!c.menu_id&&libre(c)
+        &&c.recette_id===l.recette_id&&c.pour_le===l.jour
+        &&(c.pour_moment||SERVICE_DEFAUT)===(l.moment||SERVICE_DEFAUT)));
+    }
+  }
   aJeter.forEach(c=>supprimerObjet(c.id));
   return aJeter.length;
 }
-function enleverMenu(sJour,moment){
-  const q=moment||'soir';
-  const n=retirerIngredients(sJour,q);
-  const id='menu-'+sJour+'-'+q;
+function enleverMenu(id){
   const i=(CACHE.menus||[]).findIndex(m=>m.id===id);
-  if(i>=0){CACHE.menus.splice(i,1);pousser(sb.from('menus').delete().eq('id',id))}
+  if(i<0)return 0;
+  const l=CACHE.menus[i];
+  const n=retirerIngredients(id,l);
+  CACHE.menus.splice(i,1);
+  pousser(sb.from('menus').delete().eq('id',id));
   return n;
 }
+/* Vider un service entier. Sert à Pia, qui propose une semaine complète : sans
+   cela, réimporter la même semaine doublerait chaque repas. */
+function remplacerService(sJour,moment,recetteId,texte){
+  const q=moment||SERVICE_DEFAUT;
+  menusDuJour(sJour,q).slice().forEach(m=>enleverMenu(m.id));
+  return ajouterMenu(sJour,q,recetteId,texte);
+}
+
 function renderRepas(zone){
   const lundi=lundiDe(new Date());
   lundi.setDate(lundi.getDate()+semaineRepas*7);
   const sAuj=iso(new Date());
   let h=``;
-  /* Ce qu'un repas donne à lire, recette ou simple mot. */
-  const dire=(m)=>{
-    const r=m&&m.recette_id?recetteDe(m.recette_id):null;
-    return r?((r.emoji||'🍽️')+' '+r.nom):(m&&m.texte?m.texte:'');
-  };
   for(let i=0;i<7;i++){
     const d=new Date(lundi);d.setDate(d.getDate()+i);
     const sJ=iso(d);
-    const midi=menuDuJour(sJ,'midi'),soir=menuDuJour(sJ,'soir');
-    const qMidi=dire(midi),qSoir=dire(soir);
-    /* Un repas par jour reste la règle : tant qu'il n'y a que le soir, la
-       ligne est celle d'avant, sans étiquette. Le jour où un midi existe,
-       les deux services se nomment — sinon on ne saurait plus lequel est
-       lequel. « ＋ midi » ne s'affiche que là où il manque. */
-    const ligne=(moment,quoi)=>`<button type="button" class="rp-l ${quoi?'':'vide'}"
-        data-jour="${sJ}" data-moment="${moment}">
-        ${midi?`<span class="rp-m">${moment==='midi'?'midi':'soir'}</span>`:''}
-        <span class="rp-q">${quoi?echap(quoi):'rien de prévu'}</span>
-        <span class="rp-ch">›</span></button>`;
+    /* Seuls les services POSÉS s'affichent. Un jour où l'on n'a prévu que le
+       dîner reste aussi court qu'avant : c'est ce qui permet d'ouvrir le
+       goûter et le petit déjeuner sans allonger la semaine de tout le monde.
+       Le soir apparaît quand même, vide, parce que c'est celui qu'on prévoit
+       par défaut et que « rien de prévu » est une information. */
+    const poses=servicesDuJour(sJ);
+    const aMontrer=poses.length?poses:[SERVICE_DEFAUT];
+    const manquants=SERVICES.map(s=>s[0]).filter(q=>!aMontrer.includes(q));
+    /* L'étiquette du service ne se nomme que s'il y en a plusieurs : un seul
+       repas dans la journée, c'est la ligne d'avant, sans rien autour. */
+    const nommer=aMontrer.length>1;
+    const service=(q)=>{
+      const lignes=menusDuJour(sJ,q);
+      const dedans=lignes.length
+        ? lignes.map(m=>`<button type="button" class="rp-p" data-menu="${m.id}">
+            ${m.role?`<span class="rp-r">${echap(nomRole(m.role))}</span>`:''}
+            <span class="rp-q">${echap(direMenu(m))}</span>
+            ${m.note?`<span class="rp-n">${echap(m.note)}</span>`:''}</button>`).join('')
+        : `<button type="button" class="rp-p vide" data-jour="${sJ}" data-moment="${q}">
+            <span class="rp-q">rien de prévu</span></button>`;
+      return `<div class="rp-svc">
+        ${nommer?`<span class="rp-m">${echap(defService(q)[2])}</span>`:''}
+        <div class="rp-l">${dedans}
+          ${lignes.length?`<button type="button" class="rp-add" data-jour="${sJ}" data-moment="${q}"
+              title="Ajouter un plat à ce service">＋</button>`:''}</div></div>`;
+    };
     h+=`<div class="rp-j ${sJ===sAuj?'auj':''} ${sJ<sAuj?'passe':''}">
       <div class="rp-d"><b>${DFR[jSem(d)-1]}</b><span>${d.getDate()}</span></div>
       <div class="rp-s">
-        ${midi?ligne('midi',qMidi):''}
-        ${ligne('soir',qSoir)}
-        ${midi?'':`<button type="button" class="rp-plus" data-jour="${sJ}" data-moment="midi"
-            title="Prévoir aussi le déjeuner">＋ midi</button>`}
+        ${aMontrer.map(service).join('')}
+        ${manquants.length?`<button type="button" class="rp-plus" data-svc="${sJ}"
+            title="Prévoir un autre service">＋ un autre service</button>`:''}
       </div></div>`;
   }
   h+=`<div style="display:flex;gap:8px;margin-top:16px">
@@ -3209,41 +3306,129 @@ function renderRepas(zone){
   </div>`;
   zone.innerHTML=h;
   zone.querySelectorAll('[data-sem]').forEach(b=>{b.onclick=()=>{semaineRepas+=Number(b.dataset.sem);render()}});
-  zone.querySelectorAll('[data-jour]').forEach(el=>{
+  // Une ligne posée s'ouvre pour se modifier ; un service vide, pour se remplir.
+  zone.querySelectorAll('[data-menu]').forEach(el=>{
+    el.onclick=()=>formLigneMenu(el.dataset.menu)});
+  zone.querySelectorAll('[data-jour][data-moment]').forEach(el=>{
     el.onclick=()=>formMenu(el.dataset.jour,el.dataset.moment)});
+  zone.querySelectorAll('[data-svc]').forEach(el=>{
+    el.onclick=()=>choisirService(el.dataset.svc)});
   document.getElementById('rp-recettes').onclick=()=>setModule('recettes');
   document.getElementById('rp-part').onclick=()=>partager(texteRepas(lundi),'Les repas de la semaine');
 }
-function formMenu(sJour,moment){
-  const q=moment||'soir';
+
+/* Quel service ajouter ce jour-là. Les services déjà posés restent visibles,
+   barrés : les cacher laisserait croire qu'ils n'existent pas. */
+function choisirService(sJour){
   const d=deIso(sJour);
-  const m=menuDuJour(sJour,q);
-  // Le titre dit le service : le même jour peut s'ouvrir deux fois.
   ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()
-    +(q==='midi'?' · le midi':' · le soir'));
-  const recs=(CACHE.recettes||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
-  document.getElementById('dbd').innerHTML=`
-    ${m?`<p class="discret2" style="margin-bottom:12px">Prévu : <strong>${echap(m.recette_id?((recetteDe(m.recette_id)||{}).nom||'?'):(m.texte||''))}</strong></p>`:''}
-    <label class="lbl">Dans tes recettes</label>
-    ${recs.length?`<div class="mg-chips" id="mn-recs">${recs.map(r=>`<button type="button" class="mg-chip ${m&&m.recette_id===r.id?'actif':''}" data-r="${r.id}">${r.emoji||'🍽️'} ${echap(r.nom)}</button>`).join('')}</div>`
-      :`<p class="discret2">Tu n'as pas encore de recette. Ajoute-en une, ses ingrédients partiront tout seuls dans les courses.</p>`}
-    <label class="lbl">Ou juste un mot</label>
-    <div class="mg-chips" id="mn-libres">
-      ${['Restes','Au resto','Chez des amis','Pâtes','Improvisation'].map(x=>`<button type="button" class="mg-chip ${m&&m.texte===x?'actif':''}" data-l="${attr(x)}">${echap(x)}</button>`).join('')}
-    </div>
-    <input type="text" id="mn-texte" value="${m&&m.texte?attr(m.texte):''}" placeholder="ou écris ce que tu veux…" style="margin-top:8px">
-    <div id="mn-ing" style="display:none"></div>
-    <button class="btn primaire" id="mn-ok" style="width:100%;margin-top:16px">C'est noté</button>
-    ${m?`<button class="btn danger" id="mn-vide" style="width:100%;margin-top:8px">Rien de prévu finalement</button>`:''}
-    <button class="btn mini" id="mn-new" style="width:100%;margin-top:14px">＋ Nouvelle recette</button>`;
-  let choix=m&&m.recette_id?m.recette_id:null;
-  let ecartes=new Set();          // les indices qu'on n'achète pas
+    +' · ajouter un service');
+  const poses=servicesDuJour(sJour);
+  document.getElementById('dbd').innerHTML=`<div class="mg-chips">
+    ${SERVICES.map(([q,ico,nom])=>`<button type="button" class="mg-chip ${poses.includes(q)?'pris':''}"
+      data-q="${q}" ${poses.includes(q)?'disabled':''}>${ico} ${echap(nom)}</button>`).join('')}
+  </div>`;
+  document.querySelectorAll('#dbd [data-q]').forEach(b=>{
+    b.onclick=()=>formMenu(sJour,b.dataset.q)});
+}
+
+/* ================== LES TAGS DES RECETTES ==================
+   Mandana : « une barre de recherche sur la recette, et ensuite mettre un tag
+   — sans viande, végétarienne, dessert, salade — pour pouvoir les rechercher
+   facilement. »
+
+   Pas de table de tags, pour la raison qui a déjà servi aux catégories
+   d'Envies : un tag n'existe que s'il est posé sur quelque chose. La liste se
+   déduit de ce qui est rangé. Une table séparée obligerait à gérer la
+   création, la suppression, les tags vides et les orphelins — quatre
+   problèmes pour un besoin qui n'en pose aucun. Une seule réponse à une
+   question qu'on s'est déjà posée. */
+function tagsRecettes(){
+  const n=new Map();
+  (CACHE.recettes||[]).forEach(r=>(r.tags||[]).forEach(t=>{
+    const c=String(t||'').trim();
+    if(!c)return;
+    const k=c.toLowerCase();
+    if(!n.has(k))n.set(k,{nom:c,n:0});
+    n.get(k).n++;
+  }));
+  return [...n.values()].sort((a,b)=>b.n-a.n||a.nom.localeCompare(b.nom));
+}
+/* « Végétarien » et « végétarien » sont le même tag : on garde l'orthographe
+   déjà en usage plutôt que d'en créer un second qui lui ressemble. */
+function rangerTag(t){
+  const c=String(t||'').trim();
+  if(!c)return '';
+  const d=tagsRecettes().find(x=>x.nom.toLowerCase()===c.toLowerCase());
+  return d?d.nom:c;
+}
+/* La recherche porte aussi sur les INGRÉDIENTS : « poireaux » doit trouver la
+   quiche, c'est même le plus utile quand on ouvre le frigo avant de choisir. */
+function filtrerRecettes(q,tags){
+  const mot=String(q||'').trim().toLowerCase();
+  const lot=(tags&&tags.length)?tags.map(t=>String(t).toLowerCase()):null;
+  return (CACHE.recettes||[]).filter(r=>{
+    if(lot&&!lot.every(t=>(r.tags||[]).some(x=>String(x).toLowerCase()===t)))return false;
+    if(!mot)return true;
+    return [r.nom,...(r.tags||[]),...(r.ingredients||[])].join(' ').toLowerCase().includes(mot);
+  }).sort((a,b)=>a.nom.localeCompare(b.nom));
+}
+
+/* ================== AJOUTER UN PLAT À UN SERVICE ==================
+   La contrainte que je me suis donnée : le cas courant ne bouge pas d'un
+   geste. Neuf fois sur dix un repas c'est « mardi soir, quiche lorraine » —
+   un appui sur une pastille, puis « C'est noté ». Le rôle et le mot libre
+   n'apparaissent jamais ici : ils vivent sur la ligne une fois posée. */
+function formMenu(sJour,moment){
+  const q=moment||SERVICE_DEFAUT;
+  const d=deIso(sJour);
+  ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()
+    +' · '+defService(q)[2].toLowerCase());
+  let choix=null,ecartes=new Set(),cherche='',tagsActifs=[];
+
+  const corps=document.getElementById('dbd');
+  const dejaPose=()=>{
+    const l=menusDuJour(sJour,q);
+    if(!l.length)return '';
+    return `<label class="lbl">Déjà prévu</label>
+      ${l.map(m=>`<div class="mn-l">
+        <span class="mn-tt" data-ouvrir="${m.id}">${echap(direMenu(m))}${m.note?` <span class="mn-note">${echap(m.note)}</span>`:''}</span>
+        <button type="button" class="mn-x" data-oter="${m.id}" title="Retirer ce plat">✕</button>
+      </div>`).join('')}`;
+  };
+  const dessiner=()=>{
+    const recs=filtrerRecettes(cherche,tagsActifs);
+    const tags=tagsRecettes();
+    corps.innerHTML=`
+      ${dejaPose()}
+      <label class="lbl">${menusDuJour(sJour,q).length?'Ajouter encore':'Dans tes recettes'}</label>
+      ${(CACHE.recettes||[]).length>6?`<input type="text" id="mn-q" class="mn-cherche"
+        placeholder="🔍 Chercher une recette ou un ingrédient…" value="${attr(cherche)}">`:''}
+      ${tags.length?`<div class="mn-tags"><span class="mn-tl">Filtrer</span>${tags.map(t=>`<button
+        type="button" class="mn-tag ${tagsActifs.includes(t.nom)?'actif':''}"
+        data-tag="${attr(t.nom)}">${echap(t.nom)}</button>`).join('')}</div>`:''}
+      ${recs.length?`<div class="mg-chips" id="mn-recs">${recs.map(r=>`<button type="button"
+          class="mg-chip ${choix===r.id?'actif':''}" data-r="${r.id}">${r.emoji||'🍽️'} ${echap(r.nom)}</button>`).join('')}</div>`
+        :`<p class="discret2">${(CACHE.recettes||[]).length
+            ?'Aucune recette ne correspond.'
+            :'Tu n\'as pas encore de recette. Ajoute-en une, ses ingrédients partiront tout seuls dans les courses.'}</p>`}
+      <label class="lbl">Ou juste un mot</label>
+      <div class="mg-chips" id="mn-libres">
+        ${['Restes','Au resto','Chez des amis','Pâtes','Improvisation'].map(x=>`<button type="button" class="mg-chip" data-l="${attr(x)}">${echap(x)}</button>`).join('')}
+      </div>
+      <input type="text" id="mn-texte" placeholder="ou écris ce que tu veux…" style="margin-top:8px">
+      <div id="mn-ing" style="display:none"></div>
+      <button class="btn primaire" id="mn-ok" style="width:100%;margin-top:16px">C'est noté</button>
+      <button class="btn mini" id="mn-new" style="width:100%;margin-top:14px">＋ Nouvelle recette</button>`;
+    brancher();
+  };
 
   /* Une recette demande, le frigo répond. On montre ce qui partirait dans
      les courses et on laisse décocher — la recette n'est pas modifiée, elle
      reste complète pour la prochaine fois. */
   function majIngredients(){
     const z=document.getElementById('mn-ing');
+    if(!z)return;
     const r=choix?recetteDe(choix):null;
     const ing=(r?(r.ingredients||[]):[]).map(x=>String(x||'').trim()).filter(Boolean);
     if(!ing.length){z.style.display='none';z.innerHTML='';return}
@@ -3262,68 +3447,147 @@ function formMenu(sJour,moment){
     }});
   }
 
-  document.querySelectorAll('#mn-recs [data-r]').forEach(b=>{b.onclick=()=>{
-    choix=b.dataset.r;
-    ecartes=new Set();            // nouvelle recette, on repart de tout coché
-    document.getElementById('mn-texte').value='';
-    document.querySelectorAll('#mn-recs .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
-    document.querySelectorAll('#mn-libres .mg-chip').forEach(x=>x.classList.remove('actif'));
-    majIngredients();
-  }});
-  document.querySelectorAll('#mn-libres [data-l]').forEach(b=>{b.onclick=()=>{
-    choix=null;
-    document.getElementById('mn-texte').value=b.dataset.l;
-    document.querySelectorAll('#mn-libres .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
-    document.querySelectorAll('#mn-recs .mg-chip').forEach(x=>x.classList.remove('actif'));
-    majIngredients();
-  }});
-  document.getElementById('mn-texte').addEventListener('input',()=>{
-    if(document.getElementById('mn-texte').value.trim()){
-      choix=null;
-      document.querySelectorAll('#mn-recs .mg-chip,#mn-libres .mg-chip').forEach(x=>x.classList.remove('actif'));
-      majIngredients();
+  function brancher(){
+    corps.querySelectorAll('[data-ouvrir]').forEach(el=>{
+      el.onclick=()=>formLigneMenu(el.dataset.ouvrir)});
+    corps.querySelectorAll('[data-oter]').forEach(el=>{
+      el.onclick=()=>{const n=enleverMenu(el.dataset.oter);
+        toast(n?n+' ingrédient'+(n>1?'s':'')+' retiré'+(n>1?'s':'')+' des courses':'Retiré');
+        render();dessiner();}});
+    const ch=document.getElementById('mn-q');
+    if(ch){
+      // Redessiner à chaque frappe reconstruirait le champ et perdrait le
+      // curseur : on ne refait que la liste des pastilles.
+      ch.addEventListener('input',()=>{cherche=ch.value;majListe()});
+      ch.addEventListener('keydown',(e)=>{if(e.key==='Escape'){ch.value='';cherche='';majListe()}});
     }
-  });
-  document.getElementById('mn-ok').onclick=()=>{
-    const txt=document.getElementById('mn-texte').value.trim();
-    if(!choix&&!txt){toast('Choisis une recette ou écris un mot');return}
-    const r=choix?recetteDe(choix):null;
-    const total=(r?(r.ingredients||[]):[]).map(x=>String(x||'').trim()).filter(Boolean).length;
-    const garder=choix?[...Array(total).keys()].filter(i=>!ecartes.has(i)):null;
-    const n=poserMenu(sJour,q,choix,choix?null:txt,garder);
-    fermerTiroir();
-    toast(n?n+' ingrédient'+(n>1?'s':'')+' dans les courses 🛒':'C\'est noté ✔');
-    /* render() et pas renderCourses() : la liste de courses vit dans le
-       panneau de droite, la semaine des repas dans la page. On ne redessinait
-       que la première — on posait un repas et la ligne continuait d'afficher
-       « rien de prévu » jusqu'à ce qu'on change d'écran. */
-    render();
+    corps.querySelectorAll('[data-tag]').forEach(b=>{b.onclick=()=>{
+      const t=b.dataset.tag;
+      tagsActifs=tagsActifs.includes(t)?tagsActifs.filter(x=>x!==t):tagsActifs.concat(t);
+      dessiner();
+      const z=document.getElementById('mn-q');if(z)z.focus();
+    }});
+    corps.querySelectorAll('#mn-recs [data-r]').forEach(b=>{b.onclick=()=>{
+      choix=b.dataset.r;
+      ecartes=new Set();            // nouvelle recette, on repart de tout coché
+      document.getElementById('mn-texte').value='';
+      corps.querySelectorAll('#mn-recs .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+      corps.querySelectorAll('#mn-libres .mg-chip').forEach(x=>x.classList.remove('actif'));
+      majIngredients();
+    }});
+    corps.querySelectorAll('#mn-libres [data-l]').forEach(b=>{b.onclick=()=>{
+      choix=null;
+      document.getElementById('mn-texte').value=b.dataset.l;
+      corps.querySelectorAll('#mn-libres .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+      corps.querySelectorAll('#mn-recs .mg-chip').forEach(x=>x.classList.remove('actif'));
+      majIngredients();
+    }});
+    document.getElementById('mn-texte').addEventListener('input',()=>{
+      if(document.getElementById('mn-texte').value.trim()){
+        choix=null;
+        corps.querySelectorAll('#mn-recs .mg-chip,#mn-libres .mg-chip').forEach(x=>x.classList.remove('actif'));
+        majIngredients();
+      }
+    });
+    document.getElementById('mn-ok').onclick=()=>{
+      const txt=document.getElementById('mn-texte').value.trim();
+      if(!choix&&!txt){toast('Choisis une recette ou écris un mot');return}
+      const r=choix?recetteDe(choix):null;
+      const total=(r?(r.ingredients||[]):[]).map(x=>String(x||'').trim()).filter(Boolean).length;
+      const garder=choix?[...Array(total).keys()].filter(i=>!ecartes.has(i)):null;
+      const {n}=ajouterMenu(sJour,q,choix,choix?null:txt,garder);
+      fermerTiroir();
+      toast(n?n+' ingrédient'+(n>1?'s':'')+' dans les courses 🛒':'C\'est noté ✔');
+      /* render() et pas renderCourses() : la liste de courses vit dans le
+         panneau de droite, la semaine des repas dans la page. On ne redessinait
+         que la première — on posait un repas et la ligne continuait d'afficher
+         « rien de prévu » jusqu'à ce qu'on change d'écran. */
+      render();
+    };
+    document.getElementById('mn-new').onclick=()=>formRecette(null,sJour,q);
+    majIngredients();
+  }
+  /* Ne refaire que la liste : le champ de recherche garde son curseur. */
+  function majListe(){
+    const z=document.getElementById('mn-recs');
+    const recs=filtrerRecettes(cherche,tagsActifs);
+    if(!z)return dessiner();
+    z.innerHTML=recs.map(r=>`<button type="button" class="mg-chip ${choix===r.id?'actif':''}"
+      data-r="${r.id}">${r.emoji||'🍽️'} ${echap(r.nom)}</button>`).join('')
+      ||`<span class="discret2">Aucune recette ne correspond.</span>`;
+    z.querySelectorAll('[data-r]').forEach(b=>{b.onclick=()=>{
+      choix=b.dataset.r;ecartes=new Set();
+      document.getElementById('mn-texte').value='';
+      z.querySelectorAll('.mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
+      corps.querySelectorAll('#mn-libres .mg-chip').forEach(x=>x.classList.remove('actif'));
+      majIngredients();
+    }});
+  }
+  dessiner();
+}
+
+/* ================== UNE LIGNE POSÉE ==================
+   C'est ici, et seulement ici, qu'on met un rôle et un mot. Les mettre dans
+   le tiroir d'ajout aurait chargé le geste courant — celui qu'on fait neuf
+   fois sur dix — pour deux réglages qu'on utilise rarement. */
+function formLigneMenu(id){
+  const m=(CACHE.menus||[]).find(x=>x.id===id);
+  if(!m)return;
+  const d=deIso(m.jour);
+  ouvrirTiroirBrut(DFR[jSem(d)-1]+' '+d.getDate()+' '+MFR[d.getMonth()].toLowerCase()
+    +' · '+defService(m.moment)[2].toLowerCase());
+  document.getElementById('dbd').innerHTML=`
+    <p class="ml-tt">${echap(direMenu(m))}</p>
+    <label class="lbl">Sa place dans le repas</label>
+    <div class="mg-chips" id="ml-roles">
+      ${ROLES.map(([c,n])=>`<button type="button" class="mg-chip ${m.role===c?'actif':''}" data-role="${c}">${n}</button>`).join('')}
+    </div>
+    <label class="lbl">Un mot, si besoin</label>
+    <input type="text" id="ml-note" value="${m.note?attr(m.note):''}"
+      placeholder="pour les enfants · déjà prêt au congélateur…">
+    <button class="btn primaire" id="ml-ok" style="width:100%;margin-top:16px">C'est noté</button>
+    <button class="btn danger" id="ml-oter" style="width:100%;margin-top:8px">Retirer ce plat</button>`;
+  let role=m.role||null;
+  document.querySelectorAll('#ml-roles [data-role]').forEach(b=>{b.onclick=()=>{
+    // Un deuxième appui retire le rôle : sans cela, on ne peut plus revenir à
+    // « pas de rôle », et la ligne garde une étiquette qu'on ne voulait pas.
+    role=(role===b.dataset.role)?null:b.dataset.role;
+    document.querySelectorAll('#ml-roles .mg-chip').forEach(x=>
+      x.classList.toggle('actif',x.dataset.role===role));
+  }});
+  document.getElementById('ml-ok').onclick=()=>{
+    majMenu(id,{role,note:document.getElementById('ml-note').value.trim()||null});
+    fermerTiroir();toast('C\'est noté ✔');render();
   };
-  majIngredients();
-  const bv=document.getElementById('mn-vide');
-  if(bv)bv.onclick=()=>{
-    const n=enleverMenu(sJour,q);
+  document.getElementById('ml-oter').onclick=()=>{
+    const n=enleverMenu(id);
     fermerTiroir();
     toast(n?n+' ingrédient'+(n>1?'s':'')+' retiré'+(n>1?'s':'')+' des courses':'C\'est effacé');
     render();
   };
-  document.getElementById('mn-new').onclick=()=>formRecette(null,sJour,q);
 }
+
 function renderRecettes(){
   const zone=document.getElementById('vueMemoire');
   const toutes=(CACHE.recettes||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
-  // On cherche dans le nom ET dans les ingrédients : « qu'est-ce que je sais
-  // faire avec des poireaux ? » est la vraie question qu'on pose à un carnet.
+  // On cherche dans le nom, les ingrédients ET les tags : « qu'est-ce que je
+  // sais faire avec des poireaux ? » est la vraie question qu'on pose à un
+  // carnet. Le filtre est le MÊME que celui du tiroir des repas — `filtrerRecettes` —
+  // pour qu'une recherche donne le même résultat des deux côtés.
   const q=(RECH_RECETTE||'').trim().toLowerCase();
-  const recs=toutes.filter(r=>!q||
-    (r.nom+' '+(r.ingredients||[]).join(' ')).toLowerCase().includes(q));
+  const recs=filtrerRecettes(RECH_RECETTE,TAGS_RECETTE);
+  const tags=tagsRecettes();
   let h=``;
   if(toutes.length>6){
     h+=`<div style="margin:10px 0 6px"><input type="text" id="rc-rech"
-      placeholder="🔍 Chercher — un plat, un ingrédient…" value="${attr(RECH_RECETTE||'')}"></div>`;
+      placeholder="🔍 Chercher — un plat, un ingrédient, un tag…" value="${attr(RECH_RECETTE||'')}"></div>`;
   }
-  if(!recs.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">${q
-    ?'Rien avec « '+echap(q)+' ». Ça pourrait être une recette à écrire 🙂'
+  // Les tags posés, par fréquence : ceux qui servent le plus sont devant.
+  if(tags.length)h+=`<div class="mg-chips" style="margin-bottom:10px">${tags.map(t=>`<button
+    type="button" class="mg-chip ${TAGS_RECETTE.includes(t.nom)?'actif':''}"
+    data-tagr="${attr(t.nom)}">${echap(t.nom)} <span class="mg-n">${t.n}</span></button>`).join('')}</div>`;
+  if(!recs.length)h+=`<div class="todo-empty" style="text-align:center;padding:22px 0">${(q||TAGS_RECETTE.length)
+    ?'Rien ne correspond. Ça pourrait être une recette à écrire 🙂'
     :'Aucune recette pour l\'instant.<br>Commence par celle que tu fais le plus souvent 🙂'}</div>`;
   recs.forEach(r=>{
     const n=(r.ingredients||[]).filter(x=>String(x).trim()).length;
@@ -3331,7 +3595,8 @@ function renderRecettes(){
     // nom, on montre lequel : sinon la liste a l'air de répondre au hasard.
     const par=q&&!r.nom.toLowerCase().includes(q)
       ?(r.ingredients||[]).find(x=>String(x).toLowerCase().includes(q)):'';
-    const bas=[n?n+' ingrédient'+(n>1?'s':''):'aucun ingrédient',
+    const bas=[(r.tags||[]).length?(r.tags||[]).map(t=>echap(t)).join(' · '):'',
+      n?n+' ingrédient'+(n>1?'s':''):'aucun ingrédient',
       par?'contient « '+echap(par)+' »':'',
       r.lien?`<button class="kdo-lien" data-lien="${attr(r.lien)}" title="Ouvrir ${echap(domaineDe(r.lien))}">voir la recette ↗</button>`:''
       ].filter(Boolean).join(' · ');
@@ -3350,6 +3615,11 @@ function renderRecettes(){
     const r2=document.getElementById('rc-rech');
     if(r2){r2.focus();r2.setSelectionRange(r2.value.length,r2.value.length)}
   });
+  zone.querySelectorAll('[data-tagr]').forEach(b=>{b.onclick=()=>{
+    const t=b.dataset.tagr;
+    TAGS_RECETTE=TAGS_RECETTE.includes(t)?TAGS_RECETTE.filter(x=>x!==t):TAGS_RECETTE.concat(t);
+    renderRecettes();
+  }});
   zone.querySelectorAll('[data-lien]').forEach(el=>{
     el.addEventListener('click',ev=>{ev.stopPropagation();
       window.open(el.dataset.lien,'_blank','noopener')});
@@ -3369,6 +3639,9 @@ function formRecette(id,pourJour,pourMoment){
     <input type="text" id="rc-nom" value="${r?echap(r.nom):''}" placeholder="Quiche aux poireaux">
     <label class="lbl">Son icône</label>
     <div class="mg-chips" id="rc-emos">${EMOJIS_RECETTE.map(e=>`<button type="button" class="mg-chip ${emoji===e?'actif':''}" data-e="${e}" style="font-size:1.1rem">${e}</button>`).join('')}</div>
+    <label class="lbl">Ses tags <span class="discret2">(pour la retrouver — végétarien, dessert, rapide…)</span></label>
+    <div class="mg-chips" id="rc-tags"></div>
+    <input type="text" id="rc-tag-neuf" placeholder="＋ un tag, puis Entrée">
     <label class="lbl">Un lien vers la recette <span class="discret2">(facultatif)</span></label>
     <input type="text" id="rc-lien" value="${r?attr(r.lien||''):''}" placeholder="marmiton.fr/…">
     <label class="lbl">Les ingrédients <span class="discret2">(un par ligne — écris-les comme tu les dirais)</span></label>
@@ -3381,19 +3654,50 @@ function formRecette(id,pourJour,pourMoment){
     emoji=b.dataset.e;
     document.querySelectorAll('#rc-emos .mg-chip').forEach(x=>x.classList.toggle('actif',x===b));
   }});
+
+  /* Les tags : ceux de cette recette, plus ceux déjà en usage ailleurs qu'on
+     peut poser d'un appui. Écrire le sien dans le champ l'ajoute. Comme pour
+     les catégories d'Envies, on ne gère aucune liste : un tag existe tant
+     qu'une recette le porte, et disparaît avec la dernière. */
+  let mesTags=(r&&Array.isArray(r.tags)?r.tags.slice():[]);
+  const dessinerTags=()=>{
+    const connus=tagsRecettes().map(t=>t.nom)
+      .filter(t=>!mesTags.some(x=>x.toLowerCase()===t.toLowerCase()));
+    const z=document.getElementById('rc-tags');
+    z.innerHTML=mesTags.map(t=>`<button type="button" class="mg-chip actif" data-oter="${attr(t)}">${echap(t)} ✕</button>`).join('')
+      +connus.map(t=>`<button type="button" class="mg-chip" data-mettre="${attr(t)}">${echap(t)}</button>`).join('');
+    z.querySelectorAll('[data-oter]').forEach(b=>{b.onclick=()=>{
+      mesTags=mesTags.filter(x=>x!==b.dataset.oter);dessinerTags()}});
+    z.querySelectorAll('[data-mettre]').forEach(b=>{b.onclick=()=>{
+      mesTags=mesTags.concat(b.dataset.mettre);dessinerTags()}});
+  };
+  dessinerTags();
+  const champTag=document.getElementById('rc-tag-neuf');
+  const poserTag=()=>{
+    const t=rangerTag(champTag.value);
+    if(!t)return;
+    if(!mesTags.some(x=>x.toLowerCase()===t.toLowerCase()))mesTags.push(t);
+    champTag.value='';dessinerTags();
+  };
+  champTag.addEventListener('keydown',(e)=>{
+    if(e.key==='Enter'){e.preventDefault();poserTag()}
+  });
+  // Un tag écrit sans valider serait perdu à l'enregistrement : on le pose.
+  champTag.addEventListener('blur',poserTag);
   document.getElementById('rc-ok').onclick=()=>{
     const nom=document.getElementById('rc-nom').value.trim();
     if(!nom){toast('Il faut un nom');return}
     const ing=document.getElementById('rc-ing').value.split('\n').map(x=>x.trim()).filter(Boolean);
     // Les ingrédients d'abord : c'est ce qui part dans les courses. La recette
     // se lit après, en cuisinant — d'où sa place en bas du formulaire.
-    const l={nom,emoji,ingredients:ing,
+    poserTag();          // le tag encore dans le champ compte aussi
+    const l={nom,emoji,ingredients:ing,tags:mesTags.length?mesTags:null,
       lien:lienPropre(document.getElementById('rc-lien').value),
       texte:document.getElementById('rc-texte').value.trim()||null};
     if(!r)l.id=genId();
     enregistrerObjet(id,'recettes',l);
     fermerTiroir();
-    if(!r&&pourJour){poserMenu(pourJour,momentJour,l.id,null);toast(ing.length+' ingrédient'+(ing.length>1?'s':'')+' dans les courses 🛒')}
+    if(!r&&pourJour){ajouterMenu(pourJour,momentJour,l.id,null);toast(ing.length+' ingrédient'+(ing.length>1?'s':'')+' dans les courses 🛒')}
     else toast(r?'C\'est noté ✔':'Ajoutée à tes recettes ✔');
     render();
   };
@@ -3925,6 +4229,7 @@ setInterval(()=>{if(typeof CACHE!=='undefined'&&CACHE.personnes)montrerPriseSiBe
    les deux anciennes colonnes de la personne. */
 const INFOS_DEFAUT=['Groupe sanguin','Allergies'];
 let RECH_CADEAU='', RECH_RECETTE='', ARCH_OUVERTE=false;
+let TAGS_RECETTE=[];   // les tags cochés dans l'écran des recettes
 /* Un même champ pour deux natures : « amazon.fr/… » est une adresse qu'on
    ouvre, « chez Gibert » un endroit où l'on va. On range chacun à sa place à
    l'écriture, sinon il faut deviner à l'affichage — c'est la confusion que
@@ -4897,7 +5202,7 @@ function magiEnregistrer(actions){
       // Le tri « je l'ai déjà » se fait dans l'écran des repas ; ici on pose
       // le menu complet, comme Pia le fait avant de proposer le tri.
       const r=a.recette?(CACHE.recettes||[]).find(x=>x.nom.trim().toLowerCase()===String(a.recette).trim().toLowerCase()):null;
-      poserMenu(a.jour,a.moment==='midi'?'midi':'soir',r?r.id:null,r?null:(a.texte||a.recette||''));n++;
+      remplacerService(a.jour,a.moment==='midi'?'midi':'soir',r?r.id:null,r?null:(a.texte||a.recette||''));n++;
     }else if(a.type==='envie'&&a.titre){
       // Pia peut proposer une catégorie qu'on a inventée : on la garde si elle
       // existe déjà, sinon « autre ». On n'en crée pas depuis une proposition —
