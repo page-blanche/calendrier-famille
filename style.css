@@ -1,4 +1,9 @@
 :root{
+  /* Le tampon de cette feuille. calendrier.html sait lequel il attend, et
+     prévient en clair si les deux fichiers ne sont pas montés ensemble —
+     jusqu'ici l'app s'affichait simplement de travers, sans rien dire, et il
+     fallait deviner. À changer à chaque fois que ce fichier change. */
+  --feuille:"2026-09-07c";
   --darya:#d6336c; --kyan:#7048e8; --cyrus:#f08c00; --both:#ae3ec9;
   --school:#a5a19a; --bday:#e64980; --event:#0c8599; --alert:#e8590c;
   --voyage:#1971c2; --vacation:#d9a521; --rentree:#e8590c; --pro:#495057;
