@@ -572,6 +572,31 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
 .mn-tag:hover{color:var(--ink);border-color:var(--ink-3)}
 .mn-tag.actif{background:var(--ink);border-color:var(--ink);border-style:solid;color:var(--bg)}
 .mg-chip.pris{opacity:.4;text-decoration:line-through;cursor:default}
+
+/* ---- Ce qui part dans les courses ----
+   Une ligne par ingrédient, une case à cocher par ligne. En pastilles,
+   « 60 g de farine » et « 1 œuf » se retrouvaient côte à côte et se lisaient
+   comme un seul article, et coché ressemblait trop à décoché.
+   Le vert est celui du module Courses : c'est là que ces lignes partent, et
+   c'est la seule couleur qui le dise déjà dans l'app. */
+.ing-tete{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
+.ing-tete .lbl{margin:0}
+.ing-tout{font:inherit;font-size:.72rem;font-weight:700;color:var(--ink-2);background:none;
+  border:1px solid var(--border);border-radius:99px;padding:3px 11px;cursor:pointer;flex:0 0 auto}
+.ing-tout:hover{border-color:var(--border-strong);color:var(--ink)}
+.ing-l{list-style:none;margin:4px 0 0;padding:0;border:1px solid var(--border);
+  border-radius:11px;background:var(--surface);overflow:hidden}
+.ing-l li+li{border-top:1px solid var(--border)}
+/* `label{display:block;font-weight:700;margin:11px 0 4px}` s'applique à toute
+   étiquette : sans ces remises à zéro, chaque ingrédient ressortait en gras,
+   en tout petit, et avec 11 px d'écart au-dessus. */
+.ing-c{display:flex;align-items:center;gap:11px;margin:0;padding:10px 12px;cursor:pointer;
+  font-size:.88rem;font-weight:400;color:var(--ink)}
+.ing-c:hover{background:var(--bg)}
+.ing-c input{width:18px;height:18px;flex:0 0 auto;margin:0;accent-color:var(--h-courses);cursor:pointer}
+/* Décoché = tu l'as déjà : la ligne s'efface au lieu de disparaître, pour
+   qu'on puisse revenir dessus. */
+.ing-c input:not(:checked)+span{color:var(--ink-3);text-decoration:line-through}
 .ml-tt{font-size:1.05rem;font-weight:700;margin:0 0 4px}
 
 /* Sur téléphone, les deux colonnes restent des colonnes — c'est tout l'intérêt
