@@ -473,35 +473,83 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
 .np-auj{font-size:.74rem;font-weight:700;color:var(--ink-2);border:1px solid var(--border);
   border-radius:99px;padding:4px 11px;background:#fff;cursor:pointer;flex:0 0 auto}
 
-/* ---------- 🍽️ Les repas : un service, plusieurs lignes ---------- */
-.rp-svc{display:flex;gap:10px;align-items:flex-start;padding:1px 0}
-/* 68 px : « GOÛTER » en majuscules espacées dépassait des 56 px que j'avais
-   posés au jugé, et venait chevaucher le nom du plat. */
-.rp-m{width:68px;flex:0 0 auto;font-size:.62rem;font-weight:800;letter-spacing:.07em;
-  text-transform:uppercase;color:var(--ink-3);padding-top:6px;line-height:1.3}
-.rp-l{flex:1;min-width:0;display:flex;flex-direction:column;gap:0;align-items:flex-start}
-/* La ligne ne s'étire pas sur toute la largeur : sinon la note, poussée par
-   `justify-content`, allait se coller au bord droit de la carte, à 600 px du
-   plat qu'elle commente. Elle suit le nom, et va à la ligne si besoin. */
-.rp-p{display:inline-flex;gap:8px;align-items:baseline;flex-wrap:wrap;max-width:100%;
-  text-align:left;font:inherit;font-size:.9rem;color:inherit;background:none;border:none;
-  cursor:pointer;padding:3px 6px 3px 2px;border-radius:8px}
+/* ---------- 🍽️ Les repas : le menu serré ----------
+   Deux colonnes, pas trois. Le jour s'écrit une fois dans la sienne, les
+   services s'alignent dans la leur d'un jour à l'autre — l'œil descend la
+   semaine sur deux repères verticaux au lieu de chercher où commence chaque
+   ligne. C'est ce qui manquait à Mandana : « c'est pas du tout aligné, pas du
+   tout consistant entre le midi et le soir ».
+   Le rôle — entrée, plat, dessert — ne s'affiche plus ici : il ORDONNE les
+   lignes, ce qui est sa fonction, et l'ordre suffit à les lire. Il se relit
+   dans le tiroir, où l'on va justement chercher le détail. */
+.rp-j{display:flex;gap:14px;padding:8px 0;border-top:1px solid var(--border-strong)}
+.rp-j:first-of-type{border-top:none}
+.rp-j.passe{opacity:.5}
+/* La colonne du jour. 62 px tiennent « MERCREDI » en petites capitales ; en
+   dessous de 560 px on écrit « Mer » et elle tombe à 42, parce que là-bas
+   chaque pixel pris au jour est un pixel de moins pour le nom du plat. */
+.rp-d{width:62px;flex:0 0 auto;line-height:1.15;padding-top:2px;overflow:hidden}
+.rp-d b{display:block;font-size:.61rem;font-weight:800;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+.rp-d b .ct{display:none}
+/* `>` et pas un espace : les deux formes du nom du jour sont elles aussi des
+   spans, à l'intérieur du <b>. Sans le chevron, « Mercredi » repartait en
+   1.05rem gras et mangeait sa colonne. */
+.rp-d>span{display:block;font-size:1.05rem;font-weight:700;color:var(--ink-2)}
+.rp-j.auj .rp-d b,.rp-j.auj .rp-d>span{color:var(--alert)}
+/* Une grille, pas une pile : c'est elle qui met MIDI et SOIR au même bord
+   gauche d'un jour à l'autre. `baseline` pose l'étiquette sur la première
+   ligne de son plat plutôt que sur le haut de sa boîte. */
+.rp-s{flex:1;min-width:0;display:grid;grid-template-columns:56px minmax(0,1fr);
+  gap:1px 10px;align-items:baseline}
+.rp-m{font-size:.59rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--ink-3);padding-top:4px}
+.rp-lg{min-width:0}
+/* Une ligne = les plats qui partagent le même mot. Ce sont des boutons posés
+   côte à côte, séparés d'un point ; la note s'écrit une seule fois, à la fin. */
+.rp-l{padding:2px 0;font-size:.92rem;line-height:1.4}
+.rp-l+.rp-l{padding-top:0}
+.rp-sep{color:var(--ink-3);margin:0 2px}
+.rp-p{font:inherit;font-size:inherit;color:inherit;background:none;border:none;text-align:left;
+  cursor:pointer;padding:1px 4px;margin-left:-4px;border-radius:7px}
 .rp-p:hover{background:var(--bg)}
-.rp-p.vide .rp-q{color:var(--ink-3);font-style:italic}
-.rp-q{min-width:0}
-.rp-r{font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--ink-3);border:1px solid var(--border);border-radius:4px;padding:0 5px;flex:0 0 auto}
-.rp-n{font-size:.79rem;color:var(--ink-2);font-style:italic}
-/* Le ＋ d'un service se pose juste sous sa dernière ligne, discret : il ne doit
-   pas peser autant que « ＋ un autre service », qui ouvre un cran au-dessus. */
-.rp-add{align-self:flex-start;font:inherit;font-size:.78rem;line-height:1;color:var(--ink-3);
-  background:none;border:none;cursor:pointer;padding:2px 6px;margin-left:-2px;border-radius:6px;
-  opacity:0;transition:opacity .12s}
-.rp-svc:hover .rp-add,.rp-add:focus-visible{opacity:1}
+.rp-l.vide .rp-p{color:var(--ink-3);font-style:italic;font-size:.88rem}
+.rp-n{font-size:.79rem;color:var(--ink-2);font-style:italic;margin-left:8px}
+/* ---- Les deux ＋ ----
+   ＋ ajoute un plat au service ; « ＋ un autre service » ouvre midi, goûter ou
+   petit déj sur ce jour-là. Ils se posent AU BOUT de la dernière ligne, jamais
+   en dessous : sur leur propre ligne ils coûtaient 38 px par jour — 266 px sur
+   la semaine, mesurés, et « la semaine tient sur un écran » cessait d'être
+   vrai.
+   Effacés, ils ne réservent rien. `opacity:0` seul gardait leur largeur, et
+   sur un écran de 390 px cette largeur invisible faisait passer la ligne à la
+   suivante : 45 px de blanc sous le mardi, sans rien dedans. `max-width:0` les
+   replie — ils restent dans le flux, donc encore atteignables au clavier, et
+   se déplient au survol, sur le jour où l'on est, et au doigt. */
+.rp-add,.rp-plus{display:inline-block;max-width:0;overflow:hidden;white-space:nowrap;
+  vertical-align:baseline;padding:0;border:0 dashed var(--border-strong);border-radius:99px;
+  background:none;font:inherit;color:var(--ink-3);cursor:pointer;opacity:0;
+  transition:opacity .12s}
+.rp-add{font-size:.82rem}
+.rp-plus{font-size:.72rem;font-weight:600}
+.rp-j:hover .rp-add,.rp-j:hover .rp-plus,.rp-j.auj .rp-add,.rp-j.auj .rp-plus,
+.rp-add:focus-visible,.rp-plus:focus-visible{max-width:14em;opacity:1;margin-left:6px}
+.rp-j:hover .rp-add,.rp-j.auj .rp-add,.rp-add:focus-visible{padding:2px 6px}
+.rp-j:hover .rp-plus,.rp-j.auj .rp-plus,.rp-plus:focus-visible{padding:1px 9px;border-width:1px}
 .rp-add:hover{color:var(--ink-2);background:var(--bg)}
-/* Au doigt il n'y a pas de survol : le ＋ doit être là en permanence, sinon il
-   n'existe pas sur téléphone. */
-@media(hover:none){.rp-add{opacity:1}}
+.rp-plus:hover{color:var(--ink-2);border-style:solid}
+/* Au doigt il n'y a pas de survol. Replier les deux ＋ ailleurs que sur
+   aujourd'hui rendrait alors impossible, depuis un téléphone, d'ajouter un
+   goûter à jeudi — la semaine est le seul endroit d'où l'on pose un repas.
+   Ils restent donc dépliés, discrets, sur tous les jours. */
+@media(hover:none){
+  .rp-add,.rp-plus{max-width:14em;opacity:1;margin-left:6px}
+  .rp-add{padding:2px 6px}
+  .rp-plus{padding:1px 9px;border-width:1px}
+}
+/* Le rôle, là où il continue de se lire : dans le tiroir. */
+.mn-role{font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-3);margin-right:6px}
 /* Le tiroir : ce qui est déjà posé, avant de proposer d'en ajouter. */
 .mn-l{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);
   border-radius:10px;padding:8px 11px;margin-bottom:6px}
@@ -526,14 +574,18 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ink);outline-off
 .mg-chip.pris{opacity:.4;text-decoration:line-through;cursor:default}
 .ml-tt{font-size:1.05rem;font-weight:700;margin:0 0 4px}
 
-/* Sur téléphone, la colonne du jour (76 px) et celle du service (68 px)
-   laissaient moins de 200 px au plat : « Quiche aux poireaux » se coupait en
-   deux et sa note tombait sur une troisième ligne. L'étiquette du service
-   passe AU-DESSUS de ses lignes, et le jour se resserre — on récupère
-   140 px de largeur pour le texte, qui est le contenu. */
+/* Sur téléphone, les deux colonnes restent des colonnes — c'est tout l'intérêt
+   d'avoir des repères verticaux, et les faire tomber au premier rétrécissement
+   les rendrait inutiles là où on lit le plus. Elles se resserrent seulement :
+   le jour passe à trois lettres (42 px), le service à 50. Mesuré sur un écran
+   de 390 px, il reste 220 px au nom du plat. */
 @media(max-width:560px){
-  .rp-d{width:56px}
-  .rp-svc{flex-direction:column;gap:0;padding:3px 0}
-  .rp-m{width:auto;padding:0 0 1px 2px}
-  .rp-p{padding-left:2px}
+  .rp-j{gap:10px}
+  .rp-d{width:42px}
+  .rp-d b .lg{display:none}
+  .rp-d b .ct{display:inline}
+  /* Au doigt les deux ＋ sont toujours visibles ; « un autre service » écrit en
+     toutes lettres pousserait alors une ligne sur deux à la ligne suivante. */
+  .rp-plus-t{display:none}
+  .rp-s{grid-template-columns:50px minmax(0,1fr);gap:1px 8px}
 }
