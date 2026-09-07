@@ -3479,7 +3479,18 @@ function formMenu(sJour,moment){
 
   /* Une recette demande, le frigo répond. On montre ce qui partirait dans
      les courses et on laisse décocher — la recette n'est pas modifiée, elle
-     reste complète pour la prochaine fois. */
+     reste complète pour la prochaine fois.
+
+     Une liste à cocher, pas un nuage de pastilles.
+     Mandana : « j'aimerais que les ingrédients soient une liste à la ligne,
+     avec une checkbox en vert, la possibilité de tout décocher d'un coup, de
+     tout cocher, et après de décocher un tout petit peu. »
+     Les pastilles disaient mal ce qu'elles étaient : cochées et décochées se
+     ressemblaient trop, et « 60 g de farine » à côté de « 1 œuf » sur la même
+     ligne se lisait comme un seul article. Une ligne par ingrédient, une case
+     par ligne. Le vert est celui des Courses — c'est là que ça part.
+     Vraie <input type=checkbox> et non une case dessinée : le doigt, le
+     clavier et les lecteurs d'écran savent déjà s'en servir. */
   function majIngredients(){
     const z=document.getElementById('mn-ing');
     if(!z)return;
@@ -3487,18 +3498,42 @@ function formMenu(sJour,moment){
     const ing=(r?(r.ingredients||[]):[]).map(x=>String(x||'').trim()).filter(Boolean);
     if(!ing.length){z.style.display='none';z.innerHTML='';return}
     z.style.display='';
-    const n=ing.length-ecartes.size;
-    z.innerHTML=`<label class="lbl" style="margin-top:14px">Ce qui part dans les courses
-        <span class="discret2">(décoche ce que tu as déjà)</span></label>
-      <div class="mg-chips" id="mn-ing-chips">
-        ${ing.map((t,i)=>`<button type="button" class="mg-chip ${ecartes.has(i)?'':'actif'}" data-i="${i}">${echap(t)}</button>`).join('')}
+    z.innerHTML=`<div class="ing-tete">
+        <label class="lbl">Ce qui part dans les courses</label>
+        <button type="button" class="ing-tout" id="mn-tout"></button>
       </div>
-      <p class="discret2" style="margin:6px 0 0">${n?n+' article'+(n>1?'s':'')+' à acheter':'Rien à acheter — tu as tout 🌿'}</p>`;
-    z.querySelectorAll('[data-i]').forEach(b=>{b.onclick=()=>{
-      const i=Number(b.dataset.i);
-      if(ecartes.has(i))ecartes.delete(i);else ecartes.add(i);
-      majIngredients();
+      <ul class="ing-l">
+        ${ing.map((t,i)=>`<li><label class="ing-c">
+          <input type="checkbox" data-i="${i}" ${ecartes.has(i)?'':'checked'}>
+          <span>${echap(t)}</span></label></li>`).join('')}
+      </ul>
+      <p class="discret2" id="mn-compte" style="margin:6px 0 0"></p>`;
+
+    /* On ne redessine pas la liste à chaque case cochée : cocher trois cases
+       de suite au doigt, c'est trois reconstructions, et la deuxième arrive
+       pendant que la troisième se pose. Seuls le compte et le bouton
+       changent, et ils changent sur place. */
+    const compte=()=>{
+      const n=ing.length-ecartes.size;
+      const tout=ecartes.size===0;
+      document.getElementById('mn-compte').textContent=
+        n?n+' article'+(n>1?'s':'')+' à acheter':'Rien à acheter — tu as tout 🌿';
+      const b=document.getElementById('mn-tout');
+      b.textContent=tout?'Tout décocher':'Tout cocher';
+      b.dataset.tout=tout?'0':'1';
+    };
+    z.querySelectorAll('[data-i]').forEach(c=>{c.onchange=()=>{
+      const i=Number(c.dataset.i);
+      if(c.checked)ecartes.delete(i);else ecartes.add(i);
+      compte();
     }});
+    document.getElementById('mn-tout').onclick=()=>{
+      const cocher=document.getElementById('mn-tout').dataset.tout==='1';
+      ecartes=cocher?new Set():new Set(ing.map((t,i)=>i));
+      z.querySelectorAll('[data-i]').forEach(c=>{c.checked=cocher});
+      compte();
+    };
+    compte();
   }
 
   function brancher(){
