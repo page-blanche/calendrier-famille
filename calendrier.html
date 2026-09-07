@@ -259,28 +259,14 @@
 .pj-tete .ic{font-size:1.6rem}
 .pj-tete .nom{font-size:1.28rem;font-weight:800;line-height:1.15}
 .pj-tete .sous{font-size:.79rem;color:var(--ink-3)}
-.rp-j{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
-.rp-j:first-of-type{border-top:none}
-.rp-j.passe{opacity:.5}
-.rp-j.auj .rp-d b{color:var(--alert)}
-/* 52px suffisaient tant que rien ne venait juste après : « MERCREDI » débordait
-   déjà, ça ne se voyait pas. Avec l'étiquette du service à côté, ça se voyait. */
-.rp-d{width:76px;flex-shrink:0;display:flex;flex-direction:column;line-height:1.15;overflow:hidden}
-.rp-d b{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rp-d span{font-size:1.05rem;font-weight:700}
-/* Un jour porte un ou plusieurs SERVICES, chacun une ou plusieurs LIGNES.
-   `.rp-l` `.rp-m` `.rp-q` `.rp-ch` décrivaient ici le balisage d'avant — une
-   ligne = un service = un plat. Ce balisage n'existe plus, et ces règles,
-   posées après la feuille de style, écrasaient les nouvelles : le ＋ d'un
-   service se retrouvait centré au milieu du vide et la note poussée au bord
-   droit de la carte. Elles sont parties ; tout ce qui décrit les repas vit
-   maintenant dans style.css, en un seul endroit. */
-.rp-s{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.rp-plus{align-self:flex-start;margin-top:2px;padding:1px 9px;border-radius:99px;
-  border:1px dashed var(--border-strong);background:none;color:var(--ink-3);
-  font-size:.72rem;font-weight:600;cursor:pointer}
-.rp-plus:hover{color:var(--ink-2);border-style:solid}
+/* Les repas ne sont plus décrits ici du tout.
+   `.rp-l` `.rp-m` `.rp-q` `.rp-ch` décrivaient ici le balisage d'avant
+   — une ligne = un service = un plat — et ces règles, posées APRÈS la feuille
+   de style, écrasaient les nouvelles : le ＋ d'un service se retrouvait centré
+   au milieu du vide et la note poussée au bord droit de la carte. J'avais
+   alors écrit que « tout ce qui décrit les repas vit maintenant dans
+   style.css » en laissant `.rp-j` `.rp-d` `.rp-s` `.rp-plus` juste en dessous :
+   c'était faux au moment où je l'écrivais. Elles sont parties aussi. */
 .fp-echo{font-size:.78rem;color:var(--ink-2);margin:7px 0 2px;padding-left:2px}
 .fp-echo b{color:var(--ink)}
 .fp-changer{background:none;border:none;padding:0;font:inherit;font-size:.76rem;
@@ -1297,14 +1283,17 @@ function texteRepas(lundi){
   const l=[];
   for(let i=0;i<7;i++){
     const d=new Date(lundi);d.setDate(d.getDate()+i);
-    const midi=menuDuJour(iso(d),'midi'),soir=menuDuJour(iso(d),'soir');
-    if(!midi&&!soir)continue;
-    const dit=(m)=>{const r=m.recette_id?recetteDe(m.recette_id):null;
-      return r?((r.emoji||'')+' '+r.nom).trim():(m.texte||'')};
-    // Un seul repas : la ligne d'avant, sans étiquette. Deux : on les nomme.
-    l.push(DFR[jSem(d)-1]+' : '+(midi
-      ? 'midi '+dit(midi)+' · soir '+(soir?dit(soir):'—')
-      : dit(soir)));
+    const sJ=iso(d);
+    const poses=servicesDuJour(sJ);
+    if(!poses.length)continue;
+    /* Tous les services posés, et plus seulement midi et soir : depuis qu'on
+       peut prévoir un goûter, l'oublier dans le message envoyé revenait à ne
+       pas l'avoir prévu. Un seul service : pas d'étiquette, elle n'apprend
+       rien. Le mot libre part avec — « quiche pour les enfants, resto pour
+       nous » est justement ce qu'on envoie. */
+    l.push(DFR[jSem(d)-1]+' : '+poses.map(q=>
+      (poses.length>1?defService(q)[2].toLowerCase()+' ':'')+direService(sJ,q,true))
+      .join(' — '));
   }
   return l.length?'🍽️ Les repas de la semaine\n'+l.join('\n'):'';
 }
@@ -3175,7 +3164,43 @@ function recetteDe(id){return (CACHE.recettes||[]).find(r=>r.id===id)||null}
 function direMenu(m){
   if(!m)return '';
   const r=m.recette_id?recetteDe(m.recette_id):null;
-  return r?((r.emoji||'🍽️')+' '+r.nom):(m.texte||'');
+  /* Pas de 🍽️ de remplacement quand la recette n'a pas d'emoji : il ne dit
+     rien qu'on ne sache déjà — on est dans les repas — et il décalait un nom
+     de plat sur deux, ce qui casse la colonne qu'on vient de construire. */
+  return r?[r.emoji,r.nom].filter(Boolean).join(' '):(m.texte||'');
+}
+
+/* Les plats d'un service qui portent LE MÊME mot n'en font qu'un à la lecture.
+   Mandana écrit « pour les enfants » sur l'entrée et sur le plat parce que la
+   phrase vaut pour le repas, pas pour l'assiette ; l'écrire deux fois l'un
+   sous l'autre donnait deux fois le même bruit. On les met bout à bout,
+   séparés d'un point, et la note s'écrit une seule fois.
+   Consécutifs seulement : deux groupes qui se ressemblent de loin ne se
+   rejoignent pas par-dessus une ligne posée entre eux, sinon l'ordre — qui
+   est ce qui remplace l'étiquette de rôle — cesserait d'être fiable. */
+function groupesDeLignes(lignes){
+  const g=[];
+  for(const m of lignes){
+    const note=(m.note||'').trim();
+    const dernier=g[g.length-1];
+    if(dernier&&dernier.note===note)dernier.lignes.push(m);
+    else g.push({note,lignes:[m]});
+  }
+  return g;
+}
+
+/* Un service entier en une ligne de texte, pour les endroits qui n'ont qu'une
+   ligne à donner : « À table » et « ce qui presse » sur ma journée, et le
+   message qu'on envoie. Ils lisaient tous `menuDuJour`, c'est-à-dire LA
+   PREMIÈRE ligne du service — depuis qu'un soir peut en porter trois, ils
+   annonçaient « Soupe » là où il y avait aussi le hachis et le resto.
+   Même découpage qu'à l'écran : les plats qui partagent un mot bout à bout,
+   les groupes séparés. */
+function direService(sJour,moment,avecNote){
+  return groupesDeLignes(menusDuJour(sJour,moment)).map(g=>{
+    const plats=g.lignes.map(direMenu).filter(Boolean).join(' · ');
+    return avecNote&&g.note?plats+' ('+g.note+')':plats;
+  }).filter(Boolean).join(' / ');
 }
 
 /* Les ingrédients d'une ligne partent dans les courses, en gardant d'où ils
@@ -3284,27 +3309,49 @@ function renderRepas(zone){
        Et la colonne de gauche cessait d'être une colonne : mercredi affichait
        MIDI et SOIR, lundi rien, l'œil n'avait plus de repère vertical. Un mot
        gris dans une colonne qui existe déjà coûte moins que cette ambiguïté. */
-    const service=(q)=>{
+    /* Le service n'est plus une boîte à lui : c'est une étiquette et un bloc
+       de lignes, posés dans la grille du jour. C'est la grille qui aligne
+       MIDI sur MIDI d'un jour à l'autre — une boîte par service ne le
+       pouvait pas, chacune commençant où finissait son voisin. */
+    /* Les deux ＋ se posent AU BOUT de la dernière ligne, pas en dessous.
+       Sur leur propre ligne ils coûtaient 38 px par jour — 266 px sur la
+       semaine, mesurés : la semaine faisait 751 px au lieu des 468 promis, et
+       « tient sur un écran » n'était plus vrai. Au bout de la ligne ils ne
+       coûtent rien en hauteur, et comme ils gardent leur place en largeur même
+       effacés, rien ne bouge quand ils apparaissent au survol. */
+    const service=(q,pastille)=>{
       const lignes=menusDuJour(sJ,q);
-      const dedans=lignes.length
-        ? lignes.map(m=>`<button type="button" class="rp-p" data-menu="${m.id}">
-            ${m.role?`<span class="rp-r">${echap(nomRole(m.role))}</span>`:''}
-            <span class="rp-q">${echap(direMenu(m))}</span>
-            ${m.note?`<span class="rp-n">${echap(m.note)}</span>`:''}</button>`).join('')
-        : `<button type="button" class="rp-p vide" data-jour="${sJ}" data-moment="${q}">
-            <span class="rp-q">rien de prévu</span></button>`;
-      return `<div class="rp-svc">
-        <span class="rp-m">${echap(defService(q)[2])}</span>
-        <div class="rp-l">${dedans}
-          ${lignes.length?`<button type="button" class="rp-add" data-jour="${sJ}" data-moment="${q}"
-              title="Ajouter un plat à ce service">＋</button>`:''}</div></div>`;
+      const boutons=`${lignes.length?`<button type="button" class="rp-add"
+          data-jour="${sJ}" data-moment="${q}"
+          title="Ajouter un plat à ce service">＋</button>`:''}${pastille}`;
+      const gs=lignes.length?groupesDeLignes(lignes):[];
+      const dedans=gs.length
+        ? gs.map((g,i)=>`<div class="rp-l">${
+            g.lignes.map(m=>`<button type="button" class="rp-p" data-menu="${m.id}"
+              >${echap(direMenu(m))}</button>`).join('<span class="rp-sep">·</span>')
+          }${g.note?`<span class="rp-n">${echap(g.note)}</span>`:''}${
+            i===gs.length-1?boutons:''}</div>`).join('')
+        : `<div class="rp-l vide"><button type="button" class="rp-p"
+             data-jour="${sJ}" data-moment="${q}">rien de prévu</button>${boutons}</div>`;
+      return `<span class="rp-m">${echap(defService(q)[2])}</span>
+        <div class="rp-lg">${dedans}</div>`;
     };
+    /* Le jour s'écrit en entier sur grand écran et en trois lettres sur
+       téléphone. Les deux formes sont posées, la feuille de style en cache
+       une : choisir en JS obligerait à redessiner la semaine au moindre
+       changement de largeur, et on ne le fait pas. */
+    const nomJ=DFR[jSem(d)-1];
     h+=`<div class="rp-j ${sJ===sAuj?'auj':''} ${sJ<sAuj?'passe':''}">
-      <div class="rp-d"><b>${DFR[jSem(d)-1]}</b><span>${d.getDate()}</span></div>
+      <div class="rp-d"><b><span class="lg">${nomJ}</span><span class="ct">${nomJ.slice(0,3)}</span></b>
+        <span>${d.getDate()}</span></div>
       <div class="rp-s">
-        ${aMontrer.map(service).join('')}
-        ${manquants.length?`<button type="button" class="rp-plus" data-svc="${sJ}"
-            title="Prévoir un autre service">＋ un autre service</button>`:''}
+        ${(()=>{
+          /* « ＋ un autre service » appartient au JOUR, pas à un service : elle
+             se pose donc au bout de la dernière ligne du dernier service. */
+          const pastille=manquants.length?`<button type="button" class="rp-plus" data-svc="${sJ}"
+            title="Prévoir un autre service">＋<span class="rp-plus-t"> un autre service</span></button>`:'';
+          return aMontrer.map((q,i)=>service(q,i===aMontrer.length-1?pastille:'')).join('');
+        })()}
       </div></div>`;
   }
   h+=`<div style="display:flex;gap:8px;margin-top:16px">
@@ -3399,7 +3446,7 @@ function formMenu(sJour,moment){
     if(!l.length)return '';
     return `<label class="lbl">Déjà prévu</label>
       ${l.map(m=>`<div class="mn-l">
-        <span class="mn-tt" data-ouvrir="${m.id}">${echap(direMenu(m))}${m.note?` <span class="mn-note">${echap(m.note)}</span>`:''}</span>
+        <span class="mn-tt" data-ouvrir="${m.id}">${m.role?`<span class="mn-role">${echap(nomRole(m.role))}</span>`:''}${echap(direMenu(m))}${m.note?` <span class="mn-note">${echap(m.note)}</span>`:''}</span>
         <button type="button" class="mn-x" data-oter="${m.id}" title="Retirer ce plat">✕</button>
       </div>`).join('')}`;
   };
@@ -7220,12 +7267,12 @@ function renderBureau(){
   const prochain=lesEvts().filter(e=>e.debut===sAuj&&e.heure)
     .sort((a,b)=>String(a.heure).localeCompare(String(b.heure)))[0];
   const retard=(typeof tachesEnRetard==='function'?tachesEnRetard():[])[0];
-  const menuSoir=menuDuJour(sAuj,'soir');
+  const menuSoir=direService(sAuj,'soir');
   const presse=[];
   if(retard)presse.push({h:'en retard',urg:true,q:echap(retard.texte),cle:'todo'});
   if(prochain)presse.push({h:echap(prochain.heure),q:echap(sansEmoji(prochain.titre)),cle:'journee'});
   presse.push(menuSoir
-    ?{h:'ce soir',q:echap(menuSoir.recette_id?((recetteDe(menuSoir.recette_id)||{}).nom||'?'):(menuSoir.texte||'')),cle:'repas'}
+    ?{h:'ce soir',q:echap(menuSoir),cle:'repas'}
     :{h:'ce soir',q:'Le dîner n\'est pas prévu',cle:'repas'});
 
   // « Bonjour Mandana » : le prénom vient du compte connecté, pas d'un texte
@@ -7652,9 +7699,7 @@ function renderAujourdhui(){
 
   // ---- 2. À table ----
   // Le vide est l'information : c'est la question de 18 h.
-  const dit=(m)=>{const x=menuDuJour(sJ,m);
-    if(!x)return null;
-    return x.recette_id?((recetteDe(x.recette_id)||{}).nom||'—'):(x.texte||'—')};
+  const dit=(m)=>direService(sJ,m)||null;
   const midi=dit('midi'),soir=dit('soir');
   const ligneRepas=(q,v,m)=>`<div class="jw-repas">
     <span class="q">${q}</span>
